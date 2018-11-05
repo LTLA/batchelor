@@ -1,4 +1,4 @@
-#include "Scratch.h"
+#include "batchelor.h"
 #include "utils.h"
 
 SEXP find_mutual_nns (SEXP left, SEXP right) {

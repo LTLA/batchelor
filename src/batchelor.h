@@ -1,5 +1,5 @@
-#ifndef SCRATCH_H
-#define SCRATCH_H
+#ifndef BATCHELOR_H
+#define BATCHELOR_H
 
 #include "beachmat/integer_matrix.h"
 #include "beachmat/numeric_matrix.h"

@@ -1,4 +1,4 @@
-#include "Scratch.h"
+#include "batchelor.h"
 #include "utils.h"
 
 /* Performs the cosine normalization in a fairly efficient manner. */
