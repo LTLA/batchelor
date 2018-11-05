@@ -1,7 +1,55 @@
+#' Multi-batch PCA
+#'
+#' Perform a principal components analysis across multiple gene expression matrices to project all cells to a common low-dimensional space.
+#'
+#' @param ... Two or more matrices containing expression values (usually log-normalized).
+#' Each matrix is assumed to represent one batch.
+#' Alternatively, two or more SingleCellExperiment objects containing these matrices.
+#' @param d An integer scalar specifying the number of dimensions to keep from the initial multi-sample PCA.
+#' @param BSPARAM A \linkS4class{BiocSingularParam} object specifying the algorithm to use for PCA, see \code{\link{runSVD}} for details.
+#' @param subset.row See \code{?"\link{scran-gene-selection}"}.
+#' @param assay.type A string or integer scalar specifying the assay containing the expression values, if SingleCellExperiment objects are present in \code{...}.
+#' @param get.spikes See \code{?"\link{scran-gene-selection}"}.
+#' @param BPPARAM A \linkS4class{BiocParallelParam} object specifying whether the SVD should be parallelized.
+#'
+#' @details
+#' This function is roughly equivalent to \code{cbind}ing all matrices in \code{...} and performing PCA on the merged matrix.
+#' The main difference is that each sample contributes equally to the identification of the rotation vectors.
+#' Specifically, the mean vector used for centering is defined as the grand mean of the mean vectors within each batch.
+#' Each batch's contribution to the gene-gene covariance matrix is also divided by the number of cells.
+#' 
+#' In effect, we weight the cells in each batch to mimic the situation where all batches have the same number of cells.
+#' This ensures that the low-dimensional space can distinguish subpopulations in smaller batches.
+#' Otherwise, batches with a large number of cells would dominate the PCA; the mean vector and covariance matrix would be almost fully defined by those batches.
+#' 
+#' If \code{...} contains SingleCellExperiment objects, any spike-in transcripts should be the same across all batches.
+#' These will be removed prior to PCA unless \code{get.spikes=TRUE}, see \code{?"\link{scran-gene-selection}"} for details.
+#'
+#' @return
+#' A \linkS4class{List} of numeric matrices where each matrix corresponds to a batch and contains the first \code{d} PCs (columns) for all cells in the batch (rows).
+#' 
+#' The metadata also contains a matrix of rotation vectors, which can be used to construct a low-rank approximation of the input matrices.
+#'
+#' Aaron Lun
+#'
+#' @seealso \code{\link{runSVD}}
+#'
+#' @examples 
+#' d1 <- matrix(rnorm(5000), ncol=100)
+#' d1[1:10,1:10] <- d1[1:10,1:10] + 2 # unique population in d1
+#' d2 <- matrix(rnorm(2000), ncol=40)
+#' d2[11:20,1:10] <- d2[11:20,1:10] + 2 # unique population in d2
+#' 
+#' out <- multiBatchPCA(d1, d2)
+#' 
+#' xlim <- range(c(out[[1]][,1], out[[2]][,1]))
+#' ylim <- range(c(out[[1]][,2], out[[2]][,2]))
+#' plot(out[[1]][,1], out[[1]][,2], col="red", xlim=xlim, ylim=ylim)
+#' points(out[[2]][,1], out[[2]][,2], col="blue") 
+#' 
 #' @export
 #' @importFrom BiocParallel SerialParam
-#' @importFrom SummarizedExperiment assay
-multiBatchPCA <- function(..., d=50, approximate=FALSE, irlba.args=list(), subset.row=NULL, assay.type="logcounts", get.spikes=FALSE, BPPARAM=SerialParam()) 
+multiBatchPCA <- function(..., d=50, BSPARAM=NULL, subset.row=NULL, assay.type="logcounts", get.spikes=FALSE, BPPARAM=SerialParam()) 
 # Performs a multi-sample PCA (i.e., batches).
 # Each batch is weighted inversely by the number of cells when computing the gene-gene covariance matrix.
 # This avoids domination by samples with a large number of cells.
@@ -13,16 +61,17 @@ multiBatchPCA <- function(..., d=50, approximate=FALSE, irlba.args=list(), subse
     out <- .SCEs_to_matrices(mat.list, assay.type=assay.type, subset.row=subset.row, get.spikes=get.spikes)
     mat.list <- out$batches
     subset.row <- out$subset.row
-    .multi_pca(mat.list, subset.row=subset.row, d=d, approximate=approximate, irlba.args=irlba.args, use.crossprod=TRUE, BPPARAM=BPPARAM) 
+    .multi_pca(mat.list, subset.row=subset.row, d=d, BSPARAM=BSPARAM, BPPARAM=BPPARAM) 
 }
 
+#' @importFrom BiocSingular runSVD
 #' @importFrom DelayedArray DelayedArray t
-#' @importFrom DelayedMatrixStats rowMeans2
+#' @importFrom BiocGenerics rowMeans cbind
 #' @importFrom BiocParallel SerialParam
 #' @importFrom methods as
 #' @importClassesFrom S4Vectors List
 #' @importFrom S4Vectors metadata<-
-.multi_pca <- function(mat.list, subset.row=NULL, d=50, approximate=FALSE, irlba.args=list(), use.crossprod=FALSE, BPPARAM=SerialParam()) 
+.multi_pca <- function(mat.list, subset.row=NULL, d=50, BSPARAM=NULL, BPPARAM=SerialParam()) 
 # Internal function that uses DelayedArray to do the centering and scaling,
 # to avoid actually realizing the matrices in memory.
 {
@@ -33,7 +82,7 @@ multiBatchPCA <- function(..., d=50, approximate=FALSE, irlba.args=list(), subse
             current <- current[subset.row,,drop=FALSE]
         }
 
-        centers <- rowMeans2(current)
+        centers <- rowMeans(current)
         all.centers <- all.centers + centers
         mat.list[[idx]] <- current
     }
@@ -45,148 +94,20 @@ multiBatchPCA <- function(..., d=50, approximate=FALSE, irlba.args=list(), subse
         current <- current - all.centers # centering each batch by the grand average.
         centered[[idx]] <- current
         current <- current/sqrt(ncol(current)) # downweighting samples with many cells.
-        scaled[[idx]] <- t(current)
+        scaled[[idx]] <- current
     }
 
-    # Performing an SVD, if possible.
-    if (d > min(ncol(scaled[[1]]), sum(vapply(scaled, FUN=nrow, FUN.VALUE=0L)))) {
-        stop("'d' is too large for the number of cells and genes")
-    }
+    # Performing an SVD on the untransposed expression matrix.
+    final <- do.call(cbind, scaled)
+    svd.out <- runSVD(final, k=0, nv=0, nu=d, BSPARAM=BSPARAM)
 
-    if (use.crossprod) {
-        svd.out <- .fast_svd(scaled, nv=d, irlba.args=irlba.args, approximate=approximate, BPPARAM=BPPARAM)
-    } else {
-        combined <- as.matrix(do.call(rbind, scaled))
-        if (!approximate) { 
-            svd.out <- svd(combined, nu=0, nv=d)
-        } else {
-            svd.out <- do.call(irlba::irlba, c(list(A=combined, nu=0, nv=d), irlba.args))
-        }
-    }
-
-    # Projecting the scaled matrices back into this space.
+    # Projecting the _unscaled_ matrices back into this space.
     final <- centered
     for (idx in seq_along(centered)) {
-        final[[idx]] <- as.matrix(t(centered[[idx]]) %*% svd.out$v)
+        final[[idx]] <- as.matrix(t(centered[[idx]]) %*% svd.out$u) # replace with DA crossprod.
     }
 
     final <- as(final, "List")
-    metadata(final) <- list(rotation=svd.out$v)
+    metadata(final) <- list(rotation=svd.out$u)
     return(final)
-}
-
-#' @importFrom DelayedArray t
-#' @importFrom BiocParallel bplapply SerialParam
-.fast_svd <- function(mat.list, nv, approximate=FALSE, irlba.args=list(), BPPARAM=SerialParam())
-# Performs a quick irlba by performing the SVD on XtX or XXt,
-# and then obtaining the V vector from one or the other.
-{
-    nrows <- sum(vapply(mat.list, FUN=nrow, FUN.VALUE=0L))
-    ncols <- ncol(mat.list[[1]])
-    
-    # Creating the cross-product without actually rbinding the matrices.
-    # This avoids creating a large temporary matrix.
-    flipped <- nrows > ncols
-    if (flipped) {
-        collected <- bplapply(mat.list, FUN=.delayed_crossprod, BPPARAM=BPPARAM)
-        final <- Reduce("+", collected)
-
-    } else {
-        final <- matrix(0, nrows, nrows)
-
-        last1 <- 0L
-        for (right in seq_along(mat.list)) {
-            RHS <- mat.list[[right]]
-            collected <- bplapply(mat.list[seq_len(right-1L)], FUN=.delayed_mult, Y=t(RHS), BPPARAM=BPPARAM)
-            rdx <- last1 + seq_len(nrow(RHS))
-
-            last2 <- 0L
-            for (left in seq_along(collected)) {
-                cross.prod <- collected[[left]]
-                ldx <- last2 + seq_len(nrow(cross.prod))
-                final[ldx,rdx] <- cross.prod
-                final[rdx,ldx] <- t(cross.prod)
-                last2 <- last2 + nrow(cross.prod)
-            }
-            
-            last1 <- last1 + nrow(RHS)
-        }
-
-        tmat.list <- lapply(mat.list, t)
-        diags <- bplapply(tmat.list, FUN=.delayed_crossprod, BPPARAM=BPPARAM)
-        last1 <- 0L
-        for (idx in seq_along(diags)) {
-            indices <- last1 + seq_len(nrow(diags[[idx]]))
-            final[indices,indices] <- diags[[idx]]
-            last1 <- last1 + nrow(diags[[idx]])
-        }
-    }
-
-    if (approximate) {
-        svd.out <- do.call(irlba::irlba, c(list(A=final, nv=nv, nu=0), irlba.args))
-    } else {
-        svd.out <- svd(final, nv=nv, nu=0)
-        svd.out$d <- svd.out$d[seq_len(nv)]
-    }
-    svd.out$d <- sqrt(svd.out$d)
-
-    if (flipped) {
-        # XtX means that the V in 'svd.out' is the original V,
-        # which can be directly returned.
-        return(svd.out)
-    }
-
-    # Otherwise, XXt means that the V in 'svd.out' is the original U.
-    # We need to multiply the left-multiply the matrices by Ut, and then by D^-1.
-    Ut <- t(svd.out$v)
-    last <- 0L
-    Vt <- matrix(0, nv, ncols)
-    for (mdx in seq_along(mat.list)) {
-        curmat <- mat.list[[mdx]]
-        idx <- last + seq_len(nrow(curmat))
-        Vt <- Vt + as.matrix(Ut[,idx,drop=FALSE] %*% curmat)
-        last <- last + nrow(curmat)
-    }
-    Vt <- Vt / svd.out$d
-
-    return(list(d=svd.out$d, v=t(Vt)))
-}
-
-.delayed_crossprod <- function(X, BPPARAM=SerialParam()) 
-# DelayedMatrix crossprod, 1000 rows at a time.
-{
-    CHUNK <- 1000L
-    last <- 0L
-    output <- 0
-    finish <- nrow(X)
-
-    repeat {
-        previous <- last + 1L
-        last <- min(last + CHUNK, finish)
-        block <- as.matrix(X[previous:last,,drop=FALSE])
-        output <- output + crossprod(block)
-        if (last==finish) { break }
-    }
-
-    return(output)
-}
-
-.delayed_mult <- function(X, Y, BPPARAM=SerialParam()) 
-# DelayedMatrix multiplication, 1000 columns at a time.
-{
-    CHUNK <- 1000L
-    last <- 0L
-    output <- matrix(0, nrow(X), ncol(Y))
-    finish <- ncol(Y)
-    stopifnot(identical(ncol(X), nrow(Y)))
-
-    repeat {
-        previous <- min(last + 1L, finish)
-        last <- min(last + CHUNK, finish)
-        indices <- previous:last
-        output[,indices] <- as.matrix(X %*% as.matrix(Y[,indices,drop=FALSE]))
-        if (last==finish) { break }
-    }
-
-    return(output)
 }
