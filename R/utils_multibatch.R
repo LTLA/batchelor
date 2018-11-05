@@ -66,29 +66,37 @@
 }
 
 #' @importFrom methods is
-#' @importFrom S4Vectors normalizeSingleBracketSubscript
 #' @importClassesFrom SingleCellExperiment SingleCellExperiment
-#' @importFrom SummarizedExperiment assay
-.SCEs_to_matrices <- function(batches, assay.type, subset.row, get.spikes)
-# Convenience function to convert multiple SCEs to a list of expression matrices.
-# Also redefines subset.row based on intersection with spike-ins, if necessary.    
+.check_if_SCEs <- function(batches) 
+# Checks that everyone is either an SCE or is not.
 {
-    if (length(batches)<1L) {
-        stop("at least one batch must be supplied")
-    }
-    .check_batch_consistency(batches, byrow=TRUE)
-
     all.sce <- vapply(batches, is, class2="SingleCellExperiment", FUN.VALUE=TRUE)
     if (length(unique(all.sce))!=1L) {
         stop("cannot mix SingleCellExperiments and other objects")
     }
+    return(all(all.sce)) # don't do all.sce[1], avoid errors when length(batches)==0L.
+}
 
-    if (all(all.sce)) { 
-        .check_spike_consistency(batches)
-        subset.row <- .SCE_subset_genes(subset.row, batches[[1]], get.spikes)
-        batches <- lapply(batches, assay, i=assay.type, withDimnames=FALSE)
-    } else if (!is.null(subset.row)) {
-        subset.row <- normalizeSingleBracketSubscript(subset.row, batches[[1]])
+.divide_into_batches <- function(x, batch) 
+# Splits 'x' by column in 'batch'.
+{
+    batch <- as.factor(batch)
+    if (length(batch)!=ncol(x)) {
+        stop("'length(batch)' and 'ncol(x)' are not the same")
     }
-	return(list(batches=batches, subset.row=subset.row))
+
+    output <- vector("list", nlevels(batch))
+    names(output) <- levels(batch)
+    reorder <- integer(ncol(x))
+    last <- 0L
+
+    for (b in levels(batch)) {
+        keep <- batch==b
+        current <- x[,keep,drop=FALSE]
+        output[[b]] <- current
+        reorder[keep] <- last + seq_len(ncol(current))
+        last <- last + ncol(current)
+    }
+
+    list(batches=output, reorder=reorder) 
 }

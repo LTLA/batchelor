@@ -2,39 +2,61 @@
 #'
 #' Correct for batch effects in single-cell expression data using a fast version of the mutual nearest neighbors (MNN) method.
 #'
-#' @param ... Two or more log-expression matrices where genes correspond to rows and cells correspond to columns.
-#' One matrix should contain cells from the same batch; multiple matrices represent separate batches of cells.
-#' Each matrix should contain the same number of rows, corresponding to the same genes (in the same order).
+#' @param ... One or more log-expression matrix where genes correspond to rows and cells correspond to columns, if \code{pc.input=FALSE}.
+#' Each matrix should contain the same number of rows, corresponding to the same genes in the same order.
 #' 
-#' Alternatively, two or more \linkS4class{SingleCellExperiment} objects can be supplied, where each object contains a log-expression matrix in the \code{assay.type} assay.
+#' Alternatively, one or more matrices of low-dimensional representations can be supplied if \code{pc.input=TRUE}, where rows are cells and columns are dimensions.
+#' Each object should contain the same number of columns, corresponding to the same dimensions.
+#'
+#' Alternatively, one or more \linkS4class{SingleCellExperiment} objects can be supplied containing a log-expression matrix in the \code{assay.type} assay.
+#' Note that restrictions described above for gene expression matrix inputs.
+#'
+#' Alternatively, the SingleCellExperiment objects can contain reduced dimension coordinates in the \code{reducedDims} slot if \code{use.dimred} is specified.
+#' Note that restrictions described above for low-dimensional matrix inputs.
 #' 
-#' Alternatively, two or more matrices of low-dimensional representations can be supplied if \code{pc.input=TRUE}.
-#' Here, rows are cells and columns are dimensions (the latter should be common across all batches).
+#' In all cases, each object contains cells from a single batch; multiple objects represent separate batches of cells.
+#' @param batch A factor specifying the batch of origin for all cells when only a single object is supplied in \code{...}.
+#' This is ignored if multiple objects are present.
 #' @param k An integer scalar specifying the number of nearest neighbors to consider when identifying MNNs.
 #' @param cos.norm A logical scalar indicating whether cosine normalization should be performed on the input data prior to calculating distances between cells.
 #' @param ndist A numeric scalar specifying the threshold beyond which neighbours are to be ignored when computing correction vectors.
 #' Each threshold is defined as a multiple of the number of median distances.
 #' @param d Number of dimensions to use for dimensionality reduction in \code{\link{multiBatchPCA}}.
-#' @param subset.row See \code{?"\link{scran-gene-selection}"}.
 #' @param auto.order Logical scalar indicating whether re-ordering of batches should be performed to maximize the number of MNN pairs at each step.
 #' 
 #' Alternatively, an integer vector containing a permutation of \code{1:N} where \code{N} is the number of batches.
 #' @param compute.variances Logical scalar indicating whether the percentage of variance lost due to non-orthogonality should be computed.
+#' @param subset.row See \code{?"\link{scran-gene-selection}"}.
 #' @param pc.input Logical scalar indicating whether the values in \code{...} are already low-dimensional, e.g., the output of \code{\link{multiBatchPCA}}.
+#' This is only used when \code{...} does \emph{not} contain SingleCellExperiment objects.
 #' @param assay.type A string or integer scalar specifying the assay containing the expression values, if SingleCellExperiment objects are present in \code{...}.
 #' @param get.spikes See \code{?"\link{scran-gene-selection}"}. Only relevant if \code{...} contains SingleCellExperiment objects.
+#' @param use.dimred A string or integer scalar specifying which reduced dimension result to use, if any.
+#' Only relevant if \code{...} contains SingleCellExperiment objects.
 #' @param BSPARAM A \linkS4class{BiocSingularParam} object specifying the algorithm to use for PCA.
 #' @param BNPARAM A \linkS4class{BiocNeighborParam} object specifying the nearest neighbor algorithm.
 #' Defaults to an exact algorithm if \code{NULL}, see \code{?\link{findKNN}} for more details.
 #' @param BPPARAM A \linkS4class{BiocParallelParam} object specifying whether the PCA and nearest-neighbor searches should be parallelized.
 #' 
 #' @return
-#' A named list containing:
+#' A \linkS4class{DataFrame} is returned containing:
 #' \describe{
-#' \item{\code{corrected}:}{A matrix with number of columns equal to \code{d}, and number of rows equal to the total number of cells in \code{...}.
-#' Cells are ordered in the same manner as supplied in \code{...}.}
+#' \item{\code{corrected}:}{A matrix with number of columns equal to \code{d}, and number of rows equal to the total number of cells in \code{...}.}
 #' \item{\code{batch}:}{A \linkS4class{Rle} containing the batch of origin for each row (i.e., cell) in \code{corrected}.}
+#' }
+#' 
+#' Cells (i.e., rows) are always ordered in the same manner as supplied in \code{...}.
+#' In cases with multiple objects in \code{...}, the cell identities are simply concatenated from successive objects,
+#' i.e., all cells from the first object (in their provided order), then all cells from the second object, and so on.
+#' 
+#' The metadata of the DataFrame contains:
+#' \describe{
 #' \item{\code{pairs}:}{A list of DataFrames specifying which pairs of cells in \code{corrected} were identified as MNNs at each step.} 
+#' \item{\code{order}:}{A vector of batch names or indices, specifying the order in which batches were merged.}
+#' \item{\code{lost.var}:}{A numeric vector containing the proportion of lost variance from each batch supplied in \code{...}.
+#' Only returned when \code{compute.variances=TRUE}.}
+#' \item{\code{rotation}:}{A numeric matrix of rotation vectors used to project all cells into low-dimensional space.
+#' Only returned when \code{pc.input=FALSE} (for matrix inputs) or \code{use.dimred=NULL} (for SingleCellExperiment inputs).}
 #' }
 #' 
 #' @details
@@ -63,6 +85,10 @@
 #' Large proportions suggest that there is biological structure that is parallel to the batch effect, 
 #' corresponding to violations of the assumption that the batch effect is orthogonal to the biological subspace.
 #'
+#' The \code{batch} argument allows users to easily perform batch correction when all cells have already been combined into a single object.
+#' This avoids the need to manually split the matrix or SingleCellExperiment object into separate objects for input into \code{fastMNN}.
+#' The order of batches is defined by the order of levels in \code{batch}.
+#'
 #' @section Controlling the merge order:
 #' By default, batches are merged in the user-supplied order.
 #' However, if \code{auto.order=TRUE}, batches are ordered to maximize the number of MNN pairs at each step.
@@ -85,7 +111,9 @@
 #'     \item \code{\link{multiBatchPCA}} must be run on all samples at once, to ensure that all cells are projected to the same low-dimensional space.
 #'     \item Setting \code{pc.input=TRUE} is criticial to avoid unnecessary (and incorrect) cosine-normalization and PCA within each step of the merge.
 #' }
+#'
 #' See the Examples below for how the \code{pc.input} argument should be used.
+#' The same logic applies for \code{use.dimred}, assuming that the PC scores refer to the same space across all SingleCellExperiment objects.
 #'
 #' @section Choice of genes:
 #' Users should set \code{subset.row} to subset the inputs to highly variable genes or marker genes.
@@ -132,17 +160,68 @@
 #' Further MNN algorithm development.
 #' \url{https://github.com/MarioniLab/FurtherMNN2018}
 #'
+#' @rdname fastMNN
 #' @export
+#' @importFrom SingleCellExperiment reducedDim
+#' @importFrom SummarizedExperiment assay
+fastMNN <- function(..., batch=NULL, k=20, cos.norm=TRUE, ndist=3, d=50, auto.order=FALSE, compute.variances=FALSE, 
+        subset.row=NULL, pc.input=FALSE, assay.type="logcounts", get.spikes=FALSE, use.dimred=NULL, 
+        BSPARAM=NULL, BNPARAM=NULL, BPPARAM=SerialParam()) 
+{
+    batches <- list(...)
+    
+    # Pulling out information from the SCE objects.        
+    if (.check_if_SCEs(batches)) {
+        pc.input <- !is.null(use.dimred)
+        if (pc.input) {
+            batches <- lapply(batches, reducedDim, type=use.dimred, withDimnames=FALSE)
+        } else {
+            .check_spike_consistency(batches)
+            subset.row <- .SCE_subset_genes(subset.row, batches[[1]], get.spikes)
+            batches <- lapply(batches, assay, i=assay.type, withDimnames=FALSE)
+        }
+    }
+
+    # Subsetting by 'batch'.
+    do.split <- length(batches)==1L
+    if (do.split) {
+        if (is.null(batch)) { 
+            stop("'batch' must be specified if '...' has only one object")
+        }
+
+        divided <- .divide_into_batches(batches[[1]], batch=batch)
+        batches <- divided$batches
+    }
+    
+    output <- do.call(.fast_mnn, c(batches, 
+        list(k=k, cos.norm=cos.norm, ndist=ndist, d=d, subset.row=subset.row, 
+            auto.order=auto.order, pc.input=pc.input, compute.variances=compute.variances, 
+            BSPARAM=BSPARAM, BNPARAM=BNPARAM, BPPARAM=BPPARAM)))
+
+    # Reordering the output for correctness.
+    if (do.split) {
+        d.reo <- divided$reorder
+        output$corrected <- output$corrected[d.reo,,drop=FALSE]
+        output$batch <- output$batch[d.reo]
+
+        rev.order <- integer(length(d.reo))
+        rev.order[d.reo] <- seq_along(d.reo)
+        for (x in seq_along(output$pairs)) {
+            output$pairs[[x]][,1] <- rev.order[output$pairs[[x]][,1]]
+            output$pairs[[x]][,2] <- rev.order[output$pairs[[x]][,2]]
+        }
+    }
+
+    return(output)
+}
+
+############################################
+# Internal main function, to separate the input handling from the actual calculations.
+
 #' @importFrom BiocParallel SerialParam
 #' @importFrom S4Vectors DataFrame Rle
-fastMNN <- function(..., k=20, cos.norm=TRUE, ndist=3, d=50, subset.row=NULL, auto.order=FALSE, pc.input=FALSE,
-    compute.variances=FALSE, assay.type="logcounts", get.spikes=FALSE, BSPARAM=NULL, BNPARAM=NULL, BPPARAM=SerialParam()) 
-# Faster version of the MNN batch correction, with dimensionality reduction
-# by default; orthogonalization to avoid the kissing problem; and a more 
-# aggressive merging procedure.
-# 
-# written by Aaron Lun
-# created 26 May 2018
+.fast_mnn <- function(..., k=20, cos.norm=TRUE, ndist=3, d=50, subset.row=NULL, auto.order=FALSE, pc.input=FALSE,
+    compute.variances=FALSE, BSPARAM=NULL, BNPARAM=NULL, BPPARAM=SerialParam()) 
 {
     batches <- list(...) 
     nbatches <- length(batches) 
@@ -152,17 +231,12 @@ fastMNN <- function(..., k=20, cos.norm=TRUE, ndist=3, d=50, subset.row=NULL, au
 
     # Creating the PCA input, if it is not already low-dimensional.
     if (!pc.input) {
-        out <- .SCEs_to_matrices(batches, assay.type=assay.type, subset.row=subset.row, get.spikes=get.spikes)
-        batches <- out$batches
-        subset.row <- out$subset.row
-
-        if (!is.null(subset.row) && !identical(subset.row, seq_len(nrow(batches[[1]])))) { 
+        if (!is.null(subset.row)) {
             batches <- lapply(batches, "[", i=subset.row, , drop=FALSE) # Need the extra comma!
         }
         if (cos.norm) { 
             batches <- lapply(batches, FUN=cosineNorm, mode="matrix")
         }
-
         pc.mat <- .multi_pca(batches, d=d, BSPARAM=BSPARAM, BPPARAM=BPPARAM)
     } else {
         .check_batch_consistency(batches, byrow=FALSE)
