@@ -1,5 +1,5 @@
 # This tests the functions related to fastMNN.
-# library(Scratch); library(testthat); source("test-fast-mnn.R")
+# library(batchelor); library(testthat); source("test-fast-mnn.R")
 
 set.seed(1200001)
 test_that("averaging correction vectors works as expected", {
@@ -17,8 +17,8 @@ test_that("averaging correction vectors works as expected", {
     }
     ref <- do.call(rbind, collected)
 
-    # Comparing the implementation in scran.
-    out <- scran:::.average_correction(test1, mnn1, test2, mnn2)  
+    # Comparing the implementation in batchelor.
+    out <- batchelor:::.average_correction(test1, mnn1, test2, mnn2)  
     expect_equal(out$averaged, ref)
     expect_identical(out$second, sort(unique(mnn2)))
 })
@@ -27,7 +27,7 @@ set.seed(1200002)
 test_that("centering along a batch vector works correctly", {
     test <- matrix(rnorm(1000), ncol=10)
     batch <- rnorm(10) 
-    centered <- scran:::.center_along_batch_vector(test, batch)
+    centered <- batchelor:::.center_along_batch_vector(test, batch)
     new.locations <- centered %*% batch
     expect_true(mad(new.locations) < 1e-8)
 })
@@ -60,15 +60,15 @@ test_that("tricube weighting works correctly", {
         return(current)
     }
 
-    out <- scran:::.tricube_weighted_correction(test, correction, involved, k=20, ndist=3)
+    out <- batchelor:::.tricube_weighted_correction(test, correction, involved, k=20, ndist=3)
     ref <- FUN(test, correction, involved, k=20, ndist=3)
     expect_equal(ref, out)
 
-    out <- scran:::.tricube_weighted_correction(test, correction, involved, k=11, ndist=3)
+    out <- batchelor:::.tricube_weighted_correction(test, correction, involved, k=11, ndist=3)
     ref <- FUN(test, correction, involved, k=11, ndist=3)
     expect_equal(ref, out)
 
-    out <- scran:::.tricube_weighted_correction(test, correction, involved, k=11, ndist=1)
+    out <- batchelor:::.tricube_weighted_correction(test, correction, involved, k=11, ndist=1)
     ref <- FUN(test, correction, involved, k=11, ndist=1)
     expect_equal(ref, out)
 })
@@ -148,16 +148,16 @@ test_that("variance loss calculations work as expected", {
     PC1 <- matrix(rnorm(10000), ncol=10) # Batch 1 
     PC2 <- matrix(rnorm(20000), ncol=10) # Batch 2
 
-    out <- scran:::.compute_intra_var(PC1, PC2, list(PC1, PC2), c(1L, 2L))
+    out <- batchelor:::.compute_intra_var(PC1, PC2, list(PC1, PC2), c(1L, 2L))
     expect_identical(out[1], sum(DelayedMatrixStats::colVars(DelayedArray(PC1))))
     expect_identical(out[2], sum(DelayedMatrixStats::colVars(DelayedArray(PC2))))
 
     # Alternative ordering. 
-    out2 <- scran:::.compute_intra_var(PC2, PC1, list(PC1, PC2), c(2L, 1L))
+    out2 <- batchelor:::.compute_intra_var(PC2, PC1, list(PC1, PC2), c(2L, 1L))
     expect_identical(out, rev(out2))
 
     # Multiple lengths.
-    out3 <- scran:::.compute_intra_var(rbind(PC1, PC1), PC2, list(PC1, PC2), c(1L, 1L, 2L))
+    out3 <- batchelor:::.compute_intra_var(rbind(PC1, PC1), PC2, list(PC1, PC2), c(1L, 1L, 2L))
     expect_identical(out3, out[c(1,1,2)])
 
     # Checking that we comput something.
@@ -217,18 +217,18 @@ test_that("fastMNN works as expected for three batches with re-ordering", {
     expect_identical(out.approx$order, out.auto$order)
 
     # Testing the internal auto-ordering functions.
-    fmerge <- scran:::.define_first_merge(list(t(B1), t(B2), t(B3)), k=20)   
+    fmerge <- batchelor:::.define_first_merge(list(t(B1), t(B2), t(B3)), k=20)   
     expect_identical(fmerge$first, 2L) # 2 is arbitrarily 'first', and 1 is arbitrarily 'second'; but 3 should never show up.
     expect_identical(fmerge$second, 1L)
-    expect_identical(fmerge$pairs, scran:::find.mutual.nn(t(B2), t(B1), k1=20, k2=20))
+    expect_identical(fmerge$pairs, batchelor:::find.mutual.nn(t(B2), t(B1), k1=20, k2=20))
 
     expect_identical(BiocNeighbors::findKNN(precomputed=fmerge$precomputed[[1]], k=5), BiocNeighbors::findKNN(t(B1), k=5)) # checking that the precomputations are correct.
     expect_identical(BiocNeighbors::findKNN(precomputed=fmerge$precomputed[[2]], k=10), BiocNeighbors::findKNN(t(B2), k=10))
     expect_identical(BiocNeighbors::findKNN(precomputed=fmerge$precomputed[[3]], k=15), BiocNeighbors::findKNN(t(B3), k=15))
 
-    nmerge <- scran:::.define_next_merge(t(B1), list(t(B1), t(B2), t(B3)), processed=1L, precomputed=fmerge$precomputed, k=20)   
+    nmerge <- batchelor:::.define_next_merge(t(B1), list(t(B1), t(B2), t(B3)), processed=1L, precomputed=fmerge$precomputed, k=20)   
     expect_identical(nmerge$other, 2L) # 1 should have more MNNs with 2 than with 3.
-    expect_identical(nmerge$pairs, scran:::find.mutual.nn(t(B1), t(B2), k1=20, k2=20))
+    expect_identical(nmerge$pairs, batchelor:::find.mutual.nn(t(B1), t(B2), k1=20, k2=20))
 })
 
 set.seed(12000051)

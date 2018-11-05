@@ -1,5 +1,5 @@
 # Checks the application of cosine normalization.
-# require(Scratch); require(testthat); source("test-cos-norm.R")
+# require(batchelor); require(testthat); source("test-cos-norm.R")
 
 set.seed(10001)
 test_that("Cosine normalization is correct", {

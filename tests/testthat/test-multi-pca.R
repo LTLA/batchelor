@@ -1,5 +1,5 @@
 # This tests the functions related to multiBatchPCA.
-# library(Scratch); library(testthat); source("test-multi-pca.R")
+# library(batchelor); library(testthat); source("test-multi-pca.R")
 
 expect_equal_besides_sign <- function(left, right, ...) {
     ratio <- left/right
@@ -13,16 +13,16 @@ test_that("multi-sample PCA works as expected", {
     test2 <- matrix(rnorm(2000), nrow=10)
 
     # Checking that we get the same result independent of the multiples of the data. 
-    ref <- scran:::.multi_pca(list(test1, test2), d=5)
-    out <- scran:::.multi_pca(list(test1, cbind(test2, test2)), d=5)
+    ref <- batchelor:::.multi_pca(list(test1, test2), d=5)
+    out <- batchelor:::.multi_pca(list(test1, cbind(test2, test2)), d=5)
     expect_equal_besides_sign(ref[[1]], out[[1]])
     expect_equal_besides_sign(rbind(ref[[2]], ref[[2]]), out[[2]])
     expect_identical(ncol(ref[[1]]), 5L)
     expect_identical(ncol(ref[[2]]), 5L)
 
     # Another check. 
-    ref <- scran:::.multi_pca(list(test1, test2), d=3)
-    out <- scran:::.multi_pca(list(cbind(test1, test1, test1), test2), d=3)
+    ref <- batchelor:::.multi_pca(list(test1, test2), d=3)
+    out <- batchelor:::.multi_pca(list(cbind(test1, test1, test1), test2), d=3)
     expect_equal_besides_sign(ref[[2]], out[[2]])
     expect_equal_besides_sign(rbind(ref[[1]], ref[[1]], ref[[1]]), out[[1]])
     expect_identical(ncol(ref[[1]]), 3L)
@@ -30,19 +30,19 @@ test_that("multi-sample PCA works as expected", {
 
     # Checking with equal numbers of cells - should be equivalent to cbind'd PCA. 
     test3 <- matrix(rnorm(1000), nrow=10)
-    out <- scran:::.multi_pca(list(test1, test3), d=4)
+    out <- batchelor:::.multi_pca(list(test1, test3), d=4)
     ref <- prcomp(t(cbind(test1, test3)), rank.=4)
     expect_equal_besides_sign(rbind(out[[1]], out[[2]]), unname(ref$x))
     
     # Checking that the distances match up to the original values when we use full rank.
-    out <- scran:::.multi_pca(list(test1, test2), d=nrow(test1))
+    out <- batchelor:::.multi_pca(list(test1, test2), d=nrow(test1))
 
     everything <- rbind(t(test1), t(test2))
     ref.dist <- as.matrix(dist(everything))
     out.dist <- as.matrix(dist(rbind(out[[1]], out[[2]])))
     expect_equal(ref.dist, out.dist)
     
-    out2 <- scran:::.multi_pca(list(test1, cbind(test2, test2)), d=nrow(test1))
+    out2 <- batchelor:::.multi_pca(list(test1, cbind(test2, test2)), d=nrow(test1))
     out.dist2 <- as.matrix(dist(do.call(rbind, as.list(out2))))
     everything2 <- rbind(everything, t(test2))
     ref.dist2 <- as.matrix(dist(everything2)) 
