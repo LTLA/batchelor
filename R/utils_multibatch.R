@@ -69,12 +69,13 @@
 #' @importClassesFrom SingleCellExperiment SingleCellExperiment
 .check_if_SCEs <- function(batches) 
 # Checks that everyone is either an SCE or is not.
+# Returns FALSE if 'batches' is empty.
 {
     all.sce <- vapply(batches, is, class2="SingleCellExperiment", FUN.VALUE=TRUE)
-    if (length(unique(all.sce))!=1L) {
+    if (length(unique(all.sce)) > 1L) {
         stop("cannot mix SingleCellExperiments and other objects")
     }
-    return(all(all.sce)) # don't do all.sce[1], avoid errors when length(batches)==0L.
+    any(all.sce) # don't do all.sce[1], avoid errors when length(batches)==0L.
 }
 
 .divide_into_batches <- function(x, batch) 

@@ -175,11 +175,15 @@ fastMNN <- function(..., batch=NULL, k=20, cos.norm=TRUE, ndist=3, d=50, auto.or
         pc.input <- !is.null(use.dimred)
         if (pc.input) {
             batches <- lapply(batches, reducedDim, type=use.dimred, withDimnames=FALSE)
+            .check_batch_consistency(batches, byrow=FALSE)
         } else {
+            .check_batch_consistency(batches, byrow=TRUE)
             .check_spike_consistency(batches)
             subset.row <- .SCE_subset_genes(subset.row, batches[[1]], get.spikes)
             batches <- lapply(batches, assay, i=assay.type, withDimnames=FALSE)
         }
+    } else {
+        .check_batch_consistency(batches, byrow=!pc.input)
     }
 
     # Subsetting by 'batch'.
@@ -239,7 +243,6 @@ fastMNN <- function(..., batch=NULL, k=20, cos.norm=TRUE, ndist=3, d=50, auto.or
         }
         pc.mat <- .multi_pca(batches, d=d, BSPARAM=BSPARAM, BPPARAM=BPPARAM)
     } else {
-        .check_batch_consistency(batches, byrow=FALSE)
         pc.mat <- batches
     }
 
