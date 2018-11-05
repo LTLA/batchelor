@@ -6,8 +6,9 @@ Authors@R: c(person("Aaron", "Lun", role = c("aut", "cre"),
         email = "infinite.monkeys.with.keyboards@gmail.com")) 
 Depends: R (>= 3.6), BiocParallel, SingleCellExperiment
 Imports: SummarizedExperiment, S4Vectors, BiocGenerics, 
-        Rcpp (>= 0.12.14), stats, methods, utils
-Suggests: testthat, BiocStyle, knitr, HDF5Array, irlba
+        Rcpp (>= 0.12.14), stats, methods, utils, BiocNeighbors,
+        BiocSingular
+Suggests: testthat, BiocStyle, knitr, beachmat
 biocViews: Sequencing, RNASeq, Software, GeneExpression, 
         Transcriptomics, SingleCell, BatchEffect
 Description: Implements a variety of methods for batch correction of 
@@ -17,5 +18,5 @@ License: GPL-3
 NeedsCompilation: yes
 VignetteBuilder: knitr
 SystemRequirements: C++11
-LinkingTo: Rcpp
+LinkingTo: Rcpp, beachmat, Rhdf5lib
 RoxygenNote: 6.1.0
