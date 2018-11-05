@@ -1,0 +1,21 @@
+Package: Scratch
+Version: 0.99.0
+Date: 2018-11-04
+Title: Single-Cell Batch Correction Methods
+Authors@R: c(person("Aaron", "Lun", role = c("aut", "cre"), 
+        email = "infinite.monkeys.with.keyboards@gmail.com")) 
+Depends: R (>= 3.6), BiocParallel, SingleCellExperiment
+Imports: SummarizedExperiment, S4Vectors, BiocGenerics, 
+        Rcpp (>= 0.12.14), stats, methods, utils
+Suggests: testthat, BiocStyle, knitr, HDF5Array, irlba
+biocViews: Sequencing, RNASeq, Software, GeneExpression, 
+        Transcriptomics, SingleCell, BatchEffect
+Description: Implements a variety of methods for batch correction of 
+        single-cell (RNA sequencing) data. This includes correction
+        with a variety of mutual nearest neighbors techniques.
+License: GPL-3
+NeedsCompilation: yes
+VignetteBuilder: knitr
+SystemRequirements: C++11
+LinkingTo: Rcpp
+RoxygenNote: 6.1.0
