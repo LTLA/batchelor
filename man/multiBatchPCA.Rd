@@ -4,8 +4,8 @@
 \alias{multiBatchPCA}
 \title{Multi-batch PCA}
 \usage{
-multiBatchPCA(..., d = 50, BSPARAM = NULL, subset.row = NULL,
-  assay.type = "logcounts", get.spikes = FALSE,
+multiBatchPCA(..., d = 50, subset.row = NULL,
+  assay.type = "logcounts", get.spikes = FALSE, BSPARAM = NULL,
   BPPARAM = SerialParam())
 }
 \arguments{
@@ -15,13 +15,13 @@ Alternatively, two or more SingleCellExperiment objects containing these matrice
 
 \item{d}{An integer scalar specifying the number of dimensions to keep from the initial multi-sample PCA.}
 
-\item{BSPARAM}{A \linkS4class{BiocSingularParam} object specifying the algorithm to use for PCA, see \code{\link{runSVD}} for details.}
-
 \item{subset.row}{See \code{?"\link{scran-gene-selection}"}.}
 
 \item{assay.type}{A string or integer scalar specifying the assay containing the expression values, if SingleCellExperiment objects are present in \code{...}.}
 
 \item{get.spikes}{See \code{?"\link{scran-gene-selection}"}.}
+
+\item{BSPARAM}{A \linkS4class{BiocSingularParam} object specifying the algorithm to use for PCA, see \code{\link{runSVD}} for details.}
 
 \item{BPPARAM}{A \linkS4class{BiocParallelParam} object specifying whether the SVD should be parallelized.}
 }

@@ -6,10 +6,10 @@
 #' Each matrix is assumed to represent one batch.
 #' Alternatively, two or more SingleCellExperiment objects containing these matrices.
 #' @param d An integer scalar specifying the number of dimensions to keep from the initial multi-sample PCA.
-#' @param BSPARAM A \linkS4class{BiocSingularParam} object specifying the algorithm to use for PCA, see \code{\link{runSVD}} for details.
 #' @param subset.row See \code{?"\link{scran-gene-selection}"}.
 #' @param assay.type A string or integer scalar specifying the assay containing the expression values, if SingleCellExperiment objects are present in \code{...}.
 #' @param get.spikes See \code{?"\link{scran-gene-selection}"}.
+#' @param BSPARAM A \linkS4class{BiocSingularParam} object specifying the algorithm to use for PCA, see \code{\link{runSVD}} for details.
 #' @param BPPARAM A \linkS4class{BiocParallelParam} object specifying whether the SVD should be parallelized.
 #'
 #' @details
@@ -49,7 +49,7 @@
 #' 
 #' @export
 #' @importFrom BiocParallel SerialParam
-multiBatchPCA <- function(..., d=50, BSPARAM=NULL, subset.row=NULL, assay.type="logcounts", get.spikes=FALSE, BPPARAM=SerialParam()) 
+multiBatchPCA <- function(..., d=50, subset.row=NULL, assay.type="logcounts", get.spikes=FALSE, BSPARAM=NULL, BPPARAM=SerialParam()) 
 # Performs a multi-sample PCA (i.e., batches).
 # Each batch is weighted inversely by the number of cells when computing the gene-gene covariance matrix.
 # This avoids domination by samples with a large number of cells.
