@@ -49,6 +49,7 @@
 #' 
 #' @export
 #' @importFrom BiocParallel SerialParam
+#' @importFrom SummarizedExperiment assay
 multiBatchPCA <- function(..., d=50, subset.row=NULL, assay.type="logcounts", get.spikes=FALSE, BSPARAM=NULL, BPPARAM=SerialParam()) 
 # Performs a multi-sample PCA (i.e., batches).
 # Each batch is weighted inversely by the number of cells when computing the gene-gene covariance matrix.
@@ -58,9 +59,18 @@ multiBatchPCA <- function(..., d=50, subset.row=NULL, assay.type="logcounts", ge
 # created 4 July 2018
 {
     mat.list <- list(...)
-    out <- .SCEs_to_matrices(mat.list, assay.type=assay.type, subset.row=subset.row, get.spikes=get.spikes)
-    mat.list <- out$batches
-    subset.row <- out$subset.row
+
+    if (.check_if_SCEs(mat.list)) {
+		.check_spike_consistency(mat.list)
+        subset.row <- .SCE_subset_genes(subset.row, mat.list[[1]], get.spikes)
+        mat.list <- lapply(mat.list, assay, i=assay.type, withDimnames=FALSE)
+    }
+
+    .check_batch_consistency(mat.list)
+    if (length(mat.list)==0L) {
+        stop("at least one batch must be specified") 
+    }
+
     .multi_pca(mat.list, subset.row=subset.row, d=d, BSPARAM=BSPARAM, BPPARAM=BPPARAM) 
 }
 
