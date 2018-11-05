@@ -66,7 +66,9 @@
 }
 
 #' @importFrom methods is
+#' @importFrom S4Vectors normalizeSingleBracketSubscript
 #' @importClassesFrom SingleCellExperiment SingleCellExperiment
+#' @importFrom SummarizedExperiment assay
 .SCEs_to_matrices <- function(batches, assay.type, subset.row, get.spikes)
 # Convenience function to convert multiple SCEs to a list of expression matrices.
 # Also redefines subset.row based on intersection with spike-ins, if necessary.    
@@ -86,7 +88,7 @@
         subset.row <- .SCE_subset_genes(subset.row, batches[[1]], get.spikes)
         batches <- lapply(batches, assay, i=assay.type, withDimnames=FALSE)
     } else if (!is.null(subset.row)) {
-        subset.row <- .subset_to_index(subset.row, batches[[1]], byrow=TRUE)
+        subset.row <- normalizeSingleBracketSubscript(subset.row, batches[[1]])
     }
 	return(list(batches=batches, subset.row=subset.row))
 }
