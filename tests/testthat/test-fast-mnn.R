@@ -252,9 +252,51 @@ test_that("fastMNN works on SingleCellExperiment inputs", {
 
     # Spikes and subsetting interact correctly
     i <- rbinom(nrow(B1), 1, 0.5)==1L
-    ref <- multiBatchPCA(sce1, sce2, d=2, subset.row=i)
-    out <- multiBatchPCA(sce1[i,], sce2[i,], d=2)
+    ref <- fastMNN(sce1, sce2, d=2, subset.row=i)
+    out <- fastMNN(sce1[i,], sce2[i,], d=2)
     expect_equal(ref, out)
+
+    # Handles reduced dimensional inputs correctly.
+    ref <- fastMNN(B1, B2, cos.norm=FALSE)
+    blah <- multiBatchPCA(sce1, sce2, get.spikes=TRUE)
+    reducedDim(sce1) <- blah[[1]]
+    reducedDim(sce2) <- blah[[2]]
+    out <- fastMNN(sce1, sce2, use.dimred=1)
+    expect_equal(ref[setdiff(names(ref), "rotation")], out)
+})
+
+set.seed(12000052)
+test_that("fastMNN works with within-object batches", {
+    B1 <- matrix(rnorm(10000), nrow=100) # Batch 1 
+    B2 <- matrix(rnorm(20000), nrow=100) # Batch 2
+    B3 <- matrix(rnorm(15000), nrow=100) # Batch 2
+
+    sce1 <- SingleCellExperiment(list(logcounts=B1))
+    sce2 <- SingleCellExperiment(list(logcounts=B2))
+    sce3 <- SingleCellExperiment(list(logcounts=B3))
+    combined <- cbind(sce1, sce2, sce3)
+    batches <- rep(1:3, c(ncol(sce1), ncol(sce2), ncol(sce3)))
+
+    shuffle <- sample(ncol(combined))
+    combined <- combined[,shuffle]
+    batches <- batches[shuffle]
+
+    ref <- fastMNN(B1, B2, B3)
+    out <- fastMNN(combined, batch=batches)
+    expect_equal(ref$corrected[shuffle,], out$corrected)
+    expect_equal(as.character(ref$batch)[shuffle], as.character(out$batch))
+
+    # Checking the pairings.
+    for (x in seq_along(out$pairs)) {
+        curref <- ref$pairs[[x]]
+        curref[,1] <- match(curref[,1], shuffle)
+        curref[,2] <- match(curref[,2], shuffle)
+        curout <- out$pairs[[x]]
+        expect_identical(
+            curref[order(curref[,1], curref[,2]),],
+            curout[order(curout[,1], curout[,2]),]
+        )
+    }
 })
 
 set.seed(1200006)
@@ -264,9 +306,9 @@ test_that("fastMNN fails on silly inputs", {
 
     # Throws errors properly with no genes or no cells.
     expect_error(fastMNN(), "at least two batches")
-    expect_error(fastMNN(B1), "at least two batches")
-    expect_error(fastMNN(B1[0,], B2[0,]), "zero")
-    expect_error(fastMNN(B1[,0], B2[,0]), "zero")
+    expect_error(fastMNN(B1), "'batch' must be specified")
+    expect_error(expect_warning(fastMNN(B1[0,], B2[0,]), "more requested"), "zero")
+    expect_error(expect_warning(fastMNN(B1[,0], B2[,0]), "more requested"), "zero")
 
     # SCE vs matrix errors.    
     expect_error(multiBatchPCA(SingleCellExperiment(list(logcounts=B1)), B2), "cannot mix")
