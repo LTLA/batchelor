@@ -195,7 +195,7 @@ test_that("fastMNN works as expected for three batches with re-ordering", {
 
     old.pairs <- metadata(out)$pairs
     new.pairs <- metadata(out.re)$pairs
-    for (i in seq_along(out$pairs)) {
+    for (i in seq_along(old.pairs)) {
         expect_identical(old.pairs[[i]]$first, match(new.pairs[[i]]$first, back.to.original))
         expect_identical(old.pairs[[i]]$second, match(new.pairs[[i]]$second, back.to.original))
     }
@@ -295,13 +295,16 @@ test_that("fastMNN works with within-object batches", {
     out <- fastMNN(combined, batch=batches)
     expect_equal(ref$corrected[shuffle,], out$corrected)
     expect_equal(as.character(ref$batch)[shuffle], as.character(out$batch))
+    CHECK_PAIRINGS(out)
 
-    # Checking the pairings.
-    for (x in seq_along(out$pairs)) {
-        curref <- metadata(ref)$pairs[[x]]
+    # Checking the pairings in closer detail.
+    pairings <- metadata(out)$pairs
+    ref.pairings <- metadata(ref)$pairs
+    for (x in seq_along(pairings)) {
+        curref <- ref.pairings[[x]]
         curref[,1] <- match(curref[,1], shuffle)
         curref[,2] <- match(curref[,2], shuffle)
-        curout <- out$pairs[[x]]
+        curout <- pairings[[x]]
         expect_identical(
             curref[order(curref[,1], curref[,2]),],
             curout[order(curout[,1], curout[,2]),]
