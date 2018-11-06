@@ -166,7 +166,7 @@ mnnCorrect <- function(..., batch=NULL, k=20, sigma=0.1, cos.norm.in=TRUE, cos.n
 #' @importFrom BiocParallel SerialParam
 #' @importFrom BiocGenerics t rbind
 #' @importFrom DelayedArray DelayedArray
-#' @importFrom DelayedMatrixStats rowMeans2
+#' @importFrom SummarizedExperiment SummarizedExperiment
 .mnn_correct <- function(..., k=20, sigma=0.1, cos.norm.in=TRUE, cos.norm.out=TRUE, svd.dim=0L, var.adj=TRUE, 
     subset.row=NULL, correct.all=FALSE, order=NULL, BSPARAM=NULL, BNPARAM=NULL, BPPARAM=SerialParam())
 {
