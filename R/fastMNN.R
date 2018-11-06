@@ -226,7 +226,7 @@ fastMNN <- function(..., batch=NULL, k=20, cos.norm=TRUE, ndist=3, d=50, auto.or
 # Internal main function, to separate the input handling from the actual calculations.
 
 #' @importFrom BiocParallel SerialParam
-#' @importFrom S4Vectors DataFrame Rle metadata<- metadata
+#' @importFrom S4Vectors DataFrame metadata<- metadata
 .fast_mnn <- function(..., k=20, cos.norm=TRUE, ndist=3, d=50, subset.row=NULL, auto.order=FALSE, pc.input=FALSE,
     compute.variances=FALSE, BSPARAM=NULL, BNPARAM=NULL, BPPARAM=SerialParam()) 
 {
@@ -322,42 +322,21 @@ fastMNN <- function(..., batch=NULL, k=20, cos.norm=TRUE, ndist=3, d=50, auto.or
         refdata <- rbind(refdata, curdata)
     }
 
-    # Adjusting the output back to the specified order.
-    if (auto.order || use.order) {
-        ordering <- vector("list", nbatches)
-        last <- 0L
-        for (idx in processed) { 
-            ncells <- nrow(pc.mat[[idx]])
-            ordering[[idx]] <- last + seq_len(ncells)
-            last <- last + ncells
-        }
-        ordering <- unlist(ordering)
-        refdata <- refdata[ordering,,drop=FALSE]
+    # Reporting the batch identities.
+    ncells.per.batch <- vapply(pc.mat, FUN=nrow, FUN.VALUE=0L)
+    batch.names <- .create_batch_names(names(batches), ncells.per.batch)
 
-        relocate <- ordering
-        relocate[ordering] <- seq_along(ordering)
-        for (x in seq_along(mnn.pairings)) {
-            current <- mnn.pairings[[x]]
-            current$first <- relocate[current$first]
-            current$second <- relocate[current$second]
-            mnn.pairings[[x]] <- current
-        }
-        
+    # Adjusting the output back to the input order in '...'.
+    if (auto.order || use.order) {
+        ordering <- .restore_original_order(processed, ncells.per.batch)
+        refdata <- refdata[ordering,,drop=FALSE]
+        mnn.pairings <- .reindex_pairings(mnn.pairings, ordering)
         var.kept[processed] <- var.kept
     }
     
-    # Characterizing the original order of the batches and cells.
-    if (!is.null(names(batches))) {
-        batch.labels <- names(batches)
-    } else {
-        batch.labels <- seq_along(batches)
-    }
-    ncells <- vapply(pc.mat, FUN=nrow, FUN.VALUE=0L)
-    batch.ids <- Rle(batch.labels, ncells)
-
     # Formatting the output.
-    output <- DataFrame(corrected=I(refdata), batch=batch.ids)
-    m.out <- list(pairs=mnn.pairings, order=batch.labels[processed])
+    output <- DataFrame(corrected=I(refdata), batch=batch.names$ids)
+    m.out <- list(pairs=mnn.pairings, order=batch.names$labels[processed])
     if (!pc.input) {
         m.out$rotation <- metadata(pc.mat)$rotation
     }
