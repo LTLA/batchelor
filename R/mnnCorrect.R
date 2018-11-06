@@ -5,6 +5,9 @@
 #' @param ... Two or more expression matrices where genes correspond to rows and cells correspond to columns.
 #' Each matrix should contain cells from the same batch; multiple matrices represent separate batches of cells.
 #' Each matrix should contain the same number of rows, corresponding to the same genes (in the same order).
+#' 
+#' Alternatively, one or more \linkS4class{SingleCellExperiment} objects can be supplied containing a log-expression matrix in the \code{assay.type} assay.
+#' Note the same restrictions described above for gene expression matrix inputs.
 #' @param k An integer scalar specifying the number of nearest neighbors to consider when identifying mutual nearest neighbors.
 #' @param sigma A numeric scalar specifying the bandwidth of the Gaussian smoothing kernel used to compute the correction vector for each cell.
 #' @param cos.norm.in A logical scalar indicating whether cosine normalization should be performed on the input data prior to calculating distances between cells.
@@ -14,6 +17,8 @@
 #' @param subset.row See \code{?"\link{scran-gene-selection}"}.
 #' @param correct.all A logical scalar specifying whether correction should be applied to all genes, even if only a subset is used for the MNN calculations.
 #' @param order An integer vector specifying the order in which batches are to be corrected.
+#' @param assay.type A string or integer scalar specifying the assay containing the expression values, if SingleCellExperiment objects are present in \code{...}.
+#' @param get.spikes See \code{?"\link{scran-gene-selection}"}. Only relevant if \code{...} contains SingleCellExperiment objects.
 #' @param BSPARAM A \linkS4class{BiocSingularParam} object specifying the SVD algorithm to use.
 #' @param BNPARAM A \linkS4class{BiocNeighborParam} object specifying the neighbor search algorithm to use.
 #' @param BPPARAM A \linkS4class{BiocParallelParam} object specifying the parallelization scheme to use.
@@ -23,14 +28,14 @@
 #' This contains corrected expression values for each gene (row) in each cell (column) in each batch.
 #' A \code{batch} field is present in the column data, specifying the batch of origin for each cell.
 #'
-#' Cells (i.e., columns) are always ordered in the same manner as supplied in \code{...}.
+#' Cells (i.e., columns) are always ordered in the same manner as supplied in \code{...}, regardless of whether \code{order} is specified.
 #' In cases with multiple objects in \code{...}, the cell identities are simply concatenated from successive objects,
 #' i.e., all cells from the first object (in their provided order), then all cells from the second object, and so on.
 #'
 #' The metadata of the SummarizedExperiment contains:
-#' \describe{
-#' \item{\code{pairs}:}{A list of DataFrames specifying which pairs of cells in \code{corrected} were identified as MNNs at each step.} 
-#' \item{\code{order}:}{A vector of batch names or indices, specifying the order in which batches were merged.}
+#' \itemize{
+#' \item{\code{pairs}: a list of DataFrames specifying which pairs of cells in \code{corrected} were identified as MNNs at each step.} 
+#' \item{\code{order}: a vector of batch names or indices, specifying the order in which batches were merged.}
 #' }
 #' 
 #' @details
@@ -49,6 +54,8 @@
 #' This stabilizes the vectors across many MNN pairs and extends the correction to those cells that do not have MNNs.
 #' The choice of \code{sigma} determines the extent of smoothing - a value of 0.1 is used by default, corresponding to 10\% of the radius of the space after cosine normalization.
 #' 
+#' % We would consider 20 cells involved in MNN pairs to be the minimum number required for stable batch correction.
+#'
 #' @section Choosing the gene set:
 #' Distances between cells are calculated with all genes if \code{subset.row=NULL}.
 #' However, users can set \code{subset.row} to perform the distance calculation on a subset of genes, e.g., highly variable genes or marker genes.
@@ -74,7 +81,6 @@
 #' The first batch in \code{order} is used as the reference batch against which the second batch is corrected.
 #' Corrected values of the second batch are added to the reference batch, against which the third batch is corrected, and so on.
 #' This strategy maximizes the chance of detecting sufficient MNN pairs for stable calculation of correction vectors in subsequent batches.
-#' %We would consider 20 cells involved in MNN pairs to be the minimum number required for batch correction.
 #' 
 #' @section Further options:
 #' The function depends on a shared biological manifold, i.e., one or more cell types/states being present in multiple batches.

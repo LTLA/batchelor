@@ -9,10 +9,10 @@
 #' Each object should contain the same number of columns, corresponding to the same dimensions.
 #'
 #' Alternatively, one or more \linkS4class{SingleCellExperiment} objects can be supplied containing a log-expression matrix in the \code{assay.type} assay.
-#' Note that restrictions described above for gene expression matrix inputs.
+#' Note the same restrictions described above for gene expression matrix inputs.
 #'
 #' Alternatively, the SingleCellExperiment objects can contain reduced dimension coordinates in the \code{reducedDims} slot if \code{use.dimred} is specified.
-#' Note that restrictions described above for low-dimensional matrix inputs.
+#' Note the same restrictions described above for low-dimensional matrix inputs.
 #' 
 #' In all cases, each object contains cells from a single batch; multiple objects represent separate batches of cells.
 #' @param batch A factor specifying the batch of origin for all cells when only a single object is supplied in \code{...}.
@@ -40,22 +40,22 @@
 #' 
 #' @return
 #' A \linkS4class{DataFrame} is returned containing:
-#' \describe{
-#' \item{\code{corrected}:}{A matrix with number of columns equal to \code{d}, and number of rows equal to the total number of cells in \code{...}.}
-#' \item{\code{batch}:}{A \linkS4class{Rle} containing the batch of origin for each row (i.e., cell) in \code{corrected}.}
+#' \itemize{
+#' \item{\code{corrected}: a matrix with number of columns equal to \code{d}, and number of rows equal to the total number of cells in \code{...}.}
+#' \item{\code{batch}: a \linkS4class{Rle} containing the batch of origin for each row (i.e., cell) in \code{corrected}.}
 #' }
 #' 
-#' Cells (i.e., rows) are always ordered in the same manner as supplied in \code{...}.
+#' Cells (i.e., rows) are always ordered in the same manner as supplied in \code{...}, regardless of the value of \code{auto.order}.
 #' In cases with multiple objects in \code{...}, the cell identities are simply concatenated from successive objects,
 #' i.e., all cells from the first object (in their provided order), then all cells from the second object, and so on.
 #' 
 #' The metadata of the DataFrame contains:
-#' \describe{
-#' \item{\code{pairs}:}{A list of DataFrames specifying which pairs of cells in \code{corrected} were identified as MNNs at each step.} 
-#' \item{\code{order}:}{A vector of batch names or indices, specifying the order in which batches were merged.}
-#' \item{\code{lost.var}:}{A numeric vector containing the proportion of lost variance from each batch supplied in \code{...}.
+#' \itemize{
+#' \item{\code{pairs}: a list of DataFrames specifying which pairs of cells in \code{corrected} were identified as MNNs at each step.} 
+#' \item{\code{order}: a vector of batch names or indices, specifying the order in which batches were merged.}
+#' \item{\code{lost.var}: a numeric vector containing the proportion of lost variance from each batch supplied in \code{...}.
 #' Only returned when \code{compute.variances=TRUE}.}
-#' \item{\code{rotation}:}{A numeric matrix of rotation vectors used to project all cells into low-dimensional space.
+#' \item{\code{rotation}: a numeric matrix of rotation vectors used to project all cells into low-dimensional space.
 #' Only returned when \code{pc.input=FALSE} (for matrix inputs) or \code{use.dimred=NULL} (for SingleCellExperiment inputs).}
 #' }
 #' 
