@@ -310,6 +310,12 @@ test_that("fastMNN works with within-object batches", {
             curout[order(curout[,1], curout[,2]),]
         )
     }
+
+    # Splits PC inputs properly (let's just pretend logcounts are PCs here).
+    out <- fastMNN(t(logcounts(combined)), batch=batches, pc.input=TRUE)
+    ref <- fastMNN(t(B1), t(B2), t(B3), pc.input=TRUE)
+    expect_equal(ref$corrected[shuffle,], out$corrected)
+    expect_equal(as.character(ref$batch)[shuffle], as.character(out$batch))
 })
 
 set.seed(1200006)
