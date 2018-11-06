@@ -8,6 +8,8 @@
 #' 
 #' Alternatively, one or more \linkS4class{SingleCellExperiment} objects can be supplied containing a log-expression matrix in the \code{assay.type} assay.
 #' Note the same restrictions described above for gene expression matrix inputs.
+#' @param batch A factor specifying the batch of origin for all cells when only a single object is supplied in \code{...}.
+#' This is ignored if multiple objects are present.
 #' @param k An integer scalar specifying the number of nearest neighbors to consider when identifying mutual nearest neighbors.
 #' @param sigma A numeric scalar specifying the bandwidth of the Gaussian smoothing kernel used to compute the correction vector for each cell.
 #' @param cos.norm.in A logical scalar indicating whether cosine normalization should be performed on the input data prior to calculating distances between cells.
