@@ -43,17 +43,20 @@ Alternatively, an integer vector containing a permutation of \code{1:N} where \c
 
 \item{compute.variances}{Logical scalar indicating whether the percentage of variance lost due to non-orthogonality should be computed.}
 
-\item{subset.row}{See \code{?"\link{scran-gene-selection}"}.}
+\item{subset.row}{A vector specifying which features to use for correction. 
+Only relevant for gene expression inputs (i.e., \code{pc.input=FALSE} and \code{use.dimred=NULL}).}
 
 \item{pc.input}{Logical scalar indicating whether the values in \code{...} are already low-dimensional, e.g., the output of \code{\link{multiBatchPCA}}.
-This is only used when \code{...} does \emph{not} contain SingleCellExperiment objects.}
+Only used when \code{...} does \emph{not} contain SingleCellExperiment objects.}
 
-\item{assay.type}{A string or integer scalar specifying the assay containing the expression values, if SingleCellExperiment objects are present in \code{...}.}
+\item{assay.type}{A string or integer scalar specifying the assay containing the expression values.
+Only used for SingleCellExperiment inputs with \code{use.dimred=NULL}.}
 
-\item{get.spikes}{See \code{?"\link{scran-gene-selection}"}. Only relevant if \code{...} contains SingleCellExperiment objects.}
+\item{get.spikes}{A logical scalar indicating whether to retain rows corresponding to spike-in transcripts.
+Only used for SingleCellExperiment inputs with \code{use.dimred=NULL}.}
 
 \item{use.dimred}{A string or integer scalar specifying which reduced dimension result to use, if any.
-Only relevant if \code{...} contains SingleCellExperiment objects.}
+Only used for SingleCellExperiment inputs.}
 
 \item{BSPARAM}{A \linkS4class{BiocSingularParam} object specifying the algorithm to use for PCA.}
 
@@ -151,7 +154,8 @@ This provides more meaningful identification of MNN pairs by reducing the noise 
 Note that users should not be too restrictive with subsetting, as high dimensionality is required to satisfy the orthogonality assumption in MNN detection.
 
 For SingleCellExperiment inputs, spike-in transcripts should be the same across all objects.
-They are automatically removed unless \code{get.spikes=TRUE}, see \code{?"\link{scran-gene-selection}"} for more details.
+They are automatically removed unless \code{get.spikes=TRUE}.
+If \code{subset.row} is specified and \code{get.spikes=FALSE}, only the non-spike-in specified features will be used. 
 
 The reported coordinates for cells refer to a low-dimensional space, but it may be desirable to obtain corrected gene expression values, e.g., for visualization.
 This can be done by computing the cross-product of the coordinates with the rotation matrix - see the Examples below.

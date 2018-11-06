@@ -15,11 +15,12 @@ Alternatively, two or more SingleCellExperiment objects containing these matrice
 
 \item{d}{An integer scalar specifying the number of dimensions to keep from the initial multi-sample PCA.}
 
-\item{subset.row}{See \code{?"\link{scran-gene-selection}"}.}
+\item{subset.row}{A vector specifying which features to use for correction.}
 
 \item{assay.type}{A string or integer scalar specifying the assay containing the expression values, if SingleCellExperiment objects are present in \code{...}.}
 
-\item{get.spikes}{See \code{?"\link{scran-gene-selection}"}.}
+\item{get.spikes}{A logical scalar indicating whether to retain rows corresponding to spike-in transcripts.
+Only used for SingleCellExperiment inputs.}
 
 \item{BSPARAM}{A \linkS4class{BiocSingularParam} object specifying the algorithm to use for PCA, see \code{\link{runSVD}} for details.}
 
@@ -46,7 +47,8 @@ This ensures that the low-dimensional space can distinguish subpopulations in sm
 Otherwise, batches with a large number of cells would dominate the PCA; the mean vector and covariance matrix would be almost fully defined by those batches.
 
 If \code{...} contains SingleCellExperiment objects, any spike-in transcripts should be the same across all batches.
-These will be removed prior to PCA unless \code{get.spikes=TRUE}, see \code{?"\link{scran-gene-selection}"} for details.
+These will be removed prior to PCA unless \code{get.spikes=TRUE}.
+If \code{subset.row} is specified and \code{get.spikes=FALSE}, only the non-spike-in specified features will be used.
 }
 \examples{
 d1 <- matrix(rnorm(5000), ncol=100)

@@ -18,6 +18,9 @@ Each matrix should contain the same number of rows, corresponding to the same ge
 Alternatively, one or more \linkS4class{SingleCellExperiment} objects can be supplied containing a log-expression matrix in the \code{assay.type} assay.
 Note the same restrictions described above for gene expression matrix inputs.}
 
+\item{batch}{A factor specifying the batch of origin for all cells when only a single object is supplied in \code{...}.
+This is ignored if multiple objects are present.}
+
 \item{k}{An integer scalar specifying the number of nearest neighbors to consider when identifying mutual nearest neighbors.}
 
 \item{sigma}{A numeric scalar specifying the bandwidth of the Gaussian smoothing kernel used to compute the correction vector for each cell.}
@@ -30,7 +33,7 @@ Note the same restrictions described above for gene expression matrix inputs.}
 
 \item{var.adj}{A logical scalar indicating whether variance adjustment should be performed on the correction vectors.}
 
-\item{subset.row}{See \code{?"\link{scran-gene-selection}"}.}
+\item{subset.row}{A vector specifying which features to use for correction.}
 
 \item{correct.all}{A logical scalar specifying whether correction should be applied to all genes, even if only a subset is used for the MNN calculations.}
 
@@ -38,7 +41,8 @@ Note the same restrictions described above for gene expression matrix inputs.}
 
 \item{assay.type}{A string or integer scalar specifying the assay containing the expression values, if SingleCellExperiment objects are present in \code{...}.}
 
-\item{get.spikes}{See \code{?"\link{scran-gene-selection}"}. Only relevant if \code{...} contains SingleCellExperiment objects.}
+\item{get.spikes}{A logical scalar indicating whether to retain rows corresponding to spike-in transcripts.
+Only used for SingleCellExperiment inputs.}
 
 \item{BSPARAM}{A \linkS4class{BiocSingularParam} object specifying the SVD algorithm to use.}
 

@@ -4,12 +4,12 @@
 \alias{cosineNorm}
 \title{Cosine normalization}
 \usage{
-cosineNorm(X, mode = c("matrix", "all", "l2norm"))
+cosineNorm(x, mode = c("matrix", "all", "l2norm"))
 }
 \arguments{
-\item{mode}{A string specifying the output to be returned.}
-
 \item{x}{A gene expression matrix with cells as columns and genes as rows.}
+
+\item{mode}{A string specifying the output to be returned.}
 }
 \value{
 If \code{mode="matrix"}, a double-precision matrix of the same dimensions as \code{X} is returned, containing cosine-normalized values.
