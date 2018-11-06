@@ -145,10 +145,12 @@
 #' cB2 <- cosineNorm(B2)
 #' pcs <- multiBatchPCA(cB1, cB2)
 #' out.2 <- fastMNN(pcs[[1]], pcs[[2]], pc.input=TRUE)
-#' all.equal(out[1:3], out.2) # should be TRUE (no rotation)
+#'
+#' all.equal(out$corrected, out.2$corrected) # should be TRUE
+#' all.equal(out$batch, out.2$batch) # should be TRUE
 #' 
 #' # Obtaining corrected expression values for genes 1 and 10.
-#' cor.exp <- tcrossprod(out$rotation[c(1,10),], out$corrected)
+#' cor.exp <- tcrossprod(metadata(out)$rotation[c(1,10),], out$corrected)
 #' dim(cor.exp)
 #'
 #' @references
@@ -223,7 +225,7 @@ fastMNN <- function(..., batch=NULL, k=20, cos.norm=TRUE, ndist=3, d=50, auto.or
 # Internal main function, to separate the input handling from the actual calculations.
 
 #' @importFrom BiocParallel SerialParam
-#' @importFrom S4Vectors DataFrame Rle
+#' @importFrom S4Vectors DataFrame Rle metadata<- metadata
 .fast_mnn <- function(..., k=20, cos.norm=TRUE, ndist=3, d=50, subset.row=NULL, auto.order=FALSE, pc.input=FALSE,
     compute.variances=FALSE, BSPARAM=NULL, BNPARAM=NULL, BPPARAM=SerialParam()) 
 {
@@ -285,7 +287,7 @@ fastMNN <- function(..., batch=NULL, k=20, cos.norm=TRUE, ndist=3, d=50, auto.or
             }
             cur.idx <- if (use.order) re.order[bdx] else bdx
             curdata <- pc.mat[[cur.idx]]
-            mnn.sets <- find.mutual.nn(refdata, curdata, k1=k, k2=k, BNPARAM=BNPARAM, BPPARAM=BPPARAM)
+            mnn.sets <- findMutualNN(refdata, curdata, k1=k, k2=k, BNPARAM=BNPARAM, BPPARAM=BPPARAM)
             processed <- c(processed, cur.idx)
         }
 
@@ -294,6 +296,7 @@ fastMNN <- function(..., batch=NULL, k=20, cos.norm=TRUE, ndist=3, d=50, auto.or
         overall.batch <- colMeans(ave.out$averaged)
 
         # Remove variation along the batch vector.
+        # Also recording the lost variation if desired.
         if (compute.variances) {
             var.before <- .compute_intra_var(refdata, curdata, pc.mat, processed)
         }
@@ -352,13 +355,15 @@ fastMNN <- function(..., batch=NULL, k=20, cos.norm=TRUE, ndist=3, d=50, auto.or
     batch.ids <- Rle(batch.labels, ncells)
 
     # Formatting the output.
-    output <- list(corrected=refdata, batch=batch.ids, pairs=mnn.pairings, order=batch.labels[processed])
+    output <- DataFrame(corrected=I(refdata), batch=batch.ids)
+    m.out <- list(pairs=mnn.pairings, order=batch.labels[processed])
     if (!pc.input) {
-        output$rotation <- metadata(pc.mat)$rotation
+        m.out$rotation <- metadata(pc.mat)$rotation
     }
     if (compute.variances) {
-        output$lost.var <- 1 - var.kept
+        m.out$lost.var <- 1 - var.kept
     }
+    metadata(output) <- m.out
     return(output)
 }
 
