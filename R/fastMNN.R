@@ -87,7 +87,7 @@
 #'
 #' The \code{batch} argument allows users to easily perform batch correction when all cells have already been combined into a single object.
 #' This avoids the need to manually split the matrix or SingleCellExperiment object into separate objects for input into \code{fastMNN}.
-#' The order of batches is defined by the order of levels in \code{batch}.
+#' In this situation, the order of input batches is defined by the order of levels in \code{batch}.
 #'
 #' @section Controlling the merge order:
 #' By default, batches are merged in the user-supplied order.
