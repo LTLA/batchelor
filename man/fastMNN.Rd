@@ -114,7 +114,7 @@ corresponding to violations of the assumption that the batch effect is orthogona
 
 The \code{batch} argument allows users to easily perform batch correction when all cells have already been combined into a single object.
 This avoids the need to manually split the matrix or SingleCellExperiment object into separate objects for input into \code{fastMNN}.
-The order of batches is defined by the order of levels in \code{batch}.
+In this situation, the order of input batches is defined by the order of levels in \code{batch}.
 }
 \section{Controlling the merge order}{
 
@@ -169,10 +169,12 @@ cB1 <- cosineNorm(B1)
 cB2 <- cosineNorm(B2)
 pcs <- multiBatchPCA(cB1, cB2)
 out.2 <- fastMNN(pcs[[1]], pcs[[2]], pc.input=TRUE)
-all.equal(out[1:3], out.2) # should be TRUE (no rotation)
+
+all.equal(out$corrected, out.2$corrected) # should be TRUE
+all.equal(out$batch, out.2$batch) # should be TRUE
 
 # Obtaining corrected expression values for genes 1 and 10.
-cor.exp <- tcrossprod(out$rotation[c(1,10),], out$corrected)
+cor.exp <- tcrossprod(metadata(out)$rotation[c(1,10),], out$corrected)
 dim(cor.exp)
 
 }
