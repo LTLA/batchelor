@@ -208,6 +208,7 @@ mnnCorrect <- function(..., batch=NULL, k=20, sigma=0.1, cos.norm.in=TRUE, cos.n
         sets <- findMutualNN(ref.batch.in, other.batch.in, k1=k, k2=k, BNPARAM=BNPARAM, BPPARAM=BPPARAM)
         s1 <- sets$first
         s2 <- sets$second      
+        mnn.pairings[[b-1L]] <- DataFrame(first=s1, second=s2 + nrow(ref.batch.in))
 
         # Computing the correction vector.
         correction.in <- .compute_correction_vectors(ref.batch.in, other.batch.in, s1, s2, other.batch.in.untrans, sigma)
@@ -252,9 +253,6 @@ mnnCorrect <- function(..., batch=NULL, k=20, sigma=0.1, cos.norm.in=TRUE, cos.n
             other.batch.out <- other.batch.out + correction.out
             ref.batch.out <- rbind(ref.batch.out, other.batch.out)
         }
-
-        # Storing the identities of the MNN pairs.
-        mnn.pairings[[b-1L]] <- DataFrame(first=s1, second=s2 + ncol(ref.batch.in))
     }
 
     # Formatting the output.
@@ -268,7 +266,7 @@ mnnCorrect <- function(..., batch=NULL, k=20, sigma=0.1, cos.norm.in=TRUE, cos.n
     # Adjusting the output back to the input order in '...'.
     if (use.order) {
         ordering <- .restore_original_order(order, ncells.per.batch)
-        ref.batch.out <- ref.batch.out[,ordering,drop=FALSE]
+        ref.batch.out <- ref.batch.out[ordering,,drop=FALSE]
         mnn.pairings <- .reindex_pairings(mnn.pairings, ordering)
     }
    
@@ -279,6 +277,7 @@ mnnCorrect <- function(..., batch=NULL, k=20, sigma=0.1, cos.norm.in=TRUE, cos.n
 ####################################
 # Input/output functions.
 
+#' @importFrom S4Vectors normalizeSingleBracketSubscript
 .prepare_input_data <- function(batches, cos.norm.in, cos.norm.out, subset.row, correct.all) {
     nbatches <- length(batches)
 
@@ -299,7 +298,7 @@ mnnCorrect <- function(..., batch=NULL, k=20, sigma=0.1, cos.norm.in=TRUE, cos.n
     in.batches <- out.batches <- batches
     same.set <- TRUE
     if (!is.null(subset.row)) { 
-        subset.row <- .subset_to_index(subset.row, batches[[1]], byrow=TRUE)
+        subset.row <- normalizeSingleBracketSubscript(subset.row, batches[[1]])
         if (identical(subset.row, seq_len(ref.nrow))) { 
             subset.row <- NULL
         } else {
