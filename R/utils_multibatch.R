@@ -78,12 +78,18 @@
     any(all.sce) # don't do all.sce[1], avoid errors when length(batches)==0L.
 }
 
-.divide_into_batches <- function(x, batch) 
-# Splits 'x' by column in 'batch'.
+.divide_into_batches <- function(x, batch, byrow=FALSE) 
+# Splits 'x' by column or row according to 'batch'.
 {
     batch <- as.factor(batch)
-    if (length(batch)!=ncol(x)) {
-        stop("'length(batch)' and 'ncol(x)' are not the same")
+    if (byrow) {
+        if (length(batch)!=nrow(x)) {
+            stop("'length(batch)' and 'nrow(x)' are not the same")
+        }
+    } else {
+        if (length(batch)!=ncol(x)) {
+            stop("'length(batch)' and 'ncol(x)' are not the same")
+        }
     }
 
     output <- vector("list", nlevels(batch))
@@ -93,10 +99,16 @@
 
     for (b in levels(batch)) {
         keep <- batch==b
-        current <- x[,keep,drop=FALSE]
+        if (byrow) {
+            current <- x[keep,,drop=FALSE]
+            N <- nrow(current)
+        } else {
+            current <- x[,keep,drop=FALSE]
+            N <- ncol(current)
+        }
         output[[b]] <- current
-        reorder[keep] <- last + seq_len(ncol(current))
-        last <- last + ncol(current)
+        reorder[keep] <- last + seq_len(N)
+        last <- last + N
     }
 
     list(batches=output, reorder=reorder) 

@@ -195,7 +195,7 @@ fastMNN <- function(..., batch=NULL, k=20, cos.norm=TRUE, ndist=3, d=50, auto.or
             stop("'batch' must be specified if '...' has only one object")
         }
 
-        divided <- .divide_into_batches(batches[[1]], batch=batch)
+        divided <- .divide_into_batches(batches[[1]], batch=batch, byrow=pc.input)
         batches <- divided$batches
     }
     
