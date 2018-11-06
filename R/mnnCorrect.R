@@ -375,21 +375,20 @@ mnnCorrect <- function(..., batch=NULL, k=20, sigma=0.1, cos.norm.in=TRUE, cos.n
 # Computes the basis matrix of the biological subspace of 'exprs'.
 # The first 'ndim' dimensions are assumed to capture the biological subspace.
 {
-    centers <- rowMeans(exprs)
+    centered <- DelayedArray(exprs) - rowMeans(exprs)
 
     if (!is.null(subset.row)) {
-        leftovers <- DelayedArray(exprs[-subset.row,,drop=FALSE]) - centers[-subset.row]
-        exprs <- exprs[subset.row,,drop=FALSE]
-        centers <- centers[subset.row]
+        leftovers <- centered[-subset.row,,drop=FALSE]
+        centered <- centered[subset.row,,drop=FALSE]
         nv <- ndim
     } else {
         nv <- 0
     }
 
     # Returning the basis vectors directly if there was no subsetting. 
-    ndim <- min(ndim, dim(centred))
+    ndim <- min(ndim, dim(centered))
     nv <- min(nv, ndim)
-    S <- runSVD(exprs, nu=ndim, nv=nv, center=centers, BSPARAM=BSPARAM, BPPARAM=BPPARAM)
+    S <- runSVD(centered, k=ndim, nu=ndim, nv=nv, BSPARAM=BSPARAM, BPPARAM=BPPARAM)
     if (is.null(subset.row)) { 
         return(S$u)
     } 
@@ -397,8 +396,8 @@ mnnCorrect <- function(..., batch=NULL, k=20, sigma=0.1, cos.norm.in=TRUE, cos.n
     # Computing the basis values for the unused genes.
     output <- matrix(0, nrow(exprs), ndim)
     output[subset.row,] <- S$u
-    leftovers <- leftovers %*% S$v 
-    leftovers <- sweep(leftovers, 2, S$d[seq_len(ndim)], "/")
+    leftovers <- as.matrix(leftovers %*% S$v)
+    leftovers <- sweep(leftovers, 2, S$d, "/")
     output[-subset.row,] <- leftovers
     return(output)
 }
