@@ -207,15 +207,16 @@ fastMNN <- function(..., batch=NULL, k=20, cos.norm=TRUE, ndist=3, d=50, auto.or
     # Reordering the output for correctness.
     if (do.split) {
         d.reo <- divided$reorder
-        output$corrected <- output$corrected[d.reo,,drop=FALSE]
-        output$batch <- output$batch[d.reo]
+        output <- output[d.reo,,drop=FALSE]
 
         rev.order <- integer(length(d.reo))
         rev.order[d.reo] <- seq_along(d.reo)
-        for (x in seq_along(output$pairs)) {
-            output$pairs[[x]][,1] <- rev.order[output$pairs[[x]][,1]]
-            output$pairs[[x]][,2] <- rev.order[output$pairs[[x]][,2]]
+        pairings <- metadata(output)$pairs
+        for (x in seq_along(pairings)) {
+            pairings[[x]][,1] <- rev.order[pairings[[x]][,1]]
+            pairings[[x]][,2] <- rev.order[pairings[[x]][,2]]
         }
+        metadata(output)$pairs <- pairings
     }
 
     return(output)
