@@ -6,9 +6,10 @@
 #' Each matrix is assumed to represent one batch.
 #' Alternatively, two or more SingleCellExperiment objects containing these matrices.
 #' @param d An integer scalar specifying the number of dimensions to keep from the initial multi-sample PCA.
-#' @param subset.row See \code{?"\link{scran-gene-selection}"}.
+#' @param subset.row A vector specifying which features to use for correction. 
 #' @param assay.type A string or integer scalar specifying the assay containing the expression values, if SingleCellExperiment objects are present in \code{...}.
-#' @param get.spikes See \code{?"\link{scran-gene-selection}"}.
+#' @param get.spikes A logical scalar indicating whether to retain rows corresponding to spike-in transcripts.
+#' Only used for SingleCellExperiment inputs.
 #' @param BSPARAM A \linkS4class{BiocSingularParam} object specifying the algorithm to use for PCA, see \code{\link{runSVD}} for details.
 #' @param BPPARAM A \linkS4class{BiocParallelParam} object specifying whether the SVD should be parallelized.
 #'
@@ -23,7 +24,8 @@
 #' Otherwise, batches with a large number of cells would dominate the PCA; the mean vector and covariance matrix would be almost fully defined by those batches.
 #' 
 #' If \code{...} contains SingleCellExperiment objects, any spike-in transcripts should be the same across all batches.
-#' These will be removed prior to PCA unless \code{get.spikes=TRUE}, see \code{?"\link{scran-gene-selection}"} for details.
+#' These will be removed prior to PCA unless \code{get.spikes=TRUE}.
+#' If \code{subset.row} is specified and \code{get.spikes=FALSE}, only the non-spike-in specified features will be used. 
 #'
 #' @return
 #' A \linkS4class{List} of numeric matrices where each matrix corresponds to a batch and contains the first \code{d} PCs (columns) for all cells in the batch (rows).

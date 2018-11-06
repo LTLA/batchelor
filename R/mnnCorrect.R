@@ -14,11 +14,12 @@
 #' @param cos.norm.out A logical scalar indicating whether cosine normalization should be performed prior to computing corrected expression values.
 #' @param svd.dim An integer scalar specifying the number of dimensions to use for summarizing biological substructure within each batch.
 #' @param var.adj A logical scalar indicating whether variance adjustment should be performed on the correction vectors.
-#' @param subset.row See \code{?"\link{scran-gene-selection}"}.
+#' @param subset.row A vector specifying which features to use for correction. 
 #' @param correct.all A logical scalar specifying whether correction should be applied to all genes, even if only a subset is used for the MNN calculations.
 #' @param order An integer vector specifying the order in which batches are to be corrected.
 #' @param assay.type A string or integer scalar specifying the assay containing the expression values, if SingleCellExperiment objects are present in \code{...}.
-#' @param get.spikes See \code{?"\link{scran-gene-selection}"}. Only relevant if \code{...} contains SingleCellExperiment objects.
+#' @param get.spikes A logical scalar indicating whether to retain rows corresponding to spike-in transcripts.
+#' Only used for SingleCellExperiment inputs.
 #' @param BSPARAM A \linkS4class{BiocSingularParam} object specifying the SVD algorithm to use.
 #' @param BNPARAM A \linkS4class{BiocNeighborParam} object specifying the neighbor search algorithm to use.
 #' @param BPPARAM A \linkS4class{BiocParallelParam} object specifying the parallelization scheme to use.
