@@ -13,7 +13,10 @@ mnnCorrect(..., batch = NULL, k = 20, sigma = 0.1,
 \arguments{
 \item{...}{Two or more expression matrices where genes correspond to rows and cells correspond to columns.
 Each matrix should contain cells from the same batch; multiple matrices represent separate batches of cells.
-Each matrix should contain the same number of rows, corresponding to the same genes (in the same order).}
+Each matrix should contain the same number of rows, corresponding to the same genes (in the same order).
+
+Alternatively, one or more \linkS4class{SingleCellExperiment} objects can be supplied containing a log-expression matrix in the \code{assay.type} assay.
+Note the same restrictions described above for gene expression matrix inputs.}
 
 \item{k}{An integer scalar specifying the number of nearest neighbors to consider when identifying mutual nearest neighbors.}
 
@@ -33,6 +36,10 @@ Each matrix should contain the same number of rows, corresponding to the same ge
 
 \item{order}{An integer vector specifying the order in which batches are to be corrected.}
 
+\item{assay.type}{A string or integer scalar specifying the assay containing the expression values, if SingleCellExperiment objects are present in \code{...}.}
+
+\item{get.spikes}{See \code{?"\link{scran-gene-selection}"}. Only relevant if \code{...} contains SingleCellExperiment objects.}
+
 \item{BSPARAM}{A \linkS4class{BiocSingularParam} object specifying the SVD algorithm to use.}
 
 \item{BNPARAM}{A \linkS4class{BiocNeighborParam} object specifying the neighbor search algorithm to use.}
@@ -44,14 +51,14 @@ A \linkS4class{SummarizedExperiment} object containing the \code{corrected} assa
 This contains corrected expression values for each gene (row) in each cell (column) in each batch.
 A \code{batch} field is present in the column data, specifying the batch of origin for each cell.
 
-Cells (i.e., columns) are always ordered in the same manner as supplied in \code{...}.
+Cells (i.e., columns) are always ordered in the same manner as supplied in \code{...}, regardless of whether \code{order} is specified.
 In cases with multiple objects in \code{...}, the cell identities are simply concatenated from successive objects,
 i.e., all cells from the first object (in their provided order), then all cells from the second object, and so on.
 
 The metadata of the SummarizedExperiment contains:
-\describe{
-\item{\code{pairs}:}{A list of DataFrames specifying which pairs of cells in \code{corrected} were identified as MNNs at each step.} 
-\item{\code{order}:}{A vector of batch names or indices, specifying the order in which batches were merged.}
+\itemize{
+\item{\code{pairs}: a list of DataFrames specifying which pairs of cells in \code{corrected} were identified as MNNs at each step.} 
+\item{\code{order}: a vector of batch names or indices, specifying the order in which batches were merged.}
 }
 }
 \description{
@@ -72,6 +79,8 @@ For each MNN pair, a pairwise correction vector is computed based on the differe
 The correction vector for each cell is computed by applying a Gaussian smoothing kernel with bandwidth \code{sigma} is the pairwise vectors.
 This stabilizes the vectors across many MNN pairs and extends the correction to those cells that do not have MNNs.
 The choice of \code{sigma} determines the extent of smoothing - a value of 0.1 is used by default, corresponding to 10\% of the radius of the space after cosine normalization.
+
+% We would consider 20 cells involved in MNN pairs to be the minimum number required for stable batch correction.
 }
 \section{Choosing the gene set}{
 
@@ -101,7 +110,6 @@ Users should note that the order in which batches are corrected will affect the 
 The first batch in \code{order} is used as the reference batch against which the second batch is corrected.
 Corrected values of the second batch are added to the reference batch, against which the third batch is corrected, and so on.
 This strategy maximizes the chance of detecting sufficient MNN pairs for stable calculation of correction vectors in subsequent batches.
-%We would consider 20 cells involved in MNN pairs to be the minimum number required for batch correction.
 }
 
 \section{Further options}{
