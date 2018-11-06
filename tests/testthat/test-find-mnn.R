@@ -17,7 +17,7 @@ test_that("Mutual NN detection is correct", {
                           x=rep(1, n1*k2 + n2*k1), dims=c(n.total, n.total))
 
         W <- W * t(W) # elementwise multiplication to keep mutual nns only
-        A <- which(W>0, arr.ind=TRUE) # row/col indices of mutual NNs
+        A <- Matrix::which(W>0, arr.ind=TRUE) # row/col indices of mutual NNs
 
         A1 <- A[,1]
         A1 <- A1[A1 <= n1]

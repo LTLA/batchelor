@@ -1,3 +1,3 @@
 library(testthat)
-library(scran)
-test_check("scran")
+library(batchelor)
+test_check("batchelor")

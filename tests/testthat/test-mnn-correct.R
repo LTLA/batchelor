@@ -50,27 +50,27 @@ test_that("Batch vectors are correctly calculated", {
 
     # Vanilla check
     s2 <- 0.1
-    xx <- scran:::compute.correction.vectors(data1, data2, mnn1, mnn2, t(data2), s2)
+    xx <- batchelor:::.compute_correction_vectors(data1, data2, mnn1, mnn2, t(data2), s2)
     ref <- REF(data1, data2, mnn1, mnn2, s2)
     expect_equal(xx, ref)
 
     # Check with cells in multiple MNN pairs.
     alt.mnn1 <- c(11, 12, 13, mnn1)
     alt.mnn2 <- c(30, 30, 30, mnn2)
-    xx <- scran:::compute.correction.vectors(data1, data2, alt.mnn1, alt.mnn2, t(data2), s2)
+    xx <- batchelor:::.compute_correction_vectors(data1, data2, alt.mnn1, alt.mnn2, t(data2), s2)
     ref <- REF(data1, data2, alt.mnn1, alt.mnn2, s2)
     expect_equal(xx, ref)
 
     # Check with more MNN pairs involved.
     alt.mnn1 <- 1:200
     alt.mnn2 <- 500:301
-    xx <- scran:::compute.correction.vectors(data1, data2, alt.mnn1, alt.mnn2, t(data2), s2)
+    xx <- batchelor:::.compute_correction_vectors(data1, data2, alt.mnn1, alt.mnn2, t(data2), s2)
     ref <- REF(data1, data2, alt.mnn1, alt.mnn2, s2)
     expect_equal(xx, ref)
 
     # Check with a different bandwidth. 
     s2 <- 0.5
-    xx <- scran:::compute.correction.vectors(data1, data2, mnn1, mnn2, t(data2), s2)
+    xx <- batchelor:::.compute_correction_vectors(data1, data2, mnn1, mnn2, t(data2), s2)
     ref <- REF(data1, data2, mnn1, mnn2, s2)
     expect_equal(xx, ref)
 })
@@ -118,11 +118,11 @@ test_that("Variance shift adjustment is correctly performed", {
     }
 
     ref <- REF(data1, data2, corvect, 1)
-    test <- .Call(scran:::cxx_adjust_shift_variance, t(data1), t(data2), corvect, 1)
+    test <- .Call(batchelor:::cxx_adjust_shift_variance, t(data1), t(data2), corvect, 1)
     expect_equal(ref, test)
 
     ref <- REF(data1, data2, corvect, 0.1)
-    test <- .Call(scran:::cxx_adjust_shift_variance, t(data1), t(data2), corvect, 0.1)
+    test <- .Call(batchelor:::cxx_adjust_shift_variance, t(data1), t(data2), corvect, 0.1)
     expect_equal(ref, test)
 })
 
