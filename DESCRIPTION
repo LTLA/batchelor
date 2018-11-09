@@ -7,7 +7,7 @@ Authors@R: c(person("Aaron", "Lun", role = c("aut", "cre"),
 Depends: R (>= 3.6), BiocParallel, SingleCellExperiment
 Imports: SummarizedExperiment, S4Vectors, BiocGenerics, 
         Rcpp (>= 0.12.14), stats, methods, utils, BiocNeighbors,
-        BiocSingular, DelayedArray, DelayedMatrixStats, scater
+        BiocSingular, DelayedArray, DelayedMatrixStats 
 Suggests: testthat, BiocStyle, knitr, beachmat, Matrix
 biocViews: Sequencing, RNASeq, Software, GeneExpression, 
         Transcriptomics, SingleCell, BatchEffect

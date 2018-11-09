@@ -4,11 +4,11 @@
 \alias{rescaleBatches}
 \title{Scale counts across batches}
 \usage{
-rescaleBatches(..., batch = NULL, use.size.factors = TRUE,
-  subset.row = NULL, assay.type = "counts", get.spikes = FALSE)
+rescaleBatches(..., batch = NULL, log.base = 2, pseudo.count = 1,
+  subset.row = NULL, assay.type = "logcounts", get.spikes = FALSE)
 }
 \arguments{
-\item{...}{Two or more count matrices where genes correspond to rows and cells correspond to columns.
+\item{...}{Two or more log-expression matrices where genes correspond to rows and cells correspond to columns.
 Each matrix should contain cells from the same batch; multiple matrices represent separate batches of cells.
 Each matrix should contain the same number of rows, corresponding to the same genes (in the same order).
 
@@ -18,7 +18,9 @@ Note the same restrictions described above for matrix inputs.}
 \item{batch}{A factor specifying the batch of origin for all cells when only a single object is supplied in \code{...}.
 This is ignored if multiple objects are present.}
 
-\item{use.size.factors}{A logical scalar specifying if size factors should be used when computing the batch-specific average with \code{\link{calculateAverage}}.}
+\item{log.base}{A numeric scalar specifying the base of the log-transformation.}
+
+\item{pseudo.count}{A numeric scalar specifying the pseudo-count used for the log-transformation.}
 
 \item{subset.row}{A vector specifying which features to use for correction.}
 
@@ -29,14 +31,15 @@ Only used for SingleCellExperiment inputs.}
 }
 \value{
 A \linkS4class{SummarizedExperiment} object containing the \code{corrected} assay.
-This contains scaled count values for each gene (row) in each cell (column) in each batch.
+This contains corrected log-expression values for each gene (row) in each cell (column) in each batch.
 A \code{batch} field is present in the column data, specifying the batch of origin for each cell.
 }
 \description{
 Scale counts so that the average count within each batch is the same for each gene.
 }
 \details{
-This function will downscale counts in each batch so that the average count is equal across batches.
+This function assumes that the log-expression values were computed by a log-transformation of normalized count data, plus a pseudo-count.
+It reverses the log-transformation and scales the underlying counts in each batch so that the average (normalized) count is equal across batches.
 The assumption here is that each batch contains the same population composition.
 Thus, any scaling difference between batches is technical and must be removed.
 
@@ -44,14 +47,16 @@ This function is equivalent to centering in log-expression space, the simplest a
 However, by scaling the raw counts, it avoids loss of sparsity that would otherwise result from centering.
 It also mitigates issues with artificial differences in variance due to log-transformation.
 
-For exploratory analyses, the corrected values can be treated as being equivalent to the raw counts.
-Users can use them to compute size factors and log-transformed expression values prior to downstream procedures like dimensionality reduction and clustering.
-However, the corrected values do not preserve the mean-variance relationship expected by count-based models, and should not be used in \pkg{edgeR} and \pkg{DESeq2}.
+The output values are always re-log-transformed with the same \code{log.base} and \code{pseudo.count}.
+These can be used directly in place of the input values for downstream operations.
 }
 \examples{
 means <- 2^rgamma(1000, 2, 1)
-B1 <- matrix(rpois(10000, lambda=means), ncol=50) # Batch 1 
-B2 <- matrix(rpois(10000, lambda=means*runif(1000, 0, 2)), ncol=50) # Batch 2
+A1 <- matrix(rpois(10000, lambda=means), ncol=50) # Batch 1 
+A2 <- matrix(rpois(10000, lambda=means*runif(1000, 0, 2)), ncol=50) # Batch 2
+
+B1 <- log2(A1 + 1)
+B2 <- log2(A2 + 1)
 out <- rescaleBatches(B1, B2) 
 
 }
