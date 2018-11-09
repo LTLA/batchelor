@@ -13,6 +13,10 @@ static const R_CallMethodDef all_call_entries[] = {
     REGISTER(cosine_norm, 2),
     REGISTER(smooth_gaussian_kernel, 4),
     REGISTER(adjust_shift_variance, 4),
+
+    // Unlogging calculations.
+    REGISTER(unlog_exprs_mean, 4),
+    REGISTER(unlog_exprs_scaled, 5),
     {NULL, NULL, 0}
 };
 
