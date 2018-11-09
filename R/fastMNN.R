@@ -9,7 +9,7 @@
 #' Each object should contain the same number of columns, corresponding to the same dimensions.
 #'
 #' Alternatively, one or more \linkS4class{SingleCellExperiment} objects can be supplied containing a log-expression matrix in the \code{assay.type} assay.
-#' Note the same restrictions described above for gene expression matrix inputs.
+#' Note the same restrictions described above for matrix inputs.
 #'
 #' Alternatively, the SingleCellExperiment objects can contain reduced dimension coordinates in the \code{reducedDims} slot if \code{use.dimred} is specified.
 #' Note the same restrictions described above for low-dimensional matrix inputs.
@@ -30,7 +30,7 @@
 #' Only relevant for gene expression inputs (i.e., \code{pc.input=FALSE} and \code{use.dimred=NULL}).
 #' @param pc.input Logical scalar indicating whether the values in \code{...} are already low-dimensional, e.g., the output of \code{\link{multiBatchPCA}}.
 #' Only used when \code{...} does \emph{not} contain SingleCellExperiment objects.
-#' @param assay.type A string or integer scalar specifying the assay containing the expression values.
+#' @param assay.type A string or integer scalar specifying the assay containing the log-expression values.
 #' Only used for SingleCellExperiment inputs with \code{use.dimred=NULL}.
 #' @param get.spikes A logical scalar indicating whether to retain rows corresponding to spike-in transcripts.
 #' Only used for SingleCellExperiment inputs with \code{use.dimred=NULL}.
@@ -79,7 +79,7 @@
 #' The correction vectors are then recalculated with the adjusted coordinates (but the same MNN pairs).
 #' }
 #' 
-#' The default setting of \code{cos.norm=TRUE} provides some protection against differences in scaling for arbitrary expression matrices.
+#' The default setting of \code{cos.norm=TRUE} provides some protection against differences in scaling for arbitrary log-expression matrices.
 #' However, if possible, we recommend using the output of \code{\link{multiBatchNorm}} as input to \code{fastMNN}.
 #' This will equalize coverage on the count level before the log-transformation, which is a more accurate rescaling than cosine normalization on the log-values.
 #' 

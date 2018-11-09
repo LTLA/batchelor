@@ -2,12 +2,12 @@
 #' 
 #' Correct for batch effects in single-cell expression data using the mutual nearest neighbors method.
 #' 
-#' @param ... Two or more expression matrices where genes correspond to rows and cells correspond to columns.
+#' @param ... Two or more log-expression matrices where genes correspond to rows and cells correspond to columns.
 #' Each matrix should contain cells from the same batch; multiple matrices represent separate batches of cells.
 #' Each matrix should contain the same number of rows, corresponding to the same genes (in the same order).
 #' 
 #' Alternatively, one or more \linkS4class{SingleCellExperiment} objects can be supplied containing a log-expression matrix in the \code{assay.type} assay.
-#' Note the same restrictions described above for gene expression matrix inputs.
+#' Note the same restrictions described above for matrix inputs.
 #' @param batch A factor specifying the batch of origin for all cells when only a single object is supplied in \code{...}.
 #' This is ignored if multiple objects are present.
 #' @param k An integer scalar specifying the number of nearest neighbors to consider when identifying mutual nearest neighbors.
@@ -19,7 +19,7 @@
 #' @param subset.row A vector specifying which features to use for correction. 
 #' @param correct.all A logical scalar specifying whether correction should be applied to all genes, even if only a subset is used for the MNN calculations.
 #' @param order An integer vector specifying the order in which batches are to be corrected.
-#' @param assay.type A string or integer scalar specifying the assay containing the expression values, if SingleCellExperiment objects are present in \code{...}.
+#' @param assay.type A string or integer scalar specifying the assay containing the log-expression values, if SingleCellExperiment objects are present in \code{...}.
 #' @param get.spikes A logical scalar indicating whether to retain rows corresponding to spike-in transcripts.
 #' Only used for SingleCellExperiment inputs.
 #' @param BSPARAM A \linkS4class{BiocSingularParam} object specifying the SVD algorithm to use.
@@ -28,7 +28,7 @@
 #' 
 #' @return
 #' A \linkS4class{SummarizedExperiment} object containing the \code{corrected} assay.
-#' This contains corrected expression values for each gene (row) in each cell (column) in each batch.
+#' This contains corrected (log-)expression values for each gene (row) in each cell (column) in each batch.
 #' A \code{batch} field is present in the column data, specifying the batch of origin for each cell.
 #'
 #' Cells (i.e., columns) are always ordered in the same manner as supplied in \code{...}, regardless of whether \code{order} is specified.
@@ -43,16 +43,16 @@
 #' 
 #' @details
 #' This function is designed for batch correction of single-cell RNA-seq data where the batches are partially confounded with biological conditions of interest.
-#' It does so by identifying pairs of mutual nearest neighbors (MNN) in the high-dimensional expression space.
+#' It does so by identifying pairs of mutual nearest neighbors (MNN) in the high-dimensional log-expression space.
 #' Each MNN pair represents cells in different batches that are of the same cell type/state, assuming that batch effects are mostly orthogonal to the biological manifold.
-#' Correction vectors are calculated from the pairs of MNNs and corrected expression values are returned for use in clustering and dimensionality reduction.
+#' Correction vectors are calculated from the pairs of MNNs and corrected (log-)expression values are returned for use in clustering and dimensionality reduction.
 #' 
 #' The threshold to define nearest neighbors is defined by \code{k}, which is passed to \code{\link{findMutualNN}} to identify MNN pairs.
 #' The size of \code{k} can be interpreted as the minimum size of a subpopulation in each batch.
 #' Values that are too small will not yield enough MNN pairs, while values that are too large will ignore substructure within each batch.
 #' The algorithm is generally robust to various choices of \code{k}.
 #' 
-#' For each MNN pair, a pairwise correction vector is computed based on the difference in the expression profiles.
+#' For each MNN pair, a pairwise correction vector is computed based on the difference in the log-expression profiles.
 #' The correction vector for each cell is computed by applying a Gaussian smoothing kernel with bandwidth \code{sigma} is the pairwise vectors.
 #' This stabilizes the vectors across many MNN pairs and extends the correction to those cells that do not have MNNs.
 #' The choice of \code{sigma} determines the extent of smoothing - a value of 0.1 is used by default, corresponding to 10\% of the radius of the space after cosine normalization.
@@ -119,6 +119,7 @@
 #' @export
 #' @importFrom BiocParallel SerialParam
 #' @importFrom S4Vectors metadata metadata<-
+#' @importFrom SummarizedExperiment assay
 mnnCorrect <- function(..., batch=NULL, k=20, sigma=0.1, cos.norm.in=TRUE, cos.norm.out=TRUE, svd.dim=0L, var.adj=TRUE, 
     subset.row=NULL, correct.all=FALSE, order=NULL, 
     assay.type="logcounts", get.spikes=FALSE, BSPARAM=NULL, BNPARAM=NULL, BPPARAM=SerialParam())
