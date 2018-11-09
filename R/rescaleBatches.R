@@ -47,7 +47,18 @@
 #' @importFrom SummarizedExperiment assay
 rescaleBatches <- function(..., batch=NULL, use.size.factors=TRUE, subset.row=NULL, assay.type="counts", get.spikes=FALSE) {
     batches <- list(...)
-    
+
+    # Subsetting by 'batch' (done first here for calcAverage to work on SCEs).
+    do.split <- length(batches)==1L
+    if (do.split) {
+        if (is.null(batch)) { 
+            stop("'batch' must be specified if '...' has only one object")
+        }
+
+        divided <- .divide_into_batches(batches[[1]], batch=batch, byrow=FALSE)
+        batches <- divided$batches
+    } 
+
     # Pulling out information from the SCE objects.        
     if (.check_if_SCEs(batches)) {
         .check_batch_consistency(batches, byrow=TRUE)
@@ -58,17 +69,6 @@ rescaleBatches <- function(..., batch=NULL, use.size.factors=TRUE, subset.row=NU
     } else {
         .check_batch_consistency(batches, byrow=TRUE)
         averages <- lapply(batches, calculateAverage, subset_row=subset.row)
-    }
-
-    # Subsetting by 'batch'.
-    do.split <- length(batches)==1L
-    if (do.split) {
-        if (is.null(batch)) { 
-            stop("'batch' must be specified if '...' has only one object")
-        }
-
-        divided <- .divide_into_batches(batches[[1]], batch=batch, byrow=FALSE)
-        batches <- divided$batches
     }
 
     output <- do.call(.rescale_batches, list(batches=batches, subset.row=subset.row, averages=averages))
@@ -89,6 +89,10 @@ rescaleBatches <- function(..., batch=NULL, use.size.factors=TRUE, subset.row=NU
 #' @importFrom S4Vectors Rle
 #' @importFrom BiocGenerics cbind
 .rescale_batches <- function(batches, subset.row, averages) {
+    if (length(batches) < 2L) { 
+        stop("at least two batches must be specified") 
+    }
+
     reference <- do.call(pmin, averages)
     for (b in seq_along(batches)) {
         rescale <- reference / averages[[b]] 
