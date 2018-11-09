@@ -7,7 +7,7 @@ Authors@R: c(person("Aaron", "Lun", role = c("aut", "cre"),
 Depends: R (>= 3.6), BiocParallel, SingleCellExperiment
 Imports: SummarizedExperiment, S4Vectors, BiocGenerics, 
         Rcpp (>= 0.12.14), stats, methods, utils, BiocNeighbors,
-        BiocSingular, DelayedArray, DelayedMatrixStats
+        BiocSingular, DelayedArray, DelayedMatrixStats, scater
 Suggests: testthat, BiocStyle, knitr, beachmat, Matrix
 biocViews: Sequencing, RNASeq, Software, GeneExpression, 
         Transcriptomics, SingleCell, BatchEffect
@@ -19,4 +19,4 @@ NeedsCompilation: yes
 VignetteBuilder: knitr
 SystemRequirements: C++11
 LinkingTo: Rcpp, beachmat, Rhdf5lib
-RoxygenNote: 6.1.0
+RoxygenNote: 6.1.1
