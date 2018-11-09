@@ -254,15 +254,17 @@ test_that("fastMNN works on SingleCellExperiment inputs", {
     isp <- rbinom(nrow(B1), 1, 0.1)==1L
     isSpike(sce1, "ERCC") <- isp
     isSpike(sce2, "ERCC") <- isp
-    ref <- fastMNN(sce1, sce2, d=5)
-    out <- fastMNN(B1[!isp,], B2[!isp,], d=5)
+    out <- fastMNN(sce1, sce2, d=5)
+    ref <- fastMNN(B1[!isp,], B2[!isp,], d=5)
     expect_equal(ref, out)
 
     # Spikes and subsetting interact correctly
     i <- rbinom(nrow(B1), 1, 0.5)==1L
-    ref <- fastMNN(sce1, sce2, d=2, subset.row=i)
-    out <- fastMNN(sce1[i,], sce2[i,], d=2)
+    out <- fastMNN(sce1, sce2, d=2, subset.row=i)
+    ref <- fastMNN(sce1[i,], sce2[i,], d=2)
     expect_equal(ref, out)
+    ref2 <- fastMNN(B1[!isp & i,], B2[!isp & i,], d=2)
+    expect_equal(ref2, out)
 
     # Handles reduced dimensional inputs correctly.
     blah <- multiBatchPCA(sce1, sce2, get.spikes=TRUE)
@@ -330,7 +332,7 @@ test_that("fastMNN fails on silly inputs", {
     expect_error(expect_warning(fastMNN(B1[,0], B2[,0]), "more requested"), "zero")
 
     # SCE vs matrix errors.    
-    expect_error(multiBatchPCA(SingleCellExperiment(list(logcounts=B1)), B2), "cannot mix")
+    expect_error(fastMNN(SingleCellExperiment(list(logcounts=B1)), B2), "cannot mix")
 
     # Throws errors upon row checks.
     expect_error(fastMNN(B1[1:10,], B2), "number of rows is not the same")

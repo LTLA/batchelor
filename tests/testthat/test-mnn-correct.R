@@ -254,6 +254,13 @@ test_that("mnnCorrect behaves with SingleCellExperiment inputs", {
     out <- mnnCorrect(sceA, sceB, sceC, assay.type=1)
     ref <- mnnCorrect(alpha[-isp,], bravo[-isp,], charlie[-isp,])
     expect_equal(ref, out)
+
+    # Spikes and subsetting interact correctly
+    i <- rbinom(nrow(alpha), 1, 0.5)==1L
+    out <- mnnCorrect(sceA, sceB, sceC, assay.type=1, subset.row=i)
+    keep <- setdiff(which(i), isp)
+    ref <- mnnCorrect(alpha[keep,], bravo[keep,], charlie[keep,], assay.type=1)
+    expect_equal(ref, out)
 })
 
 set.seed(100043)
