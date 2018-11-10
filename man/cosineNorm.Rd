@@ -25,6 +25,9 @@ Perform cosine-normalization on the column vectors of an expression matrix.
 While the default is to directly return the cosine-normalized matrix, it may occasionally be desirable to obtain the L2 norm, 
 e.g., to apply an equivalent normalization to other matrices.
 This can be achieved by setting \code{mode} accordingly.
+
+The function will return a \linkS4class{DelayedMatrix} if \code{x} is a \linkS4class{DelayedMatrix}.
+This aims to delay the calculation of cosine-normalized values for very large matrices.
 }
 \examples{
 A <- matrix(rnorm(1000), nrow=10)

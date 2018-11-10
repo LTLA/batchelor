@@ -11,7 +11,7 @@
 #' This can be achieved by setting \code{mode} accordingly.
 #'
 #' The function will return a \linkS4class{DelayedMatrix} if \code{x} is a \linkS4class{DelayedMatrix}.
-#' This aims to delay the creation of the matrix of cosine-normalized values.
+#' This aims to delay the calculation of cosine-normalized values for very large matrices.
 #'
 #' @return
 #' If \code{mode="matrix"}, a double-precision matrix of the same dimensions as \code{X} is returned, containing cosine-normalized values.
