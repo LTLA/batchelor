@@ -30,11 +30,11 @@ SEXP cosine_norm_internal (M mat, SEXP original, SEXP return_mat) {
             total+=val*val;
         }
         total=std::sqrt(total);
-        total=std::max(total, 0.00000001); // avoid division by zero.
 
         if (mat_return) { 
+            const double pos_total=std::max(total, 0.00000001); // avoid division by zero.
             for (auto& val : incoming) { 
-                val/=total;
+                val/=pos_total;
             }
             optr->set_col(c, incoming.begin());
         }

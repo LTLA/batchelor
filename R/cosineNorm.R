@@ -10,6 +10,9 @@
 #' e.g., to apply an equivalent normalization to other matrices.
 #' This can be achieved by setting \code{mode} accordingly.
 #'
+#' The function will return a \linkS4class{DelayedMatrix} if \code{x} is a \linkS4class{DelayedMatrix}.
+#' This aims to delay the creation of the matrix of cosine-normalized values.
+#'
 #' @return
 #' If \code{mode="matrix"}, a double-precision matrix of the same dimensions as \code{X} is returned, containing cosine-normalized values.
 #' 
@@ -29,6 +32,9 @@
 #' str(cosineNorm(A, mode="l2norm"))
 #' 
 #' @export
+#' @importClassesFrom DelayedArray DelayedMatrix
+#' @importMethodsFrom DelayedArray sweep
+#' @importFrom methods is
 cosineNorm <- function(x, mode=c("matrix", "all", "l2norm"))
 # Computes the cosine norm, with some protection from zero-length norms.
 #
@@ -36,7 +42,13 @@ cosineNorm <- function(x, mode=c("matrix", "all", "l2norm"))
 # 5 July 2018
 {
     mode <- match.arg(mode)
-    out <- .Call(cxx_cosine_norm, x, mode!="l2norm")
-    names(out) <- c("matrix", "l2norm")
+    if (is(x, "DelayedMatrix")) {
+        l2 <- .Call(cxx_cosine_norm, x, FALSE)[[2]]
+        out <- list(matrix=sweep(x, 2, l2, "/", check.margin=FALSE), l2norm=l2)
+    } else {
+        out <- .Call(cxx_cosine_norm, x, mode!="l2norm")
+        names(out) <- c("matrix", "l2norm")
+    }
+
     switch(mode, all=out, matrix=out$matrix, l2norm=out$l2norm)
 }
