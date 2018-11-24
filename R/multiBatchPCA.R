@@ -28,6 +28,9 @@
 #' These will be removed prior to PCA unless \code{get.spikes=TRUE}.
 #' If \code{subset.row} is specified and \code{get.spikes=FALSE}, only the non-spike-in specified features will be used. 
 #'
+#' Setting \code{rotate.all=TRUE} will report rotation vectors that have values for all genes even when only a subset of genes are used for the PCA.
+#' This is done by 
+#'
 #' @return
 #' A \linkS4class{List} of numeric matrices where each matrix corresponds to a batch and contains the first \code{d} PCs (columns) for all cells in the batch (rows).
 #' 
@@ -53,6 +56,8 @@
 #' @export
 #' @importFrom BiocParallel SerialParam
 #' @importFrom SummarizedExperiment assay
+#' @importFrom S4Vectors metadata
+#' @importFrom BiocGenerics colnames<- rownames<- colnames rownames
 multiBatchPCA <- function(..., d=50, subset.row=NULL, rotate.all=FALSE, assay.type="logcounts", get.spikes=FALSE, BSPARAM=NULL, BPPARAM=SerialParam()) 
 # Performs a multi-sample PCA (i.e., batches).
 # Each batch is weighted inversely by the number of cells when computing the gene-gene covariance matrix.
@@ -61,7 +66,7 @@ multiBatchPCA <- function(..., d=50, subset.row=NULL, rotate.all=FALSE, assay.ty
 # written by Aaron Lun
 # created 4 July 2018
 {
-    mat.list <- list(...)
+    originals <- mat.list <- list(...)
 
     if (.check_if_SCEs(mat.list)) {
 		.check_spike_consistency(mat.list)
@@ -74,7 +79,27 @@ multiBatchPCA <- function(..., d=50, subset.row=NULL, rotate.all=FALSE, assay.ty
         stop("at least one batch must be specified") 
     }
 
-    .multi_pca(mat.list, subset.row=subset.row, d=d, BSPARAM=BSPARAM, BPPARAM=BPPARAM) 
+    collected <- .multi_pca(mat.list, subset.row=subset.row, d=d, rotate.all=rotate.all, BSPARAM=BSPARAM, BPPARAM=BPPARAM) 
+    
+    # Adding dimension names.
+    for (i in seq_along(mat.list)) {
+        rownames(collected[[i]]) <- colnames(originals[[i]])
+    }
+
+    rotation <- metadata(collected)$rotation
+    if (rotate.all || is.null(subset.row)) {
+        rnames <- rownames(originals[[1]])
+    } else {
+        if (is.character(subset.row)) { 
+            rnames <- subset.row
+        } else {
+            rnames <- rownames(originals[[1]])[subset.row]
+        }
+    }
+    rownames(rotation) <- rnames
+    metadata(collected)$rotation <- rotation
+
+    return(collected)
 }
 
 #' @importFrom BiocSingular runSVD
