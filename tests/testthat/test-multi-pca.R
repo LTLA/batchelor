@@ -91,3 +91,20 @@ test_that("multi-sample PCA works with high-level options", {
     sce1x <- clearSpikes(sce1)
     expect_error(multiBatchPCA(sce1x, sce2), "spike-in sets")
 })
+
+set.seed(1200002)
+test_that("multi-sample PCA works with rotation vectors", {
+    test1 <- matrix(rnorm(1000), nrow=10)
+    test2 <- matrix(rnorm(2000), nrow=10)
+    N <- nrow(test1)
+
+    ref <- batchelor:::.multi_pca(list(test1, test2), d=5)
+    others <- c(7, 3, 1, 2)
+    expanded <- c(seq_len(N), others)
+    out <- batchelor:::.multi_pca(list(test1[expanded,], test2[expanded,]), d=5, subset.row=1:N, rotate.all=TRUE)
+
+    expect_equal(ref[[1]], out[[1]])
+    expect_equal(ref[[2]], out[[2]])
+    expect_equal(metadata(ref)$rotation, metadata(out)$rotation[1:N,])
+    expect_equal(metadata(ref)$rotation[others,], metadata(out)$rotation[N + seq_along(others),])
+})
