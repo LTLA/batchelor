@@ -4,7 +4,7 @@
 \alias{multiBatchPCA}
 \title{Multi-batch PCA}
 \usage{
-multiBatchPCA(..., d = 50, subset.row = NULL,
+multiBatchPCA(..., d = 50, subset.row = NULL, rotate.all = FALSE,
   assay.type = "logcounts", get.spikes = FALSE, BSPARAM = NULL,
   BPPARAM = SerialParam())
 }
@@ -16,6 +16,8 @@ Alternatively, two or more SingleCellExperiment objects containing these matrice
 \item{d}{An integer scalar specifying the number of dimensions to keep from the initial multi-sample PCA.}
 
 \item{subset.row}{A vector specifying which features to use for correction.}
+
+\item{rotate.all}{A logical scalar indicating whether the reported rotation vectors should include genes that are excluded by a non-\code{NULL} value of \code{subset.row}.}
 
 \item{assay.type}{A string or integer scalar specifying the assay containing the expression values, if SingleCellExperiment objects are present in \code{...}.}
 
@@ -48,7 +50,10 @@ Otherwise, batches with a large number of cells would dominate the PCA; the mean
 
 If \code{...} contains SingleCellExperiment objects, any spike-in transcripts should be the same across all batches.
 These will be removed prior to PCA unless \code{get.spikes=TRUE}.
-If \code{subset.row} is specified and \code{get.spikes=FALSE}, only the non-spike-in specified features will be used.
+If \code{subset.row} is specified and \code{get.spikes=FALSE}, only the non-spike-in specified features will be used. 
+
+Setting \code{rotate.all=TRUE} will report rotation vectors that span all genes, even when only a subset of genes are used for the PCA.
+This is done by projecting all non-used genes into the low-dimensional \dQuote{cell space} defined by the first \code{d} components.
 }
 \examples{
 d1 <- matrix(rnorm(5000), ncol=100)

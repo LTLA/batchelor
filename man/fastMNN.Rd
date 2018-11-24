@@ -6,9 +6,9 @@
 \usage{
 fastMNN(..., batch = NULL, k = 20, cos.norm = TRUE, ndist = 3,
   d = 50, auto.order = FALSE, compute.variances = FALSE,
-  subset.row = NULL, pc.input = FALSE, assay.type = "logcounts",
-  get.spikes = FALSE, use.dimred = NULL, BSPARAM = NULL,
-  BNPARAM = NULL, BPPARAM = SerialParam())
+  subset.row = NULL, rotate.all = FALSE, pc.input = FALSE,
+  assay.type = "logcounts", get.spikes = FALSE, use.dimred = NULL,
+  BSPARAM = NULL, BNPARAM = NULL, BPPARAM = SerialParam())
 }
 \arguments{
 \item{...}{One or more log-expression matrix where genes correspond to rows and cells correspond to columns, if \code{pc.input=FALSE}.
@@ -45,6 +45,8 @@ Alternatively, an integer vector containing a permutation of \code{1:N} where \c
 
 \item{subset.row}{A vector specifying which features to use for correction. 
 Only relevant for gene expression inputs (i.e., \code{pc.input=FALSE} and \code{use.dimred=NULL}).}
+
+\item{rotate.all}{Logical scalar to be passed to \code{\link{multiBatchPCA}} for gene expression inputs.}
 
 \item{pc.input}{Logical scalar indicating whether the values in \code{...} are already low-dimensional, e.g., the output of \code{\link{multiBatchPCA}}.
 Only used when \code{...} does \emph{not} contain SingleCellExperiment objects.}
