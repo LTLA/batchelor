@@ -28,6 +28,7 @@
 #' @param compute.variances Logical scalar indicating whether the percentage of variance lost due to non-orthogonality should be computed.
 #' @param subset.row A vector specifying which features to use for correction. 
 #' Only relevant for gene expression inputs (i.e., \code{pc.input=FALSE} and \code{use.dimred=NULL}).
+#' @param rotate.all Logical scalar to be passed to \code{\link{multiBatchPCA}} for gene expression inputs.
 #' @param pc.input Logical scalar indicating whether the values in \code{...} are already low-dimensional, e.g., the output of \code{\link{multiBatchPCA}}.
 #' Only used when \code{...} does \emph{not} contain SingleCellExperiment objects.
 #' @param assay.type A string or integer scalar specifying the assay containing the log-expression values.
@@ -171,7 +172,7 @@
 #' @importFrom SingleCellExperiment reducedDim
 #' @importFrom SummarizedExperiment assay
 fastMNN <- function(..., batch=NULL, k=20, cos.norm=TRUE, ndist=3, d=50, auto.order=FALSE, compute.variances=FALSE, 
-        subset.row=NULL, pc.input=FALSE, assay.type="logcounts", get.spikes=FALSE, use.dimred=NULL, 
+        subset.row=NULL, rotate.all=FALSE, pc.input=FALSE, assay.type="logcounts", get.spikes=FALSE, use.dimred=NULL, 
         BSPARAM=NULL, BNPARAM=NULL, BPPARAM=SerialParam()) 
 {
     batches <- list(...)
@@ -204,7 +205,7 @@ fastMNN <- function(..., batch=NULL, k=20, cos.norm=TRUE, ndist=3, d=50, auto.or
     }
     
     output <- do.call(.fast_mnn, c(batches, 
-        list(k=k, cos.norm=cos.norm, ndist=ndist, d=d, subset.row=subset.row, 
+        list(k=k, cos.norm=cos.norm, ndist=ndist, d=d, subset.row=subset.row, rotate.all=rotate.all, 
             auto.order=auto.order, pc.input=pc.input, compute.variances=compute.variances, 
             BSPARAM=BSPARAM, BNPARAM=BNPARAM, BPPARAM=BPPARAM)))
 
@@ -231,7 +232,7 @@ fastMNN <- function(..., batch=NULL, k=20, cos.norm=TRUE, ndist=3, d=50, auto.or
 
 #' @importFrom BiocParallel SerialParam
 #' @importFrom S4Vectors DataFrame metadata<- metadata
-.fast_mnn <- function(..., k=20, cos.norm=TRUE, ndist=3, d=50, subset.row=NULL, auto.order=FALSE, pc.input=FALSE,
+.fast_mnn <- function(..., k=20, cos.norm=TRUE, ndist=3, d=50, subset.row=NULL, rotate.all=FALSE, auto.order=FALSE, pc.input=FALSE,
     compute.variances=FALSE, BSPARAM=NULL, BNPARAM=NULL, BPPARAM=SerialParam()) 
 {
     batches <- list(...) 
@@ -248,7 +249,7 @@ fastMNN <- function(..., batch=NULL, k=20, cos.norm=TRUE, ndist=3, d=50, auto.or
         if (cos.norm) { 
             batches <- lapply(batches, FUN=cosineNorm, mode="matrix")
         }
-        pc.mat <- .multi_pca(batches, d=d, BSPARAM=BSPARAM, BPPARAM=BPPARAM)
+        pc.mat <- .multi_pca(batches, d=d, rotate.all=rotate.all, BSPARAM=BSPARAM, BPPARAM=BPPARAM)
     } else {
         pc.mat <- batches
     }
