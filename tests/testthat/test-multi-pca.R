@@ -60,10 +60,6 @@ test_that("multi-sample PCA works with high-level options", {
     out <- multiBatchPCA(test1[i,], test2[i,], d=3)
     expect_equal(ref, out)
 
-    # Respects names.
-    out <- multiBatchPCA(A=test1, V=test2, d=3)
-    expect_identical(names(out), c("A", "V"))
-
     # Behaves with SCE objects as input.
     sce1 <- SingleCellExperiment(list(logcounts=test1))
     sce2 <- SingleCellExperiment(list(logcounts=test2))
@@ -108,3 +104,43 @@ test_that("multi-sample PCA works with rotation vectors", {
     expect_equal(metadata(ref)$rotation, metadata(out)$rotation[1:N,])
     expect_equal(metadata(ref)$rotation[others,], metadata(out)$rotation[N + seq_along(others),])
 })
+
+set.seed(1200003)
+test_that("multi-sample PCA preserves dimension names in the output", {
+    test1 <- matrix(rnorm(1000), nrow=10)
+    test2 <- matrix(rnorm(2000), nrow=10)
+
+    # Respects batch names themselves.
+    out <- multiBatchPCA(A=test1, V=test2, d=3)
+    expect_identical(names(out), c("A", "V"))
+
+    # Preserves row names in rotation vectors.
+    rownames(test1) <- rownames(test2) <- LETTERS[sample(nrow(test1))]
+    out <- multiBatchPCA(test1, test2, d=3)
+    expect_identical(rownames(test1), rownames(metadata(out)$rotation))
+
+    out <- multiBatchPCA(test1, test2, d=3, subset.row=2:6)
+    expect_identical(rownames(test1)[2:6], rownames(metadata(out)$rotation))
+
+    out <- multiBatchPCA(test1, test2, d=3, subset.row=2:6, rotate.all=TRUE)
+    expect_identical(rownames(test1), rownames(metadata(out)$rotation))
+
+    # Preserves column names.
+    test1 <- matrix(rnorm(1000), nrow=10)
+    colnames(test1) <- sprintf("CELL_%i", seq_len(ncol(test1)))
+    test2 <- matrix(rnorm(2000), nrow=10)
+    colnames(test2) <- sprintf("CELL2_%i", seq_len(ncol(test2)))
+    
+    out <- multiBatchPCA(test1, test2, d=3)
+    expect_identical(rownames(out[[1]]), colnames(test1))
+    expect_identical(rownames(out[[2]]), colnames(test2))
+
+    # ... even when they're non-unique.
+    test2 <- matrix(rnorm(2000), nrow=10)
+    colnames(test2) <- sprintf("CELL_%i", seq_len(ncol(test2)))
+    out <- multiBatchPCA(test1, test2, d=3)
+    expect_identical(rownames(out[[1]]), colnames(test1))
+    expect_identical(rownames(out[[2]]), colnames(test2))
+})
+
+
