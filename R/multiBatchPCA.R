@@ -28,8 +28,8 @@
 #' These will be removed prior to PCA unless \code{get.spikes=TRUE}.
 #' If \code{subset.row} is specified and \code{get.spikes=FALSE}, only the non-spike-in specified features will be used. 
 #'
-#' Setting \code{rotate.all=TRUE} will report rotation vectors that have values for all genes even when only a subset of genes are used for the PCA.
-#' This is done by 
+#' Setting \code{rotate.all=TRUE} will report rotation vectors that span all genes, even when only a subset of genes are used for the PCA.
+#' This is done by projecting all non-used genes into the low-dimensional \dQuote{cell space} defined by the first \code{d} components.
 #'
 #' @return
 #' A \linkS4class{List} of numeric matrices where each matrix corresponds to a batch and contains the first \code{d} PCs (columns) for all cells in the batch (rows).
