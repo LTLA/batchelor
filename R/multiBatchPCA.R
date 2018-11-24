@@ -10,6 +10,7 @@
 #' @param assay.type A string or integer scalar specifying the assay containing the expression values, if SingleCellExperiment objects are present in \code{...}.
 #' @param get.spikes A logical scalar indicating whether to retain rows corresponding to spike-in transcripts.
 #' Only used for SingleCellExperiment inputs.
+#' @param rotate.all A logical scalar indicating whether the reported rotation vectors should include genes that are excluded by a non-\code{NULL} value of \code{subset.row}.
 #' @param BSPARAM A \linkS4class{BiocSingularParam} object specifying the algorithm to use for PCA, see \code{\link{runSVD}} for details.
 #' @param BPPARAM A \linkS4class{BiocParallelParam} object specifying whether the SVD should be parallelized.
 #'
@@ -52,7 +53,7 @@
 #' @export
 #' @importFrom BiocParallel SerialParam
 #' @importFrom SummarizedExperiment assay
-multiBatchPCA <- function(..., d=50, subset.row=NULL, assay.type="logcounts", get.spikes=FALSE, BSPARAM=NULL, BPPARAM=SerialParam()) 
+multiBatchPCA <- function(..., d=50, subset.row=NULL, rotate.all=FALSE, assay.type="logcounts", get.spikes=FALSE, BSPARAM=NULL, BPPARAM=SerialParam()) 
 # Performs a multi-sample PCA (i.e., batches).
 # Each batch is weighted inversely by the number of cells when computing the gene-gene covariance matrix.
 # This avoids domination by samples with a large number of cells.
@@ -77,16 +78,52 @@ multiBatchPCA <- function(..., d=50, subset.row=NULL, assay.type="logcounts", ge
 }
 
 #' @importFrom BiocSingular runSVD
-#' @importFrom DelayedArray DelayedArray t
-#' @importFrom BiocGenerics rowMeans cbind
+#' @importFrom DelayedArray t
+#' @importFrom BiocGenerics cbind nrow
 #' @importFrom BiocParallel SerialParam
 #' @importFrom methods as
 #' @importClassesFrom S4Vectors List
 #' @importFrom S4Vectors metadata<-
-.multi_pca <- function(mat.list, subset.row=NULL, d=50, BSPARAM=NULL, BPPARAM=SerialParam()) 
+.multi_pca <- function(mat.list, subset.row=NULL, d=50, rotate.all=FALSE, BSPARAM=NULL, BPPARAM=SerialParam()) 
 # Internal function that uses DelayedArray to do the centering and scaling,
 # to avoid actually realizing the matrices in memory.
 {
+    processed <- .process_matrices_for_pca(mat.list, subset.row)
+    centered <- processed$centered
+    scaled <- processed$scaled
+
+    # Performing an SVD on the untransposed expression matrix,
+    # and projecting the _unscaled_ matrices back into this space.
+    final <- do.call(cbind, scaled)
+    other.d <- ifelse(rotate.all, d, 0)
+    svd.out <- runSVD(final, k=other.d, nu=d, nv=other.d, BSPARAM=BSPARAM)
+
+    final <- centered
+    for (idx in seq_along(centered)) {
+        final[[idx]] <- as.matrix(t(centered[[idx]]) %*% svd.out$u) # replace with DA crossprod.
+    }
+    final <- as(final, "List")
+
+    # Recording the rotation vectors. Optionally inferring them for genes not in subset.row.
+    if (rotate.all) {
+        leftovers <- .process_matrices_for_pca(mat.list, -subset.row)$scaled
+        leftover.final <- do.call(cbind, leftovers)
+        leftover.u <- as.matrix(sweep(leftover.final %*% svd.out$v, 2, svd.out$d, FUN="/"))
+
+        rotation <- matrix(0, nrow(mat.list[[1]]), d)
+        rotation[subset.row,] <- svd.out$u
+        rotation[-subset.row,] <- leftover.u
+    } else {
+        rotation <- svd.out$u
+    }
+    metadata(final) <- list(rotation=rotation)
+
+    return(final)
+}
+
+#' @importFrom DelayedArray DelayedArray 
+#' @importFrom BiocGenerics rowMeans ncol
+.process_matrices_for_pca <- function(mat.list, subset.row) {
     all.centers <- 0
     for (idx in seq_along(mat.list)) {
         current <- DelayedArray(mat.list[[idx]])
@@ -98,7 +135,9 @@ multiBatchPCA <- function(..., d=50, subset.row=NULL, assay.type="logcounts", ge
         all.centers <- all.centers + centers
         mat.list[[idx]] <- current
     }
-    all.centers <- all.centers/length(mat.list) # grand average of centers (not using batch-specific centers, which makes compositional assumptions).
+
+    # grand average of centers (not using batch-specific centers, which makes compositional assumptions).
+    all.centers <- all.centers/length(mat.list) 
 
     centered <- scaled <- mat.list
     for (idx in seq_along(mat.list)) {
@@ -109,17 +148,5 @@ multiBatchPCA <- function(..., d=50, subset.row=NULL, assay.type="logcounts", ge
         scaled[[idx]] <- current
     }
 
-    # Performing an SVD on the untransposed expression matrix.
-    final <- do.call(cbind, scaled)
-    svd.out <- runSVD(final, k=0, nv=0, nu=d, BSPARAM=BSPARAM)
-
-    # Projecting the _unscaled_ matrices back into this space.
-    final <- centered
-    for (idx in seq_along(centered)) {
-        final[[idx]] <- as.matrix(t(centered[[idx]]) %*% svd.out$u) # replace with DA crossprod.
-    }
-
-    final <- as(final, "List")
-    metadata(final) <- list(rotation=svd.out$u)
-    return(final)
+    list(centered=centered, scaled=scaled)
 }
