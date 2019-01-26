@@ -120,9 +120,11 @@
 #' @importFrom BiocParallel SerialParam
 #' @importFrom S4Vectors metadata metadata<-
 #' @importFrom SummarizedExperiment assay
+#' @importFrom BiocSingular ExactParam
+#' @importFrom BiocNeighbors KmknnParam
 mnnCorrect <- function(..., batch=NULL, k=20, sigma=0.1, cos.norm.in=TRUE, cos.norm.out=TRUE, svd.dim=0L, var.adj=TRUE, 
     subset.row=NULL, correct.all=FALSE, order=NULL, 
-    assay.type="logcounts", get.spikes=FALSE, BSPARAM=NULL, BNPARAM=NULL, BPPARAM=SerialParam())
+    assay.type="logcounts", get.spikes=FALSE, BSPARAM=ExactParam(), BNPARAM=KmknnParam(), BPPARAM=SerialParam())
 {
     batches <- list(...)
     
@@ -170,8 +172,10 @@ mnnCorrect <- function(..., batch=NULL, k=20, sigma=0.1, cos.norm.in=TRUE, cos.n
 #' @importFrom BiocGenerics t rbind
 #' @importFrom DelayedArray DelayedArray
 #' @importFrom SummarizedExperiment SummarizedExperiment
+#' @importFrom BiocSingular ExactParam
+#' @importFrom BiocNeighbors KmknnParam
 .mnn_correct <- function(..., k=20, sigma=0.1, cos.norm.in=TRUE, cos.norm.out=TRUE, svd.dim=0L, var.adj=TRUE, 
-    subset.row=NULL, correct.all=FALSE, order=NULL, BSPARAM=NULL, BNPARAM=NULL, BPPARAM=SerialParam())
+    subset.row=NULL, correct.all=FALSE, order=NULL, BSPARAM=ExactParam(), BNPARAM=KmknnParam(), BPPARAM=SerialParam())
 {
     batches <- list(...) 
     nbatches <- length(batches) 
@@ -376,11 +380,11 @@ mnnCorrect <- function(..., batch=NULL, k=20, sigma=0.1, cos.norm.in=TRUE, cos.n
     return(scaling * correction)
 }
 
-#' @importFrom BiocSingular runSVD
+#' @importFrom BiocSingular runSVD ExactParam
 #' @importFrom BiocGenerics rowMeans
 #' @importFrom DelayedArray DelayedArray
 #' @importFrom BiocParallel SerialParam
-.get_bio_span <- function(exprs, ndim, subset.row=NULL, BSPARAM=NULL, BPPARAM=SerialParam())
+.get_bio_span <- function(exprs, ndim, subset.row=NULL, BSPARAM=ExactParam(), BPPARAM=SerialParam())
 # Computes the basis matrix of the biological subspace of 'exprs'.
 # The first 'ndim' dimensions are assumed to capture the biological subspace.
 {

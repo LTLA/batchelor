@@ -33,9 +33,9 @@
 #' head(out$second)
 #'
 #' @export
-#' @importFrom BiocNeighbors queryKNN
+#' @importFrom BiocNeighbors queryKNN KmknnParam
 #' @importFrom BiocParallel SerialParam
-findMutualNN <- function(data1, data2, k1, k2=k1, BNPARAM=NULL, BPPARAM=SerialParam()) 
+findMutualNN <- function(data1, data2, k1, k2=k1, BNPARAM=KmknnParam(), BPPARAM=SerialParam()) 
 {
     data1 <- as.matrix(data1)
     data2 <- as.matrix(data2)
