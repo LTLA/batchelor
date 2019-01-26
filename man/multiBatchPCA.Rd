@@ -5,7 +5,8 @@
 \title{Multi-batch PCA}
 \usage{
 multiBatchPCA(..., batch = NULL, d = 50, subset.row = NULL,
-  rotate.all = FALSE, assay.type = "logcounts", get.spikes = FALSE,
+  rotate.all = FALSE, get.variance = FALSE, preserve.single = FALSE,
+  assay.type = "logcounts", get.spikes = FALSE,
   BSPARAM = ExactParam(), BPPARAM = SerialParam())
 }
 \arguments{
@@ -26,6 +27,10 @@ Ignored if \code{...} contains more than one argument.}
 
 \item{rotate.all}{A logical scalar indicating whether the reported rotation vectors should include genes that are excluded by a non-\code{NULL} value of \code{subset.row}.}
 
+\item{get.variance}{A logical scalar indicating whether to return the (weighted) variance explained by each PC.}
+
+\item{preserve.single}{A logical scalar indicating whether to combine the results into a single matrix if only one object was supplied in \code{...}.}
+
 \item{assay.type}{A string or integer scalar specifying the assay containing the expression values, if SingleCellExperiment objects are present in \code{...}.}
 
 \item{get.spikes}{A logical scalar indicating whether to retain rows corresponding to spike-in transcripts.
@@ -36,11 +41,16 @@ Only used for SingleCellExperiment inputs.}
 \item{BPPARAM}{A \linkS4class{BiocParallelParam} object specifying whether the SVD should be parallelized.}
 }
 \value{
-A \linkS4class{List} of numeric matrices where each matrix corresponds to a batch and contains the first \code{d} PCs (columns) for all cells in the batch (rows).
+A \linkS4class{List} of numeric matrices is returned where each matrix corresponds to a batch and contains the first \code{d} PCs (columns) for all cells in the batch (rows).
 
-The metadata also contains a matrix of rotation vectors, which can be used to construct a low-rank approximation of the input matrices.
+If \code{preserve.single=TRUE} and \code{...} contains a single object, the List will only contain a single matrix.
+This contains the first \code{d} PCs (columns) for all cells in the same order as supplied in the single input object.
 
-Aaron Lun
+The metadata contains \code{rotation}, a matrix of rotation vectors, which can be used to construct a low-rank approximation of the input matrices.
+This has number of rows equal to the number of genes after any subsetting, except if \code{rotate.all=TRUE}, where the number of rows is equal to the genes before subsetting.
+
+If \code{get.variance=TRUE}, the metadata will also contain \code{var.explained}, the weighted variance explained by each PC;
+and \code{var.total}, the total variance after weighting.
 }
 \description{
 Perform a principal components analysis across multiple gene expression matrices to project all cells to a common low-dimensional space.
@@ -79,4 +89,7 @@ points(out[[2]][,1], out[[2]][,2], col="blue")
 }
 \seealso{
 \code{\link{runSVD}}
+}
+\author{
+Aaron Lun
 }
