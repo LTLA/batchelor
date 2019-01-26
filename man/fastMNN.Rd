@@ -8,7 +8,8 @@ fastMNN(..., batch = NULL, k = 20, cos.norm = TRUE, ndist = 3,
   d = 50, auto.order = FALSE, compute.variances = FALSE,
   subset.row = NULL, rotate.all = FALSE, pc.input = FALSE,
   assay.type = "logcounts", get.spikes = FALSE, use.dimred = NULL,
-  BSPARAM = NULL, BNPARAM = NULL, BPPARAM = SerialParam())
+  BSPARAM = ExactParam(), BNPARAM = KmknnParam(),
+  BPPARAM = SerialParam())
 }
 \arguments{
 \item{...}{One or more log-expression matrix where genes correspond to rows and cells correspond to columns, if \code{pc.input=FALSE}.
@@ -62,8 +63,7 @@ Only used for SingleCellExperiment inputs.}
 
 \item{BSPARAM}{A \linkS4class{BiocSingularParam} object specifying the algorithm to use for PCA.}
 
-\item{BNPARAM}{A \linkS4class{BiocNeighborParam} object specifying the nearest neighbor algorithm.
-Defaults to an exact algorithm if \code{NULL}, see \code{?\link{findKNN}} for more details.}
+\item{BNPARAM}{A \linkS4class{BiocNeighborParam} object specifying the nearest neighbor algorithm.}
 
 \item{BPPARAM}{A \linkS4class{BiocParallelParam} object specifying whether the PCA and nearest-neighbor searches should be parallelized.}
 }

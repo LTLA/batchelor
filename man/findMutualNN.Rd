@@ -4,7 +4,7 @@
 \alias{findMutualNN}
 \title{Find mutual nearest neighbors}
 \usage{
-findMutualNN(data1, data2, k1, k2 = k1, BNPARAM = NULL,
+findMutualNN(data1, data2, k1, k2 = k1, BNPARAM = KmknnParam(),
   BPPARAM = SerialParam())
 }
 \arguments{

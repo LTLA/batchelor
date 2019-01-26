@@ -8,7 +8,8 @@ mnnCorrect(..., batch = NULL, k = 20, sigma = 0.1,
   cos.norm.in = TRUE, cos.norm.out = TRUE, svd.dim = 0L,
   var.adj = TRUE, subset.row = NULL, correct.all = FALSE,
   order = NULL, assay.type = "logcounts", get.spikes = FALSE,
-  BSPARAM = NULL, BNPARAM = NULL, BPPARAM = SerialParam())
+  BSPARAM = ExactParam(), BNPARAM = KmknnParam(),
+  BPPARAM = SerialParam())
 }
 \arguments{
 \item{...}{Two or more log-expression matrices where genes correspond to rows and cells correspond to columns.

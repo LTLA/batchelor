@@ -4,14 +4,21 @@
 \alias{multiBatchPCA}
 \title{Multi-batch PCA}
 \usage{
-multiBatchPCA(..., d = 50, subset.row = NULL, rotate.all = FALSE,
-  assay.type = "logcounts", get.spikes = FALSE, BSPARAM = NULL,
-  BPPARAM = SerialParam())
+multiBatchPCA(..., batch = NULL, d = 50, subset.row = NULL,
+  rotate.all = FALSE, assay.type = "logcounts", get.spikes = FALSE,
+  BSPARAM = ExactParam(), BPPARAM = SerialParam())
 }
 \arguments{
 \item{...}{Two or more matrices containing expression values (usually log-normalized).
 Each matrix is assumed to represent one batch.
-Alternatively, two or more SingleCellExperiment objects containing these matrices.}
+
+Alternatively, two or more \linkS4class{SingleCellExperiment} objects containing these matrices.
+
+Alternatively, one matrix or SingleCellExperiment can be supplied containing cells from all batches. 
+This requires \code{batch} to also be specified.}
+
+\item{batch}{A factor specifying the batch identity of each cell in the input data.
+Ignored if \code{...} contains more than one argument.}
 
 \item{d}{An integer scalar specifying the number of dimensions to keep from the initial multi-sample PCA.}
 
@@ -40,13 +47,14 @@ Perform a principal components analysis across multiple gene expression matrices
 }
 \details{
 This function is roughly equivalent to \code{cbind}ing all matrices in \code{...} and performing PCA on the merged matrix.
-The main difference is that each sample contributes equally to the identification of the rotation vectors.
+The main difference is that each sample is forced to contribute equally to the identification of the rotation vectors.
 Specifically, the mean vector used for centering is defined as the grand mean of the mean vectors within each batch.
-Each batch's contribution to the gene-gene covariance matrix is also divided by the number of cells.
+Each batch's contribution to the gene-gene covariance matrix is also divided by the number of cells in that batch.
 
-In effect, we weight the cells in each batch to mimic the situation where all batches have the same number of cells.
+Our approach is to effectively weight the cells in each batch to mimic the situation where all batches have the same number of cells.
 This ensures that the low-dimensional space can distinguish subpopulations in smaller batches.
-Otherwise, batches with a large number of cells would dominate the PCA; the mean vector and covariance matrix would be almost fully defined by those batches.
+Otherwise, batches with a large number of cells would dominate the PCA, i.e., the definition of the mean vector and covariance matrix.
+This may reduce resolution of unique subpopulations in smaller batches that differ in a different dimension to the subspace of the larger batches.
 
 If \code{...} contains SingleCellExperiment objects, any spike-in transcripts should be the same across all batches.
 These will be removed prior to PCA unless \code{get.spikes=TRUE}.
