@@ -39,7 +39,6 @@
 #' Only used for SingleCellExperiment inputs.
 #' @param BSPARAM A \linkS4class{BiocSingularParam} object specifying the algorithm to use for PCA.
 #' @param BNPARAM A \linkS4class{BiocNeighborParam} object specifying the nearest neighbor algorithm.
-#' Defaults to an exact algorithm if \code{NULL}, see \code{?\link{findKNN}} for more details.
 #' @param BPPARAM A \linkS4class{BiocParallelParam} object specifying whether the PCA and nearest-neighbor searches should be parallelized.
 #' 
 #' @return
@@ -171,9 +170,11 @@
 #' @export
 #' @importFrom SingleCellExperiment reducedDim
 #' @importFrom SummarizedExperiment assay
+#' @importFrom BiocNeighbors KmknnParam
+#' @importFrom BiocSingular ExactParam
 fastMNN <- function(..., batch=NULL, k=20, cos.norm=TRUE, ndist=3, d=50, auto.order=FALSE, compute.variances=FALSE, 
         subset.row=NULL, rotate.all=FALSE, pc.input=FALSE, assay.type="logcounts", get.spikes=FALSE, use.dimred=NULL, 
-        BSPARAM=NULL, BNPARAM=NULL, BPPARAM=SerialParam()) 
+        BSPARAM=ExactParam(), BNPARAM=KmknnParam(), BPPARAM=SerialParam()) 
 {
     batches <- list(...)
     
@@ -232,8 +233,10 @@ fastMNN <- function(..., batch=NULL, k=20, cos.norm=TRUE, ndist=3, d=50, auto.or
 
 #' @importFrom BiocParallel SerialParam
 #' @importFrom S4Vectors DataFrame metadata<- metadata
+#' @importFrom BiocNeighbors KmknnParam
+#' @importFrom BiocSingular ExactParam
 .fast_mnn <- function(..., k=20, cos.norm=TRUE, ndist=3, d=50, subset.row=NULL, rotate.all=FALSE, auto.order=FALSE, pc.input=FALSE,
-    compute.variances=FALSE, BSPARAM=NULL, BNPARAM=NULL, BPPARAM=SerialParam()) 
+    compute.variances=FALSE, BSPARAM=ExactParam(), BNPARAM=KmknnParam(), BPPARAM=SerialParam()) 
 {
     batches <- list(...) 
     nbatches <- length(batches) 
@@ -378,9 +381,9 @@ fastMNN <- function(..., batch=NULL, k=20, cos.norm=TRUE, ndist=3, d=50, auto.or
     return(mat)
 }
 
-#' @importFrom BiocNeighbors queryKNN
+#' @importFrom BiocNeighbors queryKNN KmknnParam
 #' @importFrom BiocParallel SerialParam
-.tricube_weighted_correction <- function(curdata, correction, in.mnn, k=20, ndist=3, BNPARAM=NULL, BPPARAM=SerialParam())
+.tricube_weighted_correction <- function(curdata, correction, in.mnn, k=20, ndist=3, BNPARAM=KmknnParam(), BPPARAM=SerialParam())
 # Computing tricube-weighted correction vectors for individual cells,
 # using the nearest neighbouring cells _involved in MNN pairs_.
 {
@@ -415,12 +418,12 @@ fastMNN <- function(..., batch=NULL, k=20, cos.norm=TRUE, ndist=3, d=50, auto.or
 ############################################
 # Auto-ordering functions.
 
-#' @importFrom BiocNeighbors queryKNN buildNNIndex 
+#' @importFrom BiocNeighbors queryKNN buildIndex KmknnParam
 #' @importFrom BiocParallel SerialParam
-.define_first_merge <- function(pc.mat, k=20, BNPARAM=NULL, BPPARAM=SerialParam())
+.define_first_merge <- function(pc.mat, k=20, BNPARAM=KmknnParam(), BPPARAM=SerialParam())
 # Find the pair of matrices in 'options' which has the greatest number of MNNs.
 {
-    precomputed <- lapply(pc.mat, buildNNIndex, BNPARAM=BNPARAM)
+    precomputed <- lapply(pc.mat, buildIndex, BNPARAM=BNPARAM)
     max.pairs <- list()
 
     for (First in seq_along(precomputed)) {
@@ -444,13 +447,13 @@ fastMNN <- function(..., batch=NULL, k=20, cos.norm=TRUE, ndist=3, d=50, auto.or
     return(list(first=max.first, second=max.second, pairs=max.pairs, precomputed=precomputed))
 }
 
-#' @importFrom BiocNeighbors queryKNN buildNNIndex 
+#' @importFrom BiocNeighbors queryKNN buildIndex KmknnParam
 #' @importFrom BiocParallel SerialParam
-.define_next_merge <- function(refdata, pc.mat, processed, precomputed, k=20, BNPARAM=NULL, BPPARAM=SerialParam()) 
+.define_next_merge <- function(refdata, pc.mat, processed, precomputed, k=20, BNPARAM=KmknnParam(), BPPARAM=SerialParam()) 
 # Find the matrix in pc.mat[-processed] that has the greater number of MNNs to 'refdata'.
 {
     max.pairs <- list()
-    precomp.ref <- buildNNIndex(refdata, BNPARAM=BNPARAM)
+    precomp.ref <- buildIndex(refdata, BNPARAM=BNPARAM)
 
     for (other in seq_along(pc.mat)[-processed]) {
         W21 <- queryKNN(BNINDEX=precomputed[[other]], query=refdata, k=k, BPPARAM=BPPARAM, get.distance=FALSE)
