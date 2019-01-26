@@ -128,14 +128,18 @@ test_that("multi-sample PCA works with a single input", {
     combined <- cbind(test1, test2)
     batch <- rep(1:2, c(ncol(test1), ncol(test2)))
     out <- multiBatchPCA(combined, batch=batch, d=5)
-    expect_equal(rbind(ref[[1]], ref[[2]]), out[[1]])
-    expect_equal(metadata(out), metadata(ref))
+    expect_identical(ref, unname(out))
+    expect_identical(names(out), as.character(1:2))
+
+    out2 <- multiBatchPCA(combined, batch=batch, d=5, preserve.single=TRUE)
+    expect_identical(rbind(ref[[1]], ref[[2]]), out2[[1]])
+    expect_identical(metadata(ref), metadata(out2))
 
     # Handles reordering.
     o <- sample(length(batch))
-    alt <- multiBatchPCA(combined[,o,drop=FALSE], batch=batch[o], d=5)
-    expect_equal(out[[1]][o,], alt[[1]])
-    expect_equal(metadata(out), metadata(alt))
+    alt <- multiBatchPCA(combined[,o,drop=FALSE], batch=batch[o], d=5, preserve.single=TRUE)
+    expect_equal(out2[[1]][o,], alt[[1]])
+    expect_equal(metadata(out2), metadata(alt))
 
     # Expected errors.
     expect_error(multiBatchPCA(), "at least one batch")
@@ -178,6 +182,46 @@ test_that("multi-sample PCA preserves dimension names in the output", {
     out <- multiBatchPCA(test1, test2, d=3)
     expect_identical(rownames(out[[1]]), colnames(test1))
     expect_identical(rownames(out[[2]]), colnames(test2))
+
+    # Handles column names in single inputs.
+    combined <- cbind(test1, test2)
+    batch <- rep(1:2, c(ncol(test1), ncol(test2)))
+    out <- multiBatchPCA(combined, batch=batch, d=5, preserve.single=TRUE)
+    expect_identical(rownames(out[[1]]), c(colnames(test1), colnames(test2)))
+
+    o <- sample(length(batch))
+    out <- multiBatchPCA(combined[,o], batch=batch[o], d=5, preserve.single=TRUE)
+    expect_identical(rownames(out[[1]]), c(colnames(test1), colnames(test2))[o])
 })
 
+set.seed(1200004)
+test_that("multi-sample PCA correctly computes the variance explained", {
+    test1 <- matrix(rnorm(1000), nrow=20)
+    test2 <- matrix(rnorm(2000), nrow=20)
+    test3 <- matrix(rnorm(3000), nrow=20)
 
+    # Total variance calculations match up.
+    out <- multiBatchPCA(test1, test2, test3, get.variance=TRUE, d=20)
+    expect_equal(sum(metadata(out)$var.explained), metadata(out)$var.total)
+
+    manual.val <- 0
+    everything <- list(test1, test2, test3)
+    manual.center <- Reduce("+", lapply(everything, rowMeans))/length(everything)
+    for (test in everything) {
+        manual.val <- manual.val + sum(rowMeans((test - manual.center)^2))
+    }
+    expect_equal(manual.val/length(everything), metadata(out)$var.total)
+
+    # Number of dimensions to retain doesn't affect the result.
+    alt <- multiBatchPCA(test1, test2, test3, get.variance=TRUE, d=10)
+    expect_equal(metadata(out)$var.explained[1:10], metadata(alt)$var.explained)
+    expect_equal(metadata(out)$var.total, metadata(alt)$var.total)
+
+    # Individual PCs make sense as well.
+    for (i in seq_len(10)) {
+        stuff <- lapply(alt, function(x) x[,i])
+        expect_equal(sum(sapply(stuff, mean)), 0)
+        expect_equal(mean(sapply(stuff, function(x) mean(x^2))), metadata(out)$var.explained[i])
+    }
+
+})
