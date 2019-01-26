@@ -4,7 +4,13 @@
 #'
 #' @param ... Two or more matrices containing expression values (usually log-normalized).
 #' Each matrix is assumed to represent one batch.
-#' Alternatively, two or more SingleCellExperiment objects containing these matrices.
+#'
+#' Alternatively, two or more \linkS4class{SingleCellExperiment} objects containing these matrices.
+#'
+#' Alternatively, one matrix or SingleCellExperiment can be supplied containing cells from all batches. 
+#' This requires \code{batch} to also be specified.
+#' @param batch A factor specifying the batch identity of each cell in the input data.
+#' Ignored if \code{...} contains more than one argument.
 #' @param d An integer scalar specifying the number of dimensions to keep from the initial multi-sample PCA.
 #' @param subset.row A vector specifying which features to use for correction. 
 #' @param assay.type A string or integer scalar specifying the assay containing the expression values, if SingleCellExperiment objects are present in \code{...}.
@@ -16,13 +22,14 @@
 #'
 #' @details
 #' This function is roughly equivalent to \code{cbind}ing all matrices in \code{...} and performing PCA on the merged matrix.
-#' The main difference is that each sample contributes equally to the identification of the rotation vectors.
+#' The main difference is that each sample is forced to contribute equally to the identification of the rotation vectors.
 #' Specifically, the mean vector used for centering is defined as the grand mean of the mean vectors within each batch.
-#' Each batch's contribution to the gene-gene covariance matrix is also divided by the number of cells.
+#' Each batch's contribution to the gene-gene covariance matrix is also divided by the number of cells in that batch.
 #' 
-#' In effect, we weight the cells in each batch to mimic the situation where all batches have the same number of cells.
+#' Our approach is to effectively weight the cells in each batch to mimic the situation where all batches have the same number of cells.
 #' This ensures that the low-dimensional space can distinguish subpopulations in smaller batches.
-#' Otherwise, batches with a large number of cells would dominate the PCA; the mean vector and covariance matrix would be almost fully defined by those batches.
+#' Otherwise, batches with a large number of cells would dominate the PCA, i.e., the definition of the mean vector and covariance matrix.
+#' This may reduce resolution of unique subpopulations in smaller batches that differ in a different dimension to the subspace of the larger batches.
 #' 
 #' If \code{...} contains SingleCellExperiment objects, any spike-in transcripts should be the same across all batches.
 #' These will be removed prior to PCA unless \code{get.spikes=TRUE}.
@@ -56,9 +63,10 @@
 #' @export
 #' @importFrom BiocParallel SerialParam
 #' @importFrom SummarizedExperiment assay
-#' @importFrom S4Vectors metadata
+#' @importFrom S4Vectors metadata List metadata<-
 #' @importFrom BiocGenerics colnames<- rownames<- colnames rownames
-multiBatchPCA <- function(..., d=50, subset.row=NULL, rotate.all=FALSE, assay.type="logcounts", get.spikes=FALSE, BSPARAM=NULL, BPPARAM=SerialParam()) 
+#' @importFrom BiocSingular ExactParam
+multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, rotate.all=FALSE, assay.type="logcounts", get.spikes=FALSE, BSPARAM=ExactParam(), BPPARAM=SerialParam()) 
 # Performs a multi-sample PCA (i.e., batches).
 # Each batch is weighted inversely by the number of cells when computing the gene-gene covariance matrix.
 # This avoids domination by samples with a large number of cells.
@@ -67,6 +75,10 @@ multiBatchPCA <- function(..., d=50, subset.row=NULL, rotate.all=FALSE, assay.ty
 # created 4 July 2018
 {
     originals <- mat.list <- list(...)
+    if (length(mat.list)==0L) {
+        stop("at least one batch must be specified") 
+    }
+    .check_batch_consistency(mat.list, byrow=TRUE)
 
     if (.check_if_SCEs(mat.list)) {
 		.check_spike_consistency(mat.list)
@@ -74,18 +86,36 @@ multiBatchPCA <- function(..., d=50, subset.row=NULL, rotate.all=FALSE, assay.ty
         mat.list <- lapply(mat.list, assay, i=assay.type, withDimnames=FALSE)
     }
 
-    .check_batch_consistency(mat.list)
-    if (length(mat.list)==0L) {
-        stop("at least one batch must be specified") 
+    # Subsetting by 'batch'.
+    do.split <- length(mat.list)==1L
+    if (do.split) {
+        if (is.null(batch)) { 
+            stop("'batch' must be specified if '...' has only one object")
+        }
+        divided <- .divide_into_batches(mat.list[[1]], batch=batch, byrow=FALSE)
+        mat.list <- divided$batches
     }
 
     collected <- .multi_pca(mat.list, subset.row=subset.row, d=d, rotate.all=rotate.all, BSPARAM=BSPARAM, BPPARAM=BPPARAM) 
-    
-    # Adding dimension names.
-    for (i in seq_along(mat.list)) {
-        rownames(collected[[i]]) <- colnames(originals[[i]])
+
+    if (do.split) {
+        # Reordering the output for correctness.
+        combined <- do.call(rbind, as.list(collected))
+        d.reo <- divided$reorder
+        combined <- combined[d.reo,,drop=FALSE]
+        rownames(combined) <- colnames(originals[[1]])
+
+        tmp <- List(combined)
+        metadata(tmp) <- metadata(collected)
+        collected <- tmp
+    } else {
+        # Adding row names.
+        for (i in seq_along(mat.list)) {
+            rownames(collected[[i]]) <- colnames(originals[[i]])
+        }
     }
 
+    # Adding dimension names to the rotation matrix.        
     rotation <- metadata(collected)$rotation
     if (rotate.all || is.null(subset.row)) {
         rnames <- rownames(originals[[1]])
@@ -102,14 +132,14 @@ multiBatchPCA <- function(..., d=50, subset.row=NULL, rotate.all=FALSE, assay.ty
     return(collected)
 }
 
-#' @importFrom BiocSingular runSVD
+#' @importFrom BiocSingular runSVD ExactParam
 #' @importFrom DelayedArray t
 #' @importFrom BiocGenerics cbind nrow
 #' @importFrom BiocParallel SerialParam
 #' @importFrom methods as
 #' @importClassesFrom S4Vectors List
-#' @importFrom S4Vectors metadata<-
-.multi_pca <- function(mat.list, subset.row=NULL, d=50, rotate.all=FALSE, BSPARAM=NULL, BPPARAM=SerialParam()) 
+#' @importFrom S4Vectors metadata<- normalizeSingleBracketSubscript
+.multi_pca <- function(mat.list, subset.row=NULL, d=50, rotate.all=FALSE, BSPARAM=ExactParam(), BPPARAM=SerialParam()) 
 # Internal function that uses DelayedArray to do the centering and scaling,
 # to avoid actually realizing the matrices in memory.
 {
@@ -130,7 +160,8 @@ multiBatchPCA <- function(..., d=50, subset.row=NULL, rotate.all=FALSE, assay.ty
     final <- as(final, "List")
 
     # Recording the rotation vectors. Optionally inferring them for genes not in subset.row.
-    if (rotate.all) {
+    if (rotate.all && !is.null(subset.row)) {
+        subset.row <- normalizeSingleBracketSubscript(subset.row, mat.list[[1]])
         leftovers <- .process_matrices_for_pca(mat.list, -subset.row)$scaled
         leftover.final <- do.call(cbind, leftovers)
         leftover.u <- as.matrix(sweep(leftover.final %*% svd.out$v, 2, svd.out$d, FUN="/"))
