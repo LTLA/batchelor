@@ -223,5 +223,31 @@ test_that("multi-sample PCA correctly computes the variance explained", {
         expect_equal(sum(sapply(stuff, mean)), 0)
         expect_equal(mean(sapply(stuff, function(x) mean(x^2))), metadata(out)$var.explained[i])
     }
+})
 
+set.seed(1200005)
+test_that("multi-sample PCA works with deferred operations", {
+    test1 <- matrix(rnorm(1000), nrow=20)
+    test2 <- matrix(rnorm(2000), nrow=20)
+    test3 <- matrix(rnorm(3000), nrow=20)
+
+    # Testing the output of the matrix processor.        
+    everything <- list(test1, test2, test3)
+    ref <- batchelor:::.process_delayed_matrices_for_pca(everything, NULL)
+    out <- batchelor:::.process_deferred_matrices_for_pca(everything, NULL)
+    expect_equal(as.matrix(ref$scaled), BiocSingular::as.matrix(out$scaled))
+    expect_equal(ref$centered, out$centered)
+
+    # Comparing the output.
+    ref <- multiBatchPCA(test1, test2, test3, d=20)
+    out <- multiBatchPCA(test1, test2, test3, d=20, BSPARAM=BiocSingular::ExactParam(deferred=TRUE))
+    expect_equal(ref, out)
+
+    ref <- multiBatchPCA(test1, test2, test3, d=10, get.variance=TRUE)
+    out <- multiBatchPCA(test1, test2, test3, d=10, get.variance=TRUE, BSPARAM=BiocSingular::ExactParam(deferred=TRUE))
+    expect_equal(metadata(ref), metadata(out))
+
+    ref <- multiBatchPCA(test1, test2, test3, d=10, subset.row=5:15, rotate.all=TRUE)
+    out <- multiBatchPCA(test1, test2, test3, d=10, subset.row=5:15, rotate.all=TRUE, BSPARAM=BiocSingular::ExactParam(deferred=TRUE))
+    expect_equal(metadata(ref), metadata(out))
 })

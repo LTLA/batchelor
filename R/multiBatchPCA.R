@@ -40,6 +40,9 @@
 #' Setting \code{rotate.all=TRUE} will report rotation vectors that span all genes, even when only a subset of genes are used for the PCA.
 #' This is done by projecting all non-used genes into the low-dimensional \dQuote{cell space} defined by the first \code{d} components.
 #'
+#' If \code{BSPARAM} is defined with \code{deferred=TRUE}, the per-gene centering and per-cell scaling will be manually deferred during matrix multiplication.
+#' This can greatly improve speeds when the input matrices are sparse, as deferred operations avoids loss of sparsity (at the cost of numerical precision).
+#'
 #' @return
 #' A \linkS4class{List} of numeric matrices is returned where each matrix corresponds to a batch and contains the first \code{d} PCs (columns) for all cells in the batch (rows).
 #'
@@ -149,8 +152,8 @@ multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, rotate.all=FAL
     return(collected)
 }
 
-#' @importFrom BiocSingular runSVD ExactParam
-#' @importFrom DelayedArray t
+#' @importFrom BiocSingular runSVD ExactParam bsdeferred
+#' @importFrom DelayedArray DelayedArray t
 #' @importFrom BiocGenerics cbind nrow
 #' @importFrom BiocParallel SerialParam
 #' @importFrom methods as
@@ -160,14 +163,17 @@ multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, rotate.all=FAL
 # Internal function that uses DelayedArray to do the centering and scaling,
 # to avoid actually realizing the matrices in memory.
 {
-    processed <- .process_matrices_for_pca(mat.list, subset.row)
+    if (bsdeferred(BSPARAM)) {
+        processed <- .process_deferred_matrices_for_pca(mat.list, subset.row)
+    } else {
+        processed <- .process_delayed_matrices_for_pca(mat.list, subset.row)
+    }
     centered <- processed$centered
     scaled <- processed$scaled
 
     # Performing an SVD on the untransposed expression matrix,
     # and projecting the _unscaled_ matrices back into this space.
-    final <- do.call(cbind, scaled)
-    svd.out <- runSVD(final, 
+    svd.out <- runSVD(scaled, 
         k=if (rotate.all || get.variance) d else 0,
         nu=d, 
         nv=if (rotate.all) d else 0, 
@@ -182,9 +188,13 @@ multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, rotate.all=FAL
     # Recording the rotation vectors. Optionally inferring them for genes not in subset.row.
     if (rotate.all && !is.null(subset.row)) {
         subset.row <- normalizeSingleBracketSubscript(subset.row, mat.list[[1]])
-        leftovers <- .process_matrices_for_pca(mat.list, -subset.row)$scaled
-        leftover.final <- do.call(cbind, leftovers)
-        leftover.u <- as.matrix(sweep(leftover.final %*% svd.out$v, 2, svd.out$d, FUN="/"))
+
+        if (bsdeferred(BSPARAM)) {
+            leftovers <- .process_deferred_matrices_for_pca(mat.list, -subset.row)$scaled
+        } else {
+            leftovers <- .process_delayed_matrices_for_pca(mat.list, -subset.row)$scaled
+        }
+        leftover.u <- as.matrix(sweep(leftovers %*% svd.out$v, 2, svd.out$d, FUN="/"))
 
         rotation <- matrix(0, nrow(mat.list[[1]]), d)
         rotation[subset.row,] <- svd.out$u
@@ -195,9 +205,11 @@ multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, rotate.all=FAL
     extra.info <- list(rotation=rotation)
 
     # Computing the amount of variation explained.
+    # Note the second DelayedArray, as DeferredMatrix doesn't support arbitrary math.
     if (get.variance) {
-        extra.info$var.explained <- svd.out$d^2 / length(scaled)
-        extra.info$var.total <- sum(final^2) / length(scaled)
+        nbatches <- length(mat.list)
+        extra.info$var.explained <- svd.out$d^2 / nbatches
+        extra.info$var.total <- sum(DelayedArray(scaled)^2) / nbatches
     }
         
     metadata(output) <- extra.info
@@ -206,7 +218,7 @@ multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, rotate.all=FAL
 
 #' @importFrom DelayedArray DelayedArray 
 #' @importFrom BiocGenerics rowMeans ncol
-.process_matrices_for_pca <- function(mat.list, subset.row) {
+.process_delayed_matrices_for_pca <- function(mat.list, subset.row) {
     all.centers <- 0
     for (idx in seq_along(mat.list)) {
         current <- DelayedArray(mat.list[[idx]])
@@ -231,5 +243,42 @@ multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, rotate.all=FAL
         scaled[[idx]] <- current
     }
 
-    list(centered=centered, scaled=scaled)
+    list(centered=centered, scaled=do.call(cbind, scaled))
+}
+
+#' @importFrom DelayedArray DelayedArray
+#' @importFrom BiocSingular DeferredMatrix
+#' @importFrom BiocGenerics t
+.process_deferred_matrices_for_pca <- function(mat.list, subset.row) {
+    all.centers <- 0
+    all.scale <- vector("list", length(mat.list))
+
+    for (idx in seq_along(mat.list)) {
+        current <- mat.list[[idx]]
+        if (!is.null(subset.row)) {
+            current <- current[subset.row,,drop=FALSE]
+        }
+
+        centers <- Matrix::rowMeans(current)
+        all.centers <- all.centers + centers
+        mat.list[[idx]] <- current
+
+        all.scale[[idx]] <- rep(sqrt(ncol(current)), ncol(current))
+    }
+
+    # grand average of centers (not using batch-specific centers, which makes compositional assumptions).
+    all.centers <- all.centers/length(mat.list) 
+
+    centered <- mat.list
+    for (idx in seq_along(mat.list)) {
+        current <- DelayedArray(mat.list[[idx]])
+        current <- current - all.centers # centering each batch by the grand average.
+        centered[[idx]] <- current
+    }
+
+    # Deferring the centering and scaling operations.
+    m1 <- DeferredMatrix(Matrix::t(do.call(cbind, mat.list)), center=all.centers)
+    m2 <- DeferredMatrix(t(m1), scale=unlist(all.scale))
+   
+    list(centered=centered, scaled=m2)
 }
