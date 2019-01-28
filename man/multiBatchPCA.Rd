@@ -72,6 +72,9 @@ If \code{subset.row} is specified and \code{get.spikes=FALSE}, only the non-spik
 
 Setting \code{rotate.all=TRUE} will report rotation vectors that span all genes, even when only a subset of genes are used for the PCA.
 This is done by projecting all non-used genes into the low-dimensional \dQuote{cell space} defined by the first \code{d} components.
+
+If \code{BSPARAM} is defined with \code{deferred=TRUE}, the per-gene centering and per-cell scaling will be manually deferred during matrix multiplication.
+This can greatly improve speeds when the input matrices are sparse, as deferred operations avoids loss of sparsity (at the cost of numerical precision).
 }
 \examples{
 d1 <- matrix(rnorm(5000), ncol=100)
