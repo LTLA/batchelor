@@ -141,6 +141,12 @@ test_that("multi-sample PCA works with a single input", {
     expect_equal(out2[[1]][o,], alt[[1]])
     expect_equal(metadata(out2), metadata(alt))
 
+    # Handles subsetting.
+    i <- 1:5
+    ref <- multiBatchPCA(combined[i,], batch=batch, d=5)
+    out <- multiBatchPCA(combined, batch=batch, subset.row=i, d=5)
+    expect_equal(ref, out)
+
     # Expected errors.
     expect_error(multiBatchPCA(), "at least one batch")
     expect_error(multiBatchPCA(test1), "'batch' must be specified")
@@ -182,16 +188,29 @@ test_that("multi-sample PCA preserves dimension names in the output", {
     out <- multiBatchPCA(test1, test2, d=3)
     expect_identical(rownames(out[[1]]), colnames(test1))
     expect_identical(rownames(out[[2]]), colnames(test2))
+})
 
-    # Handles column names in single inputs.
+set.seed(12000031)
+test_that("multi-sample PCA preserves dimension names for single inputs", {
+    test1 <- matrix(rnorm(1000), nrow=10)
+    test2 <- matrix(rnorm(2000), nrow=10)
+
     combined <- cbind(test1, test2)
     batch <- rep(1:2, c(ncol(test1), ncol(test2)))
+    out <- multiBatchPCA(combined, batch=batch, d=5)
+    expect_identical(rownames(out[[1]]), colnames(test1))
+    expect_identical(rownames(out[[2]]), colnames(test2))
+
     out <- multiBatchPCA(combined, batch=batch, d=5, preserve.single=TRUE)
     expect_identical(rownames(out[[1]]), c(colnames(test1), colnames(test2)))
 
+    # What happens with reordering.
     o <- sample(length(batch))
     out <- multiBatchPCA(combined[,o], batch=batch[o], d=5, preserve.single=TRUE)
     expect_identical(rownames(out[[1]]), c(colnames(test1), colnames(test2))[o])
+
+    out <- multiBatchPCA(combined[,o], batch=batch[o], d=5)
+    expect_identical(c(rownames(out[[1]]), rownames(out[[2]])), c(colnames(test1), colnames(test2))[o])
 })
 
 set.seed(1200004)
@@ -233,8 +252,8 @@ test_that("multi-sample PCA works with deferred operations", {
 
     # Testing the output of the matrix processor.        
     everything <- list(test1, test2, test3)
-    ref <- batchelor:::.process_delayed_matrices_for_pca(everything, NULL)
-    out <- batchelor:::.process_deferred_matrices_for_pca(everything, NULL)
+    ref <- batchelor:::.process_listed_matrices_for_pca(everything, NULL, deferred=FALSE)
+    out <- batchelor:::.process_listed_matrices_for_pca(everything, NULL, deferred=TRUE)
     expect_equal(as.matrix(ref$scaled), BiocSingular::as.matrix(out$scaled))
     expect_equal(ref$centered, out$centered)
 
@@ -250,4 +269,16 @@ test_that("multi-sample PCA works with deferred operations", {
     ref <- multiBatchPCA(test1, test2, test3, d=10, subset.row=5:15, rotate.all=TRUE)
     out <- multiBatchPCA(test1, test2, test3, d=10, subset.row=5:15, rotate.all=TRUE, BSPARAM=BiocSingular::ExactParam(deferred=TRUE))
     expect_equal(metadata(ref), metadata(out))
+
+    # Also works with single inputs.
+    everything <- cbind(test1, test2, test3)
+    b <- rep(LETTERS[1:3], c(ncol(test1), ncol(test2), ncol(test3)))
+    ref <- batchelor:::.process_single_matrix_for_pca(everything, b, NULL, deferred=FALSE)
+    out <- batchelor:::.process_single_matrix_for_pca(everything, b, NULL, deferred=TRUE)
+    expect_equal(as.matrix(ref$scaled), BiocSingular::as.matrix(out$scaled))
+    expect_equal(as.matrix(ref$centered), as.matrix(out$centered))
+
+    ref <- multiBatchPCA(everything, batch=b, d=20)
+    out <- multiBatchPCA(everything, batch=b, d=20, BSPARAM=BiocSingular::ExactParam(deferred=TRUE))
+    expect_equal(ref, out)
 })
