@@ -291,7 +291,6 @@ mnnCorrect <- function(..., batch=NULL, k=20, sigma=0.1, cos.norm.in=TRUE, cos.n
 ####################################
 # Input/output functions.
 
-#' @importFrom S4Vectors normalizeSingleBracketSubscript
 .prepare_input_data <- function(batches, cos.norm.in, cos.norm.out, subset.row, correct.all) {
     nbatches <- length(batches)
 
@@ -312,7 +311,7 @@ mnnCorrect <- function(..., batch=NULL, k=20, sigma=0.1, cos.norm.in=TRUE, cos.n
     in.batches <- out.batches <- batches
     same.set <- TRUE
     if (!is.null(subset.row)) { 
-        subset.row <- normalizeSingleBracketSubscript(subset.row, batches[[1]])
+        subset.row <- .row_subset_to_index(batches[[1]], subset.row)
         if (identical(subset.row, seq_len(ref.nrow))) { 
             subset.row <- NULL
         } else {

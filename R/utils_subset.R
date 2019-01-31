@@ -1,3 +1,12 @@
+#' @importFrom S4Vectors normalizeSingleBracketSubscript
+.row_subset_to_index <- function(x, index) {
+    if (is.null(index)) {
+        seq_len(nrow(x))
+    } else {
+        normalizeSingleBracketSubscript(index, x)
+    }
+}
+
 #' @importFrom SingleCellExperiment isSpike
 .spike_subset <- function(x, get.spikes) 
 # Returns a logical vector specifying which rows we should retain,

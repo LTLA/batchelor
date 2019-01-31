@@ -248,14 +248,13 @@ multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, rotate.all=FAL
     )
 }
 
-#' @importFrom S4Vectors normalizeSingleBracketSubscript
 .get_rotation_vectors <- function(mat, subset.row, svd.out, process.FUN, process.args, rotate.all=FALSE)
 # inferring the for genes not in subset.row, if rotate.all=TRUE.
 # This involves projecting the unused genes into the space defined by the PCs.
 {
     if (rotate.all && !is.null(subset.row)) {
-        subset.row <- normalizeSingleBracketSubscript(subset.row, mat)
-    
+        subset.row <- .row_subset_to_index(mat, subset.row)
+
         leftovers <- do.call(process.FUN, c(process.args, list(subset.row=-subset.row)))$scaled
         leftover.u <- as.matrix(sweep(leftovers %*% svd.out$v, 2, svd.out$d, FUN="/"))
     

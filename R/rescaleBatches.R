@@ -87,7 +87,6 @@ rescaleBatches <- function(..., batch=NULL, log.base=2, pseudo.count=1, subset.r
 # Internal main function, to separate the input handling from the actual calculations.
 
 #' @importFrom SummarizedExperiment SummarizedExperiment
-#' @importFrom S4Vectors Rle normalizeSingleBracketSubscript
 #' @importFrom BiocGenerics cbind rowMeans
 .rescale_batches <- function(..., log.base=2, pseudo.count=1, subset.row=NULL) {
     batches <- list(...)
@@ -97,15 +96,10 @@ rescaleBatches <- function(..., batch=NULL, log.base=2, pseudo.count=1, subset.r
     }
 
     # Computing the unlogged means for each matrix.
-    if (is.null(subset.row)) {
-        subset.row <- seq_len(nrow(batches[[1]])) - 1L
-    } else {
-        subset.row <- normalizeSingleBracketSubscript(subset.row, batches[[1]]) - 1L
-    }
-
+    subset.row.m1 <- .row_subset_to_index(batches[[1]], subset.row) - 1L
     averages <- vector("list", nbatches)
     for (b in seq_along(batches)) {
-        averages[[b]] <- .Call(cxx_unlog_exprs_mean, batches[[b]], log.base, pseudo.count, subset.row)
+        averages[[b]] <- .Call(cxx_unlog_exprs_mean, batches[[b]], log.base, pseudo.count, subset.row.m1)
     }
 
     # Defining the reference.
@@ -113,7 +107,7 @@ rescaleBatches <- function(..., batch=NULL, log.base=2, pseudo.count=1, subset.r
     for (b in seq_along(batches)) {
         rescale <- reference / averages[[b]] 
         rescale[!is.finite(rescale)] <- 0
-        batches[[b]] <- .Call(cxx_unlog_exprs_scaled, batches[[b]], log.base, pseudo.count, subset.row, rescale)
+        batches[[b]] <- .Call(cxx_unlog_exprs_scaled, batches[[b]], log.base, pseudo.count, subset.row.m1, rescale)
     }
 
     ncells.per.batch <- vapply(batches, ncol, FUN.VALUE=0L)
