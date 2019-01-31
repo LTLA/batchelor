@@ -6,11 +6,12 @@ Authors@R: c(person("Aaron", "Lun", role = c("aut", "cre"),
         email = "infinite.monkeys.with.keyboards@gmail.com")) 
 Depends: R (>= 3.6), BiocParallel, SingleCellExperiment
 Imports: SummarizedExperiment, S4Vectors, BiocGenerics, 
-        Rcpp (>= 0.12.14), stats, methods, utils, BiocNeighbors,
-        BiocSingular, DelayedArray, DelayedMatrixStats 
-Suggests: testthat, BiocStyle, knitr, beachmat, Matrix
+        Rcpp (>= 0.12.14), stats, methods, BiocNeighbors,
+        BiocSingular, Matrix, DelayedArray, DelayedMatrixStats, 
+        scater 
+Suggests: testthat, BiocStyle, knitr, beachmat 
 biocViews: Sequencing, RNASeq, Software, GeneExpression, 
-        Transcriptomics, SingleCell, BatchEffect
+        Transcriptomics, SingleCell, BatchEffect, Normalization
 Description: Implements a variety of methods for batch correction of 
         single-cell (RNA sequencing) data. This includes correction
         with a variety of mutual nearest neighbors techniques.
