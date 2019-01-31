@@ -82,7 +82,8 @@ multiBatchNorm <- function(..., assay.type="counts", norm.args=list(), min.mean=
         stop("at least one SingleCellExperiment object must be supplied")
     }
 
-    # Centering the size factors.
+    # Centering the size factors, to avoid large rescaling factors due to systematically larger size factors in the input.
+    # This would not be reflective of the actual magnitude of the counts.
     batches <- lapply(batches, centreSizeFactors)
 
     # Adjusting size factors for the non-spike-in transcripts.
@@ -93,7 +94,7 @@ multiBatchNorm <- function(..., assay.type="counts", norm.args=list(), min.mean=
 
     # Adjusting size factors for each of the spike-ins.
     ref.spike.names <- spikeNames(batches[[1]])
-    subset.row <- .subset_to_index(subset.row, batches[[1]], byrow=TRUE)
+    subset.row <- .row_subset_to_index(batches[[1]], subset.row)
 
     for (spike in ref.spike.names) {
         ref.spike <- isSpike(batches[[1]], spike)
@@ -113,7 +114,7 @@ multiBatchNorm <- function(..., assay.type="counts", norm.args=list(), min.mean=
     mapply(FUN=normalize, batches, MoreArgs=c(list(exprs_values=assay.type, centre_size_factors=FALSE), norm.args), SIMPLIFY=FALSE)
 }
 
-#' @importFrom scater calcAverage
+#' @importFrom scater calcAverage librarySizeFactors
 #' @importFrom stats median
 #' @importFrom BiocGenerics sizeFactors sizeFactors<-
 .batch_rescaler <- function(batches, subset.row, exprs_values, sf.type, min.mean) 
