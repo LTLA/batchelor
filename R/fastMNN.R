@@ -252,7 +252,7 @@ fastMNN <- function(..., batch=NULL, k=20, cos.norm=TRUE, ndist=3, d=50, auto.or
         if (cos.norm) { 
             batches <- lapply(batches, FUN=cosineNorm, mode="matrix")
         }
-        pc.mat <- .multi_pca(batches, d=d, rotate.all=rotate.all, BSPARAM=BSPARAM, BPPARAM=BPPARAM)
+        pc.mat <- .multi_pca_list(batches, d=d, rotate.all=rotate.all, BSPARAM=BSPARAM, BPPARAM=BPPARAM)
     } else {
         pc.mat <- batches
     }

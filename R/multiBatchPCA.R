@@ -308,7 +308,7 @@ multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, rotate.all=FAL
 
     # Computing the amount of variation explained.
     if (get.variance) {
-        extra.info <- c(extra.info, .compute_var_explained(D=svd.out$d, nbatches=length(mat.list), scaled=scaled))
+        extra.info <- c(extra.info, .compute_var_explained(D=svd.out$d, nbatches=length(unique(batch)), scaled=scaled))
     }
         
     metadata(output) <- extra.info
