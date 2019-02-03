@@ -195,51 +195,31 @@ fastMNN <- function(..., batch=NULL, k=20, cos.norm=TRUE, ndist=3, d=50, auto.or
     }
 
     # Subsetting by 'batch'.
-    do.split <- length(batches)==1L
-    if (do.split) {
+    common.args <-list(k=k, cos.norm=cos.norm, ndist=ndist, d=d, subset.row=subset.row, 
+        rotate.all=rotate.all, auto.order=auto.order, pc.input=pc.input, 
+        compute.variances=compute.variances, BSPARAM=BSPARAM, BNPARAM=BNPARAM, BPPARAM=BPPARAM)
+
+    if (length(batches)==1L) {
         if (is.null(batch)) { 
             stop("'batch' must be specified if '...' has only one object")
         }
-
-        divided <- .divide_into_batches(batches[[1]], batch=batch, byrow=pc.input)
-        batches <- divided$batches
+        output <- do.call(.fast_mnn_single, c(list(x=batches[[1]], batch=batch), common.args))
+    } else {
+        output <- do.call(.fast_mnn_list, c(list(batch.list=batches), common.args))
     }
     
-    output <- do.call(.fast_mnn, c(batches, 
-        list(k=k, cos.norm=cos.norm, ndist=ndist, d=d, subset.row=subset.row, rotate.all=rotate.all, 
-            auto.order=auto.order, pc.input=pc.input, compute.variances=compute.variances, 
-            BSPARAM=BSPARAM, BNPARAM=BNPARAM, BPPARAM=BPPARAM)))
-
-    # Reordering the output for correctness.
-    if (do.split) {
-        d.reo <- divided$reorder
-        output <- output[d.reo,,drop=FALSE]
-
-        rev.order <- integer(length(d.reo))
-        rev.order[d.reo] <- seq_along(d.reo)
-        pairings <- metadata(output)$pairs
-        for (x in seq_along(pairings)) {
-            pairings[[x]][,1] <- rev.order[pairings[[x]][,1]]
-            pairings[[x]][,2] <- rev.order[pairings[[x]][,2]]
-        }
-        metadata(output)$pairs <- pairings
-    }
-
     return(output)
 }
 
 ############################################
 # Internal main function, to separate the input handling from the actual calculations.
 
-#' @importFrom BiocParallel SerialParam
-#' @importFrom S4Vectors DataFrame metadata<- metadata
-#' @importFrom BiocNeighbors KmknnParam
 #' @importFrom BiocSingular ExactParam
-.fast_mnn <- function(..., k=20, cos.norm=TRUE, ndist=3, d=50, subset.row=NULL, rotate.all=FALSE, auto.order=FALSE, pc.input=FALSE,
-    compute.variances=FALSE, BSPARAM=ExactParam(), BNPARAM=KmknnParam(), BPPARAM=SerialParam()) 
+#' @importFrom BiocParallel SerialParam
+#' @importFrom S4Vectors metadata metadata<-
+.fast_mnn_list <- function(batch.list, ..., subset.row=NULL, cos.norm=TRUE, pc.input=FALSE, d=50, rotate.all=FALSE, BSPARAM=ExactParam(), BPPARAM=SerialParam()) 
 {
-    batches <- list(...) 
-    nbatches <- length(batches) 
+    nbatches <- length(batch.list) 
     if (nbatches < 2L) { 
         stop("at least two batches must be specified") 
     }
@@ -247,17 +227,74 @@ fastMNN <- function(..., batch=NULL, k=20, cos.norm=TRUE, ndist=3, d=50, auto.or
     # Creating the PCA input, if it is not already low-dimensional.
     if (!pc.input) {
         if (!is.null(subset.row)) {
-            batches <- lapply(batches, "[", i=subset.row, , drop=FALSE) # Need the extra comma!
+            batch.list <- lapply(batch.list, "[", i=subset.row, , drop=FALSE) # Need the extra comma!
         }
         if (cos.norm) { 
-            batches <- lapply(batches, FUN=cosineNorm, mode="matrix")
+            batch.list <- lapply(batch.list, FUN=cosineNorm, mode="matrix")
         }
-        pc.mat <- .multi_pca_list(batches, d=d, rotate.all=rotate.all, BSPARAM=BSPARAM, BPPARAM=BPPARAM)
+        pc.mat <- .multi_pca_list(batch.list, d=d, rotate.all=rotate.all, BSPARAM=BSPARAM, BPPARAM=BPPARAM)
     } else {
-        pc.mat <- batches
+        pc.mat <- batch.list
     }
 
-    # Other pre-flight checks.
+    out <- .fast_mnn(batches=pc.mat, ..., BPPARAM=BPPARAM)
+    if (!pc.input) {
+        metadata(out)$rotation <- metadata(pc.mat)$rotation
+    }
+    out
+}
+
+#' @importFrom BiocSingular ExactParam
+#' @importFrom BiocParallel SerialParam
+#' @importFrom S4Vectors List metadata metadata<-
+.fast_mnn_single <- function(x, batch, ..., subset.row=NULL, cos.norm=TRUE, pc.input=FALSE, d=50, rotate.all=FALSE, BSPARAM=ExactParam(), BPPARAM=SerialParam()) 
+{
+    batch <- factor(batch)
+    if (nlevels(batch) < 2L) { 
+        stop("at least two batches must be specified") 
+    }
+
+    # Creating the PCA input, if it is not already low-dimensional.
+    if (!pc.input) {
+        if (!is.null(subset.row)) {
+            x <- x[subset.row,,drop=FALSE]
+        }
+        if (cos.norm) { 
+            x <- cosineNorm(x, mode="matrix")
+        }
+        mat <- .multi_pca_single(x, batch=batch, d=d, rotate.all=rotate.all, BSPARAM=BSPARAM, BPPARAM=BPPARAM)
+    } else {
+        mat <- List(x)
+    }
+
+    divided <- .divide_into_batches(mat[[1]], batch=batch, byrow=TRUE)
+    output <- .fast_mnn(batches=divided$batches, ..., BPPARAM=BPPARAM)
+
+    # Reordering by the input order.        
+    d.reo <- divided$reorder
+    output <- output[d.reo,,drop=FALSE]
+
+    rev.order <- integer(length(d.reo))
+    rev.order[d.reo] <- seq_along(d.reo)
+    pairings <- metadata(output)$pairs
+    for (x in seq_along(pairings)) {
+        pairings[[x]][,1] <- rev.order[pairings[[x]][,1]]
+        pairings[[x]][,2] <- rev.order[pairings[[x]][,2]]
+    }
+    metadata(output)$pairs <- pairings
+
+    if (!pc.input) {
+        metadata(output)$rotation <- metadata(mat)$rotation
+    }
+    output
+}
+
+#' @importFrom BiocParallel SerialParam
+#' @importFrom S4Vectors DataFrame metadata<- metadata
+#' @importFrom BiocNeighbors KmknnParam
+.fast_mnn <- function(batches, k=20, ndist=3, auto.order=FALSE, compute.variances=FALSE, BNPARAM=KmknnParam(), BPPARAM=SerialParam()) 
+{
+    nbatches <- length(batches)
     var.kept <- rep(1, nbatches)
     re.order <- NULL 
     if (!is.logical(auto.order)) {
@@ -275,15 +312,15 @@ fastMNN <- function(..., batch=NULL, k=20, cos.norm=TRUE, ndist=3, d=50, auto.or
         if (auto.order) {
             # Automatically choosing to merge batches with the largest number of MNNs.
             if (bdx==2L) {
-                d.out <- .define_first_merge(pc.mat, k=k, BNPARAM=BNPARAM, BPPARAM=BPPARAM)
-                refdata <- pc.mat[[d.out$first]]
-                curdata <- pc.mat[[d.out$second]]
+                d.out <- .define_first_merge(batches, k=k, BNPARAM=BNPARAM, BPPARAM=BPPARAM)
+                refdata <- batches[[d.out$first]]
+                curdata <- batches[[d.out$second]]
                 mnn.sets <- d.out$pairs
                 precomp <- d.out$precomputed
                 processed <- c(d.out$first, d.out$second)
             } else {
-                d.out <- .define_next_merge(refdata, pc.mat, processed, precomp, k=k, BNPARAM=BNPARAM, BPPARAM=BPPARAM)
-                curdata <- pc.mat[[d.out$other]]
+                d.out <- .define_next_merge(refdata, batches, processed, precomp, k=k, BNPARAM=BNPARAM, BPPARAM=BPPARAM)
+                curdata <- batches[[d.out$other]]
                 mnn.sets <- d.out$pairs
                 processed <- c(processed, d.out$other)
             }
@@ -291,11 +328,11 @@ fastMNN <- function(..., batch=NULL, k=20, cos.norm=TRUE, ndist=3, d=50, auto.or
             # Using the suggested merge order, or the supplied order in ...
             if (bdx==2L) {
                 ref.idx <- if (use.order) re.order[1] else 1L
-                refdata <- pc.mat[[ref.idx]]
+                refdata <- batches[[ref.idx]]
                 processed <- ref.idx
             }
             cur.idx <- if (use.order) re.order[bdx] else bdx
-            curdata <- pc.mat[[cur.idx]]
+            curdata <- batches[[cur.idx]]
             mnn.sets <- findMutualNN(refdata, curdata, k1=k, k2=k, BNPARAM=BNPARAM, BPPARAM=BPPARAM)
             processed <- c(processed, cur.idx)
         }
@@ -307,14 +344,14 @@ fastMNN <- function(..., batch=NULL, k=20, cos.norm=TRUE, ndist=3, d=50, auto.or
         # Remove variation along the batch vector.
         # Also recording the lost variation if desired.
         if (compute.variances) {
-            var.before <- .compute_intra_var(refdata, curdata, pc.mat, processed)
+            var.before <- .compute_intra_var(refdata, curdata, batches, processed)
         }
 
         refdata <- .center_along_batch_vector(refdata, overall.batch)
         curdata <- .center_along_batch_vector(curdata, overall.batch)
 
         if (compute.variances) {
-            var.after <- .compute_intra_var(refdata, curdata, pc.mat, processed)
+            var.after <- .compute_intra_var(refdata, curdata, batches, processed)
             var.kept[seq_len(bdx)] <- var.kept[seq_len(bdx)] * var.after/var.before
         }
 
@@ -331,10 +368,10 @@ fastMNN <- function(..., batch=NULL, k=20, cos.norm=TRUE, ndist=3, d=50, auto.or
     }
 
     # Reporting the batch identities.
-    ncells.per.batch <- vapply(pc.mat, FUN=nrow, FUN.VALUE=0L)
+    ncells.per.batch <- vapply(batches, FUN=nrow, FUN.VALUE=0L)
     batch.names <- .create_batch_names(names(batches), ncells.per.batch)
 
-    # Adjusting the output back to the input order in '...'.
+    # Adjusting the output back to the input order in 'batches'.
     if (auto.order || use.order) {
         ordering <- .restore_original_order(processed, ncells.per.batch)
         refdata <- refdata[ordering,,drop=FALSE]
@@ -345,9 +382,6 @@ fastMNN <- function(..., batch=NULL, k=20, cos.norm=TRUE, ndist=3, d=50, auto.or
     # Formatting the output.
     output <- DataFrame(corrected=I(refdata), batch=batch.names$ids)
     m.out <- list(pairs=mnn.pairings, order=batch.names$labels[processed])
-    if (!pc.input) {
-        m.out$rotation <- metadata(pc.mat)$rotation
-    }
     if (compute.variances) {
         m.out$lost.var <- 1 - var.kept
     }
