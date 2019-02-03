@@ -294,25 +294,12 @@ mnnCorrect <- function(..., batch=NULL, k=20, sigma=0.1, cos.norm.in=TRUE, cos.n
 .prepare_input_data <- function(batches, cos.norm.in, cos.norm.out, subset.row, correct.all) {
     nbatches <- length(batches)
 
-    # Checking for identical number of rows (and rownames).
-    first <- batches[[1]]
-    ref.nrow <- nrow(first)
-    ref.rownames <- rownames(first)
-    for (b in 2:nbatches) {
-        current <- batches[[b]]
-        if (!identical(nrow(current), ref.nrow)) {
-            stop("number of rows is not the same across batches")
-        } else if (!identical(rownames(current), ref.rownames)) {
-            stop("row names are not the same across batches")
-        }
-    }
-
     # Subsetting to the desired subset of genes.
     in.batches <- out.batches <- batches
     same.set <- TRUE
     if (!is.null(subset.row)) { 
         subset.row <- .row_subset_to_index(batches[[1]], subset.row)
-        if (identical(subset.row, seq_len(ref.nrow))) { 
+        if (identical(subset.row, seq_len(nrow(batches[[1]])))) { 
             subset.row <- NULL
         } else {
             in.batches <- lapply(in.batches, "[", i=subset.row, , drop=FALSE) # Need the extra comma!
