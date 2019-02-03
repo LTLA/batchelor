@@ -101,15 +101,14 @@ multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, rotate.all=FAL
         mat.list <- lapply(mat.list, assay, i=assay.type, withDimnames=FALSE)
     }
 
-    # Subsetting by 'batch'.
-    do.split <- length(mat.list)==1L
-    if (do.split) {
+    # Different function calls for different input modes.
+    common.args <- list(subset.row=subset.row, d=d, rotate.all=rotate.all, get.variance=get.variance, BSPARAM=BSPARAM, BPPARAM=BPPARAM) 
+    if (length(mat.list)==1L) {
         if (is.null(batch)) { 
             stop("'batch' must be specified if '...' has only one object")
         }
 
-        collected <- .multi_pca_single(mat.list[[1]], batch=batch, subset.row=subset.row, d=d, 
-            rotate.all=rotate.all, get.variance=get.variance, BSPARAM=BSPARAM, BPPARAM=BPPARAM) 
+        collected <- do.call(.multi_pca_single, c(list(mat=mat.list[[1]], batch=batch), common.args)) 
         rownames(collected[[1]]) <- colnames(originals[[1]])
 
         if (!preserve.single) {
@@ -120,8 +119,7 @@ multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, rotate.all=FAL
         }
 
     } else {
-        collected <- .multi_pca_list(mat.list, subset.row=subset.row, d=d, 
-            rotate.all=rotate.all, get.variance=get.variance, BSPARAM=BSPARAM, BPPARAM=BPPARAM) 
+        collected <- do.call(.multi_pca_list, c(list(mat.list=mat.list), common.args))
         for (i in seq_along(mat.list)) {
             rownames(collected[[i]]) <- colnames(originals[[i]])
         }
