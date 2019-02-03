@@ -1,0 +1,202 @@
+---
+title: Correcting batch effects in single-cell RNA-seq data
+author: 
+- name: Aaron Lun
+  affiliation: Cancer Research UK Cambridge Institute, Cambridge, United Kingdom
+date: "Revised: 3 February 2019"
+output:
+  BiocStyle::html_document:
+    toc_float: true
+    package: scran
+bibliography: ref.bib
+vignette: >
+  %\VignetteIndexEntry{Correcting batch effects}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}    
+---
+
+```{r, echo=FALSE, results="hide", message=FALSE}
+require(knitr)
+opts_chunk$set(error=FALSE, message=FALSE, warning=FALSE)
+```
+
+```{r setup, echo=FALSE, message=FALSE}
+library(batchelor)
+set.seed(100)
+```
+
+# Introduction
+
+Batch effects refer to differences between data sets generated at different times or in different laboratories.
+These often occur due to uncontrolled variability in experimental factors, e.g., reagent quality, operator skill, atmospheric ozone levels.
+The presence of batch effects can interfere with downstream analyses if they are not explicitly modelled.
+For example, differential expression analyses typically use a blocking factor to absorb any batch-to-batch differences.
+
+For single-cell RNA sequencing (scRNA-seq) data analyses, explicit modelling of the batch effect is less relevant. 
+Manny common downstream procedures for exploratory data analysis are not model-based, including clustering and visualization.
+It is more generally useful to have methods that can remove batch effects to create an corrected expression matrix for further analysis. 
+This follows the same strategy as, e.g., the `removeBatchEffect()` function in the `r Biocpkg("limma")` package [@ritchie2015limma].
+
+Batch correction methods designed for bulk genomics data usually require knowledge of the other factors of variation.
+This is usually not known in scRNA-seq experiments where the aim is to explore unknown heterogeneity in cell populations.
+The `r Biocpkg("batchelor")` package implements batch correction methods that do not rely on _a priori_ knowledge about the population structure.
+To demonstrate, we will use a small scRNA-seq data set [@tasic2016adult] from the `r Biocpkg("scRNAseq")` package:
+
+```{r}
+library(scRNAseq)
+data(allen)
+
+library(SingleCellExperiment)
+sce1 <- as(allen, "SingleCellExperiment")
+counts(sce1) <- assay(sce1)
+
+library(scater)
+sce1 <- sce1[1:2000,] # reducing the size for demo purposes.
+sce1 <- normalize(sce1) # quick and dirty normalization.
+```
+
+We artificially create a batch effect in a separate `SingleCellExperiment` object:
+
+```{r}
+sce2 <- sce1
+logcounts(sce2) <- logcounts(sce2) + rnorm(nrow(sce2), sd=2)
+
+combined <- cbind(sce1, sce2)
+combined$batch <- factor(rep(1:2, c(ncol(sce1), ncol(sce2))))
+
+plotPCA(combined, colour_by="batch") # checking there is a batch effect.
+```
+
+# Mutual nearest neighbors
+
+## Overview
+
+Mutual nearest neighbors (MNNs) are defined as pairs of cells - one from each batch - that are within each other's set of `k` nearest neighbors.
+The idea is that MNN pairs across batches refer to the same cell type, assuming that the batch effect is orthogonal to the biological subspace [@haghverdi2018batch].
+Once MNN pairs are identified, the difference between the paired cells is used to infer the magnitude and direction of the batch effect.
+It is then straightforward to remove the batch effect and obtain a set of corrected expression values.
+
+## The new, fast method
+
+The `fastMNN()` function performs a principal components analysis (PCA) to obtain a low-dimensional representation of the input data.
+MNN identification and correction is performed in this low-dimensional space, which offers some advantages with respect to speed and denoising.    
+A single matrix of corrected PC scores is returned, which can be used directly for downstream analyses such as clustering and visualization.
+
+```{r}
+f.out <- fastMNN(A=sce1, B=sce2)
+dim(f.out$corrected) # rows are cells now.
+```
+
+The batch of origin for each row/cell in the output matrix is also returned:
+
+```{r}
+f.out$batch
+```
+
+Another way to call `fastMNN()` is to specify the batch manually.
+This will return a corrected matrix with the cells in the same order as that in the input `combined` object.
+In this case, it doesn't matter as the two batches were concatenated to created `combined` anyway, 
+but these semantics may be useful when cells from the same batch are not contiguous.
+
+```{r}
+f.out2 <- fastMNN(combined, batch=combined$batch)
+dim(f.out2$corrected)
+```
+
+As we can see, the batch effect is successfully removed in the PCA plot below.
+
+```{r}
+reducedDim(combined, "corrected") <- f.out2$corrected
+plotReducedDim(combined, colour_by="batch", use_dimred="corrected")
+```
+
+We can also obtain per-gene corrected expression values by using the rotation vectors stored in the output.
+This reverses the original projection used to obtain the initial low-dimensional representation.
+There are, however, `r Biocpkg("simpleSingleCell", "batch.html#using-the-corrected-values-in-downstream-analyses", "many caveats")` to using these values for downstream analyses.
+
+```{r}
+cor.exp <- tcrossprod(metadata(f.out2)$rotation[1,,drop=FALSE], f.out2$corrected)
+hist(cor.exp[1,], xlab="Corrected expression for gene 1") 
+```
+
+While the default arguments are usually satisfactory, there are _many_ options for running `fastMNN()`, e.g., to improve speed or to achieve a particular merge order.
+Refer to `r Biocpkg("simpleSingleCell", "batch.html", "the corresponding workflow")` for more details.
+
+## The old, classic method
+
+The original method described by @haghverdi2018batch is implemented in the `mnnCorrect()` method.
+This performs the MNN identification and correction in the gene expression space, and uses a different strategy to overcome high-dimensional noise.
+`mnnCorrect()` is called with the same semantics as `fastMNN()`:
+
+```{r}
+classic.out <- mnnCorrect(sce1, sce2)
+```
+
+... but returns the corrected gene expression matrix directly, rather than using a low-dimensional representation^[Again, those readers wanting to use the corrected values for per-gene analyses should consider the `r Biocpkg("simpleSingleCell", "batch.html#using-the-corrected-values-in-downstream-analyses", "caveats")` mentioned previously.].
+This is wrapped in a `SummarizedExperiment` object to store various batch-related metadata.
+
+```{r}
+classic.out
+```
+
+For scRNA-seq data, `fastMNN()` tends to be both faster and better at achieving a satisfactory merge.
+`mnnCorrect()` is mainly provided here for posterity's sake, though it is more robust than `fastMNN()` to certain violations of the orthogonality assumptions.
+
+# Batch rescaling
+
+`rescaleBatches()` effectively centers the batches in log-expression space on a per-gene basis.
+This is conceptually equivalent to running `removeBatchEffect()` with no covariates other than the batch.
+However, `rescaleBatches()` achieves this rescaling by reversing the log-transformation, 
+downscaling the counts so that the average of each batch is equal to the smallest value, and then re-transforming.
+This preserves sparsity by ensuring that zeroes remain so after correction, and mitigates differences in the variance when dealing with counts of varying size between batches^[Done by downscaling, which increases the shrinkage from the added pseudo-count.].
+
+Calling `rescaleBatches()` returns a corrected matrix of per-gene log-expression values, wrapped in a `SummarizedExperiment` containin batch-related metadata.
+
+```{r}
+rescale.out <- rescaleBatches(sce1, sce2)
+rescale.out
+```
+
+While this method is fast and simple, it makes the strong assumption that the population composition of each batch is the same. 
+This is usually not the case for scRNA-seq experiments in real systems that exhibit biological variation.
+Thus, `rescaleBatches()` is best suited for merging technical replicates of the same sample, e.g., that have been sequenced separately.
+
+# Other utilities
+
+## Multi-batch normalization
+
+Differences in sequencing depth between batches are an obvious cause for batch-to-batch differences.
+These can be removed by `multiBatchNorm()`, which downscales all batches to match the coverage of the least-sequenced batch.
+This function returns a list of `SingleCellExperiment` with log-transformed normalized expression values that can be directly used for further correction.
+
+```{r}
+normed <- multiBatchNorm(A=sce1, B=sce2)
+names(normed)
+```
+
+Downscaling mitigates differences in variance between batches due to the mean-variance relationship of count data. 
+It is achieved using a median-based estimator to avoid problems with composition biases between batches [@lun2016pooling].
+An example usage of this function is provided in `r Biocpkg("simpleSingleCell", "batch.html#feature-selection-across-merges", "this workflow")`.
+
+## Multi-batch PCA
+
+Users can perform a PCA across multiple batches using the `multiBatchPCA()` function.
+The output of this function is roughly equivalent to `cbind`ing all batches together and performing PCA on the merged matrix. 
+The main difference is that each sample is forced to contribute equally to the identification of the rotation vectors.
+This allows small batches with unique subpopulations to contribute meaningfully to the definition of the low-dimensional space.
+
+```{r}
+pca.out <- multiBatchPCA(A=sce1, B=sce2)
+names(pca.out)
+```
+
+This function is used internally in `fastMNN()` but can be explicitly called by the user to perform hierarchical merges - 
+see `r Biocpkg("simpleSingleCell", "batch.html#controlling-the-merge-order", "here")` for details.
+
+# Session information
+
+```{r}
+sessionInfo()
+```
+
+# References
