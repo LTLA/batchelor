@@ -2,7 +2,15 @@
 # Generates a permutation vector to recover the old order of cells
 # (assuming that within-batch order is preserved).
 { 
-    reorder <- vector("list", length(batch.ordering))
+    nbatches <- length(batch.ordering)
+    if (nbatches!=length(ncells.per.batch)) {
+        stop("length of batch information vectors are not equal")
+    }
+    if (nbatches==0L) {
+        return(integer(0))
+    }
+
+    reorder <- vector("list", nbatches)
     last <- 0L
     for (idx in batch.ordering) {
         ncells <- ncells.per.batch[idx]

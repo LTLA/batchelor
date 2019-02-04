@@ -1,5 +1,5 @@
-# Unit tests multibatch utilities that are indirectly covered by the other tests.
-# library(batchelor); library(testthat); source("test-utils-multibatch.R")
+# Unit tests utilities that are indirectly covered by the other tests.
+# library(batchelor); library(testthat); source("test-utils.R")
 
 set.seed(1000001)
 test_that(".check_batch_consistency works correctly", {
@@ -203,7 +203,7 @@ test_that(".SCE_subset_genes works correctly", {
     expect_identical(batchelor:::.SCE_subset_genes(integer(0), sce[0,], FALSE), integer(0))
 })
 
-set.seed(1000008)
+set.seed(1000009)
 test_that("tricube calculations work correctly", {
     A <- matrix(runif(1000), ncol=20)
     self <- BiocNeighbors::findKNN(A, k=10)
@@ -236,4 +236,38 @@ test_that("tricube calculations work correctly", {
 
     out <- batchelor:::.compute_tricube_average(A[0,], indices=self$index[0,], distances=self$distance[0,])
     expect_identical(dim(out), c(0L, ncol(A)))
+})
+
+set.seed(1000010)
+test_that(".restore_original_order works correctly", {
+    out <- batchelor:::.restore_original_order(c(2,1,3), c(10L, 20L, 30L))
+    expect_identical(out, c(21:30, 1:20, 31:60))
+
+    original <- list(runif(35), runif(13), runif(23), runif(2), runif(42))
+    s <- c(5,3,1,4,2)
+    shuffled <- original[s]
+    out <- batchelor:::.restore_original_order(s, lengths(original))
+    expect_equal(unlist(shuffled)[out], unlist(original))
+
+    # Testing silly inputs.
+    expect_error(out <- batchelor:::.restore_original_order(integer(0), 1), "not equal")
+    out <- batchelor:::.restore_original_order(integer(0), integer(0))
+    expect_identical(out, integer(0))
+})
+
+set.seed(1000011)
+test_that(".reindex_pairings works correctly", {
+    S <- sample(40)
+    pairings <- list(data.frame(first=sample(10, 20, replace=TRUE), second=11:30), data.frame(first=30:1, second=sample(33:40, 30, replace=TRUE)))
+
+    out <- batchelor:::.reindex_pairings(pairings, S)
+    expect_identical(S[out[[1]]$first], pairings[[1]]$first)
+    expect_identical(S[out[[1]]$second], pairings[[1]]$second)
+    expect_identical(S[out[[2]]$first], pairings[[2]]$first)
+    expect_identical(S[out[[2]]$second], pairings[[2]]$second)
+
+    # Works on empty inputs.
+    empty <- lapply(pairings, "[", i=0,, drop=FALSE)
+    out <- batchelor:::.reindex_pairings(empty, integer(0))
+    expect_identical(empty, out)
 })
