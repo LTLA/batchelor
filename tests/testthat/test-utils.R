@@ -202,3 +202,38 @@ test_that(".SCE_subset_genes works correctly", {
     expect_identical(batchelor:::.SCE_subset_genes(integer(0), sce[0,], TRUE), integer(0))
     expect_identical(batchelor:::.SCE_subset_genes(integer(0), sce[0,], FALSE), integer(0))
 })
+
+set.seed(1000008)
+test_that("tricube calculations work correctly", {
+    A <- matrix(runif(1000), ncol=20)
+    self <- BiocNeighbors::findKNN(A, k=10)
+
+    out <- batchelor:::.compute_tricube_average(A, indices=self$index, distances=self$distance)
+    expect_identical(dim(out), dim(A)) 
+
+    # Logic checks.
+    out <- batchelor:::.compute_tricube_average(A, indices=self$index[,1,drop=FALSE], distances=self$distance[,1,drop=FALSE])
+    expect_identical(out, A[self$index[,1],])
+
+    uni.dist <- self$distance
+    uni.dist[] <- 1
+    out <- batchelor:::.compute_tricube_average(A, indices=self$index, distances=uni.dist)
+    assembly <- A
+    for (i in seq_len(nrow(assembly))) {
+        assembly[i,] <- colMeans(A[self$index[i,],])
+    }
+    expect_equal(out, assembly)
+
+    uni.index <- self$index
+    uni.index[] <- seq_len(nrow(A))
+    out <- batchelor:::.compute_tricube_average(A, indices=uni.index, distances=self$distance)
+    expect_equal(out, A)
+
+    # Silly input checks.
+    out <- batchelor:::.compute_tricube_average(A, indices=self$index[,0], distances=self$distance[,0])
+    expect_identical(dim(out), dim(A))
+    expect_true(all(out==0))
+
+    out <- batchelor:::.compute_tricube_average(A[0,], indices=self$index[0,], distances=self$distance[0,])
+    expect_identical(dim(out), c(0L, ncol(A)))
+})
