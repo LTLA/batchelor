@@ -19,9 +19,20 @@ If \code{mode="l2norm"}, a double-precision vector is returned containing the L2
 If \code{mode="all"}, a named list is returned containing the fields \code{"matrix"} and \code{"l2norm"}, which are as described above.
 }
 \description{
-Perform cosine-normalization on the column vectors of an expression matrix.
+Perform cosine normalization on the column vectors of an expression matrix.
 }
 \details{
+Cosine normalization removes scaling differences between expression vectors.
+In the context of batch correction, this is usually applied to remove differences between batches that are normalized separately.
+For example, \code{\link{fastMNN}} uses this function on the log-expression vectors by default.
+
+Technically, separate normalization introduces scaling differences in the normalized expression, which should manifest as a shift in the log-transformed expression.
+However, in practice, single-cell data will contain many small counts (where the log function is near-linear) or many zeroes (which remain zero when the pseudo-count is 1).
+In these applications, scaling differences due to separate normalization are better represented as scaling differences in the log-transformed values.
+
+If applied to the raw count vectors, cosine normalization is similar to library size-related (i.e., L1) normalization.
+However, we recommend using dedicated methods for computing size factors to normalize raw count data.
+
 While the default is to directly return the cosine-normalized matrix, it may occasionally be desirable to obtain the L2 norm, 
 e.g., to apply an equivalent normalization to other matrices.
 This can be achieved by setting \code{mode} accordingly.

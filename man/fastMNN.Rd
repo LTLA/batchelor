@@ -4,7 +4,7 @@
 \alias{fastMNN}
 \title{Fast mutual nearest neighbors correction}
 \usage{
-fastMNN(..., batch = NULL, k = 20, cos.norm = TRUE, ndist = 3,
+fastMNN(..., batch = NULL, k = 20, cos.norm = FALSE, ndist = 3,
   d = 50, auto.order = FALSE, compute.variances = FALSE,
   subset.row = NULL, rotate.all = FALSE, pc.input = FALSE,
   assay.type = "logcounts", get.spikes = FALSE, use.dimred = NULL,
@@ -31,7 +31,7 @@ This is ignored if multiple objects are present.}
 
 \item{k}{An integer scalar specifying the number of nearest neighbors to consider when identifying MNNs.}
 
-\item{cos.norm}{A logical scalar indicating whether cosine normalization should be performed on the input data prior to calculating distances between cells.}
+\item{cos.norm}{A logical scalar indicating whether cosine normalization should be performed on the input data prior to PCA.}
 
 \item{ndist}{A numeric scalar specifying the threshold beyond which neighbours are to be ignored when computing correction vectors.
 Each threshold is defined as a multiple of the number of median distances.}
@@ -108,7 +108,8 @@ Cell coordinates are adjusted such that all cells in a single batch have the sam
 The correction vectors are then recalculated with the adjusted coordinates (but the same MNN pairs).
 }
 
-The default setting of \code{cos.norm=TRUE} provides some protection against differences in scaling for arbitrary log-expression matrices.
+The default setting of \code{cos.norm=TRUE} provides some protection against differences in scaling between log-expression matrices from batches that are normalized separately
+(see \code{\link{cosineNorm}} for details).
 However, if possible, we recommend using the output of \code{\link{multiBatchNorm}} as input to \code{fastMNN}.
 This will equalize coverage on the count level before the log-transformation, which is a more accurate rescaling than cosine normalization on the log-values.
 

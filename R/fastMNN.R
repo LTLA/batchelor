@@ -18,7 +18,7 @@
 #' @param batch A factor specifying the batch of origin for all cells when only a single object is supplied in \code{...}.
 #' This is ignored if multiple objects are present.
 #' @param k An integer scalar specifying the number of nearest neighbors to consider when identifying MNNs.
-#' @param cos.norm A logical scalar indicating whether cosine normalization should be performed on the input data prior to calculating distances between cells.
+#' @param cos.norm A logical scalar indicating whether cosine normalization should be performed on the input data prior to PCA.
 #' @param ndist A numeric scalar specifying the threshold beyond which neighbours are to be ignored when computing correction vectors.
 #' Each threshold is defined as a multiple of the number of median distances.
 #' @param d Number of dimensions to use for dimensionality reduction in \code{\link{multiBatchPCA}}.
@@ -79,7 +79,8 @@
 #' The correction vectors are then recalculated with the adjusted coordinates (but the same MNN pairs).
 #' }
 #' 
-#' The default setting of \code{cos.norm=TRUE} provides some protection against differences in scaling for arbitrary log-expression matrices.
+#' The default setting of \code{cos.norm=TRUE} provides some protection against differences in scaling between log-expression matrices from batches that are normalized separately
+#' (see \code{\link{cosineNorm}} for details).
 #' However, if possible, we recommend using the output of \code{\link{multiBatchNorm}} as input to \code{fastMNN}.
 #' This will equalize coverage on the count level before the log-transformation, which is a more accurate rescaling than cosine normalization on the log-values.
 #' 
@@ -172,7 +173,7 @@
 #' @importFrom SummarizedExperiment assay
 #' @importFrom BiocNeighbors KmknnParam
 #' @importFrom BiocSingular ExactParam
-fastMNN <- function(..., batch=NULL, k=20, cos.norm=TRUE, ndist=3, d=50, auto.order=FALSE, compute.variances=FALSE, 
+fastMNN <- function(..., batch=NULL, k=20, cos.norm=FALSE, ndist=3, d=50, auto.order=FALSE, compute.variances=FALSE, 
         subset.row=NULL, rotate.all=FALSE, pc.input=FALSE, assay.type="logcounts", get.spikes=FALSE, use.dimred=NULL, 
         BSPARAM=ExactParam(), BNPARAM=KmknnParam(), BPPARAM=SerialParam()) 
 {
