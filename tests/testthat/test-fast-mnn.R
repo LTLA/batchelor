@@ -110,20 +110,20 @@ test_that("fastMNN works as expected for two batches", {
     B1 <- matrix(rnorm(10000), nrow=100) # Batch 1 
     B2 <- matrix(rnorm(20000), nrow=100) # Batch 2
 
-    out <- fastMNN(B1, B2, d=50) # corrected values
-    expect_identical(dim(out$corrected), c(ncol(B1) + ncol(B2), 50L))
+    out <- fastMNN(B1, B2, d=50) 
+    expect_identical(dim(reducedDim(out)), c(ncol(B1) + ncol(B2), 50L))
     expect_identical(as.integer(out$batch), rep(1:2, c(ncol(B1), ncol(B2))))
     expect_identical(metadata(out)$order, 1:2)
     CHECK_PAIRINGS(out)
     
     # Dimension choice behaves correctly.
     out.10 <- fastMNN(B1, B2, d=10) 
-    expect_identical(ncol(out.10$corrected), 10L)
+    expect_identical(ncol(reducedDim(out.10)), 10L)
     CHECK_PAIRINGS(out.10)
 
     # Handles names correctly.
     out.n <- fastMNN(X=B1, Y=B2, d=50) 
-    expect_identical(out$corrected, out.n$corrected)
+    expect_identical(reducedDim(out), reducedDim(out.n))
     expect_identical(as.character(out.n$batch), rep(c("X", "Y"), c(ncol(B1), ncol(B2))))
     CHECK_PAIRINGS(out.n)
 
@@ -131,22 +131,23 @@ test_that("fastMNN works as expected for two batches", {
     nB1 <- t(t(B1)/ sqrt(colSums(B1^2)))
     nB2 <- t(t(B2)/ sqrt(colSums(B2^2)))
     out.ncos <- fastMNN(nB1, nB2, cos.norm=FALSE, d=50) 
-    expect_equal(out.ncos, out) 
+    expect_equal(out.ncos, out)
 
     # Subset.row behaves correctly.
     i <- sample(nrow(B1), 50)
     ref <- fastMNN(X=B1[i,], Y=B2[i,], d=50)
     out.s <- fastMNN(X=B1, Y=B2, d=50, subset.row=i)
-    expect_identical(out.s, ref)
+    expect_identical(reducedDim(out.s), reducedDim(ref))
+    expect_equal(out.s, ref)
 
     # Behaves if we only use PCs.
     pcs <- multiBatchPCA(B1, B2, d=10)
     out.pre <- fastMNN(pcs[[1]], pcs[[2]], pc.input=TRUE)
     out.norm <- fastMNN(B1, B2, d=10, cos.norm=FALSE)
 
-    expect_equal(metadata(pcs)$rotation, metadata(out.norm)$rotation)
-    metadata(out.norm)$rotation <- NULL
-    expect_equal(out.pre, out.norm)
+    expect_equal(metadata(pcs)$rotation, rowData(out.norm)$rotation)
+    expect_equal(out.pre$corrected, reducedDim(out.norm))
+    expect_equal(out.pre$batch, out.norm$batch)
 })
 
 set.seed(1200004)
@@ -179,18 +180,18 @@ test_that("fastMNN works as expected for three batches with re-ordering", {
     B2 <- matrix(rnorm(20000), nrow=100) # Batch 2
     B3 <- matrix(rnorm(5000), nrow=100) # Batch 2
 
-    out <- fastMNN(B1, B2, B3, d=50) # corrected values
-    expect_identical(dim(out$corrected), c(ncol(B1) + ncol(B2) + ncol(B3), 50L))
+    out <- fastMNN(B1, B2, B3, d=50) 
+    expect_identical(dim(reducedDim(out)), c(ncol(B1) + ncol(B2) + ncol(B3), 50L))
     expect_identical(as.integer(out$batch), rep(1:3, c(ncol(B1), ncol(B2), ncol(B3))))
     expect_identical(metadata(out)$order, 1:3)
     CHECK_PAIRINGS(out)
-    
+
     # Testing the re-ordering algorithms.
     out.re <- fastMNN(B3=B3, B2=B2, B1=B1, auto.order=c(3,2,1))
     CHECK_PAIRINGS(out.re)
 
     back.to.original <- order(out.re$batch)
-    expect_equal(out$corrected, out.re$corrected[back.to.original,])
+    expect_equal(reducedDim(out), reducedDim(out.re)[back.to.original,])
     expect_identical(metadata(out.re)$order, c("B1", "B2", "B3"))
 
     old.pairs <- metadata(out)$pairs
@@ -212,7 +213,7 @@ test_that("fastMNN works as expected for three batches with auto ordering", {
 
     # Testing the auto-ordering algorithms. 
     out.auto <- fastMNN(B1, B2, B3, d=50, auto.order=TRUE) 
-    expect_identical(dim(ref$corrected), dim(out.auto$corrected))
+    expect_identical(dim(reducedDim(ref)), dim(reducedDim(out.auto)))
     expect_identical(out.auto$batch, ref$batch)
     expect_identical(metadata(out.auto)$order, c(2L, 1L, 3L)) # 3 should be last, with the fewest cells => fewest MNNs.
     CHECK_PAIRINGS(out.auto)
@@ -273,8 +274,9 @@ test_that("fastMNN works on SingleCellExperiment inputs", {
     out <- fastMNN(sce1, sce2, use.dimred=1)
 
     ref <- fastMNN(B1, B2, cos.norm=FALSE)
-    metadata(ref)$rotation <- NULL
-    expect_equal(ref, out)
+    expect_identical(reducedDim(ref), out$corrected)
+    expect_identical(ref$batch, out$batch)
+    expect_identical(metadata(ref), metadata(out))
 })
 
 set.seed(12000052)
@@ -295,7 +297,7 @@ test_that("fastMNN works with within-object batches", {
 
     ref <- fastMNN(B1, B2, B3)
     out <- fastMNN(combined, batch=batches)
-    expect_equal(ref$corrected[shuffle,], out$corrected)
+    expect_equal(reducedDim(ref)[shuffle,], reducedDim(out))
     expect_equal(as.character(ref$batch)[shuffle], as.character(out$batch))
     CHECK_PAIRINGS(out)
 
@@ -313,9 +315,25 @@ test_that("fastMNN works with within-object batches", {
         )
     }
 
-    # Splits PC inputs properly (let's just pretend logcounts are PCs here).
-    out <- fastMNN(t(logcounts(combined)), batch=batches, pc.input=TRUE)
-    ref <- fastMNN(t(B1), t(B2), t(B3), pc.input=TRUE)
+    # Splits PC inputs properly.
+    pcd <- multiBatchPCA(B1, B2, B3)
+    com.pcd <- do.call(rbind, pcd)[shuffle,]
+    out <- fastMNN(com.pcd, batch=batches, pc.input=TRUE)
+    ref <- fastMNN(pcd[[1]], pcd[[2]], pcd[[3]], pc.input=TRUE)
+    expect_equal(ref$corrected[shuffle,], out$corrected)
+    expect_equal(as.character(ref$batch)[shuffle], as.character(out$batch))
+
+    sce1x <- sce1
+    reducedDim(sce1x, "PCA") <- pcd[[1]]
+    sce2x <- sce2
+    reducedDim(sce2x, "PCA") <- pcd[[2]]
+    sce3x <- sce3
+    reducedDim(sce3x, "PCA") <- pcd[[3]]
+    combinedx <- combined
+    reducedDim(combinedx, "PCA") <- com.pcd
+
+    out <- fastMNN(combinedx, batch=batches, use.dimred="PCA")
+    ref <- fastMNN(sce1x, sce2x, sce3x, use.dimred="PCA")
     expect_equal(ref$corrected[shuffle,], out$corrected)
     expect_equal(as.character(ref$batch)[shuffle], as.character(out$batch))
 })
