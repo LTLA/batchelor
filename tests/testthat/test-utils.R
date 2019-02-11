@@ -120,10 +120,10 @@ set.seed(1000005)
 test_that(".create_batch_names works correctly", {
     out <- batchelor:::.create_batch_names(LETTERS[1:3], c(10, 20, 30))
     expect_identical(out$labels, LETTERS[1:3])
-    expect_identical(as.character(out$ids), rep(out$labels, c(10, 20, 30)))
+    expect_identical(out$ids, rep(out$labels, c(10, 20, 30)))
     
     out <- batchelor:::.create_batch_names(NULL, c(10, 20, 30))
-    expect_identical(as.integer(out$ids), rep(out$labels, c(10, 20, 30)))
+    expect_identical(out$ids, rep(out$labels, c(10, 20, 30)))
 })
 
 set.seed(1000006)
