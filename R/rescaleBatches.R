@@ -21,6 +21,11 @@
 #' A \linkS4class{SingleCellExperiment} object containing the \code{corrected} assay.
 #' This contains corrected log-expression values for each gene (row) in each cell (column) in each batch.
 #' A \code{batch} field is present in the column data, specifying the batch of origin for each cell.
+#'
+#' Cells in the output are always ordered in the same manner as supplied in \code{...}.
+#' In cases with multiple objects in \code{...}, the cell identities are simply concatenated from successive objects,
+#' i.e., all cells from the first object (in their provided order), then all cells from the second object, and so on.
+#' For a single input object, cells should be reported in the same order as the input.
 #' 
 #' @details
 #' This function assumes that the log-expression values were computed by a log-transformation of normalized count data, plus a pseudo-count.

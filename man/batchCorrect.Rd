@@ -56,6 +56,7 @@ otherwise they should only be returned for the genes in the subset.
 Cells should be reported in the same order that they are supplied.
 In cases with multiple batches, the cell identities are simply concatenated from successive objects in their specified order,
 i.e., all cells from the first object (in their provided order), then all cells from the second object, and so on.
+For a single input object, cells should be reported in the same order as the input.
 
 The \code{colData} slot should contain \code{batch}, a vector specifying the batch of origin for each cell.
 }

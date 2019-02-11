@@ -91,6 +91,7 @@ In both cases, cells in the output are always ordered in the same manner as supp
 This is true regardless of the value of \code{auto.order}, which only affects the merge order.
 In cases with multiple objects in \code{...}, the cell identities are simply concatenated from successive objects,
 i.e., all cells from the first object (in their provided order), then all cells from the second object, and so on.
+For a single input object, cells should be reported in the same order as the input.
 
 The metadata of the output object contains:
 \itemize{
