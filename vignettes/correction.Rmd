@@ -10,7 +10,7 @@ output:
     package: scran
 bibliography: ref.bib
 vignette: >
-  %\VignetteIndexEntry{Correcting batch effects}
+  %\VignetteIndexEntry{1. Correcting batch effects}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}    
 ---
@@ -80,17 +80,17 @@ It is then straightforward to remove the batch effect and obtain a set of correc
 
 The `fastMNN()` function performs a principal components analysis (PCA) to obtain a low-dimensional representation of the input data.
 MNN identification and correction is performed in this low-dimensional space, which offers some advantages with respect to speed and denoising.    
-A single matrix of corrected PC scores is returned, which can be used directly for downstream analyses such as clustering and visualization.
+This returns a `SingleCellExperiment` containing a matrix of corrected PC scores is returned, which can be used directly for downstream analyses such as clustering and visualization.
 
 ```{r}
 f.out <- fastMNN(A=sce1, B=sce2)
-dim(f.out$corrected) # rows are cells now.
+str(reducedDim(f.out, "corrected"))
 ```
 
 The batch of origin for each row/cell in the output matrix is also returned:
 
 ```{r}
-f.out$batch
+rle(f.out$batch)
 ```
 
 Another way to call `fastMNN()` is to specify the batch manually.
@@ -100,14 +100,13 @@ but these semantics may be useful when cells from the same batch are not contigu
 
 ```{r}
 f.out2 <- fastMNN(combined, batch=combined$batch)
-dim(f.out2$corrected)
+str(reducedDim(f.out2, "corrected"))
 ```
 
 As we can see, the batch effect is successfully removed in the PCA plot below.
 
 ```{r}
-reducedDim(combined, "corrected") <- f.out2$corrected
-plotReducedDim(combined, colour_by="batch", use_dimred="corrected")
+plotReducedDim(f.out, colour_by="batch", use_dimred="corrected")
 ```
 
 We can also obtain per-gene corrected expression values by using the rotation vectors stored in the output.
@@ -115,8 +114,8 @@ This reverses the original projection used to obtain the initial low-dimensional
 There are, however, `r Biocpkg("simpleSingleCell", "batch.html#using-the-corrected-values-in-downstream-analyses", "many caveats")` to using these values for downstream analyses.
 
 ```{r}
-cor.exp <- tcrossprod(metadata(f.out2)$rotation[1,,drop=FALSE], f.out2$corrected)
-hist(cor.exp[1,], xlab="Corrected expression for gene 1") 
+cor.exp <- assay(f.out)[1,]
+hist(cor.exp, xlab="Corrected expression for gene 1") 
 ```
 
 While the default arguments are usually satisfactory, there are _many_ options for running `fastMNN()`, e.g., to improve speed or to achieve a particular merge order.
