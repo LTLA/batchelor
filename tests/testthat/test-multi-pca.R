@@ -254,7 +254,7 @@ test_that("multi-sample PCA works with deferred operations", {
     everything <- list(test1, test2, test3)
     ref <- batchelor:::.process_listed_matrices_for_pca(everything, NULL, deferred=FALSE)
     out <- batchelor:::.process_listed_matrices_for_pca(everything, NULL, deferred=TRUE)
-    expect_equal(as.matrix(ref$scaled), BiocSingular::as.matrix(out$scaled))
+    expect_equal(as.matrix(ref$scaled), as.matrix(out$scaled))
     expect_equal(ref$centered, out$centered)
 
     # Comparing the output.
@@ -275,7 +275,7 @@ test_that("multi-sample PCA works with deferred operations", {
     b <- rep(LETTERS[1:3], c(ncol(test1), ncol(test2), ncol(test3)))
     ref <- batchelor:::.process_single_matrix_for_pca(everything, b, NULL, deferred=FALSE)
     out <- batchelor:::.process_single_matrix_for_pca(everything, b, NULL, deferred=TRUE)
-    expect_equal(as.matrix(ref$scaled), BiocSingular::as.matrix(out$scaled))
+    expect_equal(as.matrix(ref$scaled), as.matrix(out$scaled))
     expect_equal(as.matrix(ref$centered), as.matrix(out$centered))
 
     ref <- multiBatchPCA(everything, batch=b, d=20)

@@ -168,7 +168,7 @@
 #' cB1 <- cosineNorm(B1)
 #' cB2 <- cosineNorm(B2)
 #' pcs <- multiBatchPCA(cB1, cB2)
-#' out.2 <- fastMNN(pcs[[1]], pcs[[2]], pc.input=TRUE)
+#' out2 <- fastMNN(pcs[[1]], pcs[[2]], pc.input=TRUE)
 #'
 #' all.equal(out, out2) # should be TRUE
 #' 

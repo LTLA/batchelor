@@ -317,12 +317,13 @@ test_that("fastMNN works with within-object batches", {
 
     # Splits PC inputs properly.
     pcd <- multiBatchPCA(B1, B2, B3)
-    com.pcd <- do.call(rbind, pcd)[shuffle,]
+    com.pcd <- do.call(rbind, as.list(pcd))[shuffle,]
     out <- fastMNN(com.pcd, batch=batches, pc.input=TRUE)
     ref <- fastMNN(pcd[[1]], pcd[[2]], pcd[[3]], pc.input=TRUE)
     expect_equal(ref$corrected[shuffle,], out$corrected)
     expect_equal(as.character(ref$batch)[shuffle], as.character(out$batch))
 
+    # ... and same for use.dimred=.
     sce1x <- sce1
     reducedDim(sce1x, "PCA") <- pcd[[1]]
     sce2x <- sce2
