@@ -18,7 +18,7 @@
 #' Only used for SingleCellExperiment inputs.
 #'
 #' @return
-#' A \linkS4class{SummarizedExperiment} object containing the \code{corrected} assay.
+#' A \linkS4class{SingleCellExperiment} object containing the \code{corrected} assay.
 #' This contains corrected log-expression values for each gene (row) in each cell (column) in each batch.
 #' A \code{batch} field is present in the column data, specifying the batch of origin for each cell.
 #' 
@@ -86,7 +86,7 @@ rescaleBatches <- function(..., batch=NULL, log.base=2, pseudo.count=1, subset.r
 ############################################
 # Internal main function, to separate the input handling from the actual calculations.
 
-#' @importFrom SummarizedExperiment SummarizedExperiment
+#' @importFrom SingleCellExperiment SingleCellExperiment
 #' @importFrom BiocGenerics cbind rowMeans
 .rescale_batches <- function(..., log.base=2, pseudo.count=1, subset.row=NULL) {
     batches <- list(...)
@@ -112,6 +112,6 @@ rescaleBatches <- function(..., batch=NULL, log.base=2, pseudo.count=1, subset.r
 
     ncells.per.batch <- vapply(batches, ncol, FUN.VALUE=0L)
     batch.names <- .create_batch_names(names(batches), ncells.per.batch)
-    SummarizedExperiment(list(corrected=do.call(cbind, batches)), 
+    SingleCellExperiment(list(corrected=do.call(cbind, batches)), 
         colData=DataFrame(batch=batch.names$ids)) 
 }

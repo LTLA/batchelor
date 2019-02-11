@@ -27,7 +27,7 @@
 #' @param BPPARAM A \linkS4class{BiocParallelParam} object specifying the parallelization scheme to use.
 #' 
 #' @return
-#' A \linkS4class{SummarizedExperiment} object containing the \code{corrected} assay.
+#' A \linkS4class{SingleCellExperiment} object containing the \code{corrected} assay.
 #' This contains corrected (log-)expression values for each gene (row) in each cell (column) in each batch.
 #' A \code{batch} field is present in the column data, specifying the batch of origin for each cell.
 #'
@@ -35,7 +35,7 @@
 #' In cases with multiple objects in \code{...}, the cell identities are simply concatenated from successive objects,
 #' i.e., all cells from the first object (in their provided order), then all cells from the second object, and so on.
 #'
-#' The metadata of the SummarizedExperiment contains:
+#' The metadata of the SingleCellExperiment contains:
 #' \itemize{
 #' \item{\code{pairs}: a list of DataFrames specifying which pairs of cells in \code{corrected} were identified as MNNs at each step.} 
 #' \item{\code{order}: a vector of batch names or indices, specifying the order in which batches were merged.}
@@ -171,7 +171,7 @@ mnnCorrect <- function(..., batch=NULL, k=20, sigma=0.1, cos.norm.in=TRUE, cos.n
 #' @importFrom BiocParallel SerialParam
 #' @importFrom BiocGenerics t rbind
 #' @importFrom DelayedArray DelayedArray
-#' @importFrom SummarizedExperiment SummarizedExperiment
+#' @importFrom SingleCellExperiment SingleCellExperiment
 #' @importFrom BiocSingular ExactParam
 #' @importFrom BiocNeighbors KmknnParam
 .mnn_correct <- function(..., k=20, sigma=0.1, cos.norm.in=TRUE, cos.norm.out=TRUE, svd.dim=0L, var.adj=TRUE, 
@@ -284,7 +284,7 @@ mnnCorrect <- function(..., batch=NULL, k=20, sigma=0.1, cos.norm.in=TRUE, cos.n
         mnn.pairings <- .reindex_pairings(mnn.pairings, ordering)
     }
    
-	SummarizedExperiment(list(corrected=t(ref.batch.out)), colData=DataFrame(batch=batch.names$ids),
+	SingleCellExperiment(list(corrected=t(ref.batch.out)), colData=DataFrame(batch=batch.names$ids),
         metadata=list(pairs=mnn.pairings, order=batch.names$labels[order]))
 }
 
