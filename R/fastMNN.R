@@ -31,7 +31,7 @@
 #' @param correct.all Logical scalar indicating whether a rotation matrix should be computed for genes not in \code{subset.row}.
 #' Only used for gene expression inputs, i.e., when \code{pc.input=FALSE}.
 #' @param pc.input Logical scalar indicating whether the values in \code{...} are already low-dimensional, e.g., the output of \code{\link{multiBatchPCA}}.
-#' Only used when \code{...} does \emph{not} contain SingleCellExperiment objects.
+#' Only used when \code{...} does \emph{not} contain SingleCellExperiment objects - in those cases, set \code{use.dimred} instead.
 #' @param assay.type A string or integer scalar specifying the assay containing the log-expression values.
 #' Only used for SingleCellExperiment inputs with \code{use.dimred=NULL}.
 #' @param get.spikes A logical scalar indicating whether to retain rows corresponding to spike-in transcripts.
@@ -43,32 +43,34 @@
 #' @param BPPARAM A \linkS4class{BiocParallelParam} object specifying whether the PCA and nearest-neighbor searches should be parallelized.
 #' 
 #' @return
-#' If \code{pc.input=FALSE}, a \linkS4class{SingleCellExperiment} is returned containing:
+#' The output of this function depends on whether a PCA is performed on the input \code{...}.
+#' This will be the case if \code{pc.input=FALSE} for matrix inputs or if \code{use.dimred=NULL} for SingleCellExperiment inputs.
+#' If a PCA is performed, a \linkS4class{SingleCellExperiment} is returned containing:
 #' \itemize{
 #' \item A \code{corrected} matrix in the \code{reducedDims} slot, containing corrected low-dimensional coordinates for each cell.
-#' This has number of columns equal to \code{d} and number of rows equal to the total number of cells in \code{...}.}
+#' This has number of columns equal to \code{d} and number of rows equal to the total number of cells in \code{...}.
 #' \item A \code{batch} column in the \code{colData} slot.
 #' This is a \linkS4class{Rle} containing the batch of origin for each row (i.e., cell) in \code{corrected}.
 #' \item A \code{rotation} column the \code{rowData} slot, containing the rotation matrix used for the PCA.
 #' This has \code{d} columns and number of rows equal to the number of genes in \code{subset.row} (or the total number of genes, if \code{subset.row=NULL} or \code{correct.all=TRUE}).
 #' \item A \code{reconstructed} matrix in the \code{assays} slot, containing the low-rank reconstruction of the original expression matrix.
-#' This can be interpreted as per-gene corrected expression values but should not be used for quantitative analyses.
+#' This can be interpreted as per-gene corrected log-expression values (after cosine normalization, if \code{cos.norm=TRUE}) but should not be used for quantitative analyses.
 #' }
-#' 
-#' If \code{pc.input=TRUE}, a \linkS4class{DataFrame} is returned containing the columns:
+#' Otherwise, a \linkS4class{DataFrame} is returned containing the columns:
 #' \itemize{
 #' \item \code{corrected}, the matrix of corrected low-dimensional coordinates for each cell.
-#' \item \item{batch}, the Rle specifying the batch of origin for each row. 
+#' \item \code{batch}, the Rle specifying the batch of origin for each row. 
 #' }
 #' 
-#' Regardless of \code{pc.input}, cells are always ordered in the same manner as supplied in \code{...}, regardless of the value of \code{auto.order}.
+#' In both cases, cells in the output are always ordered in the same manner as supplied in \code{...}.
+#' This is true regardless of the value of \code{auto.order}, which only affects the merge order.
 #' In cases with multiple objects in \code{...}, the cell identities are simply concatenated from successive objects,
 #' i.e., all cells from the first object (in their provided order), then all cells from the second object, and so on.
 #' 
 #' The metadata of the output object contains:
 #' \itemize{
-#' \item \code{pairs}, a list of DataFrames specifying which pairs of cells in \code{corrected} were identified as MNNs at each step.} 
-#' \item \code{order}, a vector of batch names or indices, specifying the order in which batches were merged.}
+#' \item \code{pairs}, a list of DataFrames specifying which pairs of cells in \code{corrected} were identified as MNNs at each step. 
+#' \item \code{order}, a vector of batch names or indices, specifying the order in which batches were merged.
 #' \item \code{lost.var}, a numeric vector containing the proportion of lost variance from each batch supplied in \code{...}.
 #' Only returned when \code{compute.variances=TRUE}.
 #' }
@@ -117,18 +119,10 @@
 #' Indeed, no matter what the setting of \code{auto.order} is, the order of cells in the output corrected matrix is \emph{always} the same.
 #' 
 #' Further control of the merge order can be achieved by performing the multi-sample PCA outside of this function with \code{\link{multiBatchPCA}}.
-#' Then, batches can be progressively merged by repeated calls to \code{fastMNN} with \code{pc.input=TRUE}.
-#' This is useful in situations where the order of batches to merge is not straightforward, e.g., involving hierarchies of batch similarities. 
-#' We only recommend this mode for advanced users, and note that:
-#' \itemize{
-#'     \item \code{\link{multiBatchPCA}} will not perform cosine-normalization, 
-#' so it is the responsibility of the user to cosine-normalize each batch beforehand with \code{\link{cosineNorm}} to recapitulate results with \code{cos.norm=TRUE}.
-#'     \item \code{\link{multiBatchPCA}} must be run on all samples at once, to ensure that all cells are projected to the same low-dimensional space.
-#'     \item Setting \code{pc.input=TRUE} is criticial to avoid unnecessary (and incorrect) cosine-normalization and PCA within each step of the merge.
-#' }
-#'
-#' See the Examples below for how the \code{pc.input} argument should be used.
-#' The same logic applies for \code{use.dimred}, assuming that the PC scores refer to the same space across all SingleCellExperiment objects.
+#' Batches can then be progressively merged by repeated calls to \code{fastMNN} with \code{pc.input=TRUE} or by setting \code{use.dimred} (see \dQuote{Using low-dimensional inputs}).
+#' This is useful in situations where the batches need to be merged in a hierarhical manner, e.g., combining replicate samples before merging them across different conditions.
+#' For example, we could merge batch 1 with 4 to obtain a corrected 1+4; and then batch 2 with 3 to obtain a corrected 2+3;
+#' before merging the corrected 1+4 and 2+3 to obtain the final set of corrected values.
 #'
 #' @section Choice of genes:
 #' Users should set \code{subset.row} to subset the inputs to highly variable genes or marker genes.
@@ -138,10 +132,25 @@
 #' For SingleCellExperiment inputs, spike-in transcripts should be the same across all objects.
 #' They are automatically removed unless \code{get.spikes=TRUE}.
 #' If \code{subset.row} is specified and \code{get.spikes=FALSE}, only the non-spike-in specified features will be used. 
-#' 
-#' The reported coordinates for cells refer to a low-dimensional space, but it may be desirable to obtain corrected gene expression values, e.g., for visualization.
-#' This can be done by computing the cross-product of the coordinates with the rotation matrix - see the Examples below.
-#' Note that this will represent corrected values in the space defined by the inputs (e.g., log-transformed) and after cosine normalization if \code{cos.norm=TRUE}.
+#'
+#' By default, only the selected genes are used to compute rotation vectors and a low-rank representation of the input matrix.
+#' However, rotation vectors can be obtained for all genes in the supplied input data with \code{correct.all=TRUE}.
+#' This will not affect the corrected low-dimension coordinates or the output for the selected genes. 
+#'
+#' Note that these settings for the choice of genes are completely ignored when using low-dimensional inputs (see below).
+#'
+#' @section Using low-dimensional inputs:
+#' Low-dimensional inputs can be supplied directly to \code{fastMNN} if the PCA (or some other projection to low-dimensional space) is performed outside the function.
+#' This intructs the function to skip the \code{\link{multiBatchPCA}} step. 
+#' To enable this, set \code{pc.input=TRUE} for matrix-like inputs in \code{...}, or specify \code{use.dimred} with SingleCellExperiment inputs.
+#' We only recommend this mode for advanced users, and note that:
+#' \itemize{
+#'     \item \code{\link{multiBatchPCA}} will not perform cosine-normalization, 
+#' so it is the responsibility of the user to cosine-normalize each batch beforehand with \code{\link{cosineNorm}} to recapitulate results with \code{cos.norm=TRUE}.
+#'     \item \code{\link{multiBatchPCA}} must be run on all samples at once, to ensure that all cells are projected to the same low-dimensional space.
+#'     \item Setting \code{pc.input=TRUE} is criticial to avoid unnecessary (and incorrect) cosine-normalization and PCA within each step of the merge.
+#' }
+#' Users are referred to the Examples for a demonstration of this functionality.
 #'
 #' @author Aaron Lun
 #'
@@ -153,8 +162,8 @@
 #' @examples
 #' B1 <- matrix(rnorm(10000), ncol=50) # Batch 1 
 #' B2 <- matrix(rnorm(10000), ncol=50) # Batch 2
-#' out <- fastMNN(B1, B2) # corrected values
-#' names(out)
+#' out <- fastMNN(B1, B2)
+#' str(reducedDim(out)) # corrected values
 #' 
 #' # An equivalent approach with PC input.
 #' cB1 <- cosineNorm(B1)
@@ -162,12 +171,10 @@
 #' pcs <- multiBatchPCA(cB1, cB2)
 #' out.2 <- fastMNN(pcs[[1]], pcs[[2]], pc.input=TRUE)
 #'
-#' all.equal(out$corrected, out.2$corrected) # should be TRUE
-#' all.equal(out$batch, out.2$batch) # should be TRUE
+#' all.equal(out, out2) # should be TRUE
 #' 
-#' # Obtaining corrected expression values for genes 1 and 10.
-#' cor.exp <- tcrossprod(metadata(out)$rotation[c(1,10),], out$corrected)
-#' dim(cor.exp)
+#' # Extracting corrected expression values for gene 10.
+#' summary(assay(out)[10,])
 #'
 #' @references
 #' Haghverdi L, Lun ATL, Morgan MD, Marioni JC (2018).
