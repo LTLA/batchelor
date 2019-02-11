@@ -1,0 +1,183 @@
+---
+title: Extending dispatch to more batch correction methods
+author: 
+- name: Aaron Lun
+  affiliation: Cancer Research UK Cambridge Institute, Cambridge, United Kingdom
+date: "Revised: 11 February 2019"
+output:
+  BiocStyle::html_document:
+    toc_float: true
+package: batchelor
+bibliography: ref.bib
+vignette: >
+  %\VignetteIndexEntry{2. Extending methods}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}    
+---
+
+```{r, echo=FALSE, results="hide", message=FALSE}
+require(knitr)
+opts_chunk$set(error=FALSE, message=FALSE, warning=FALSE)
+```
+
+```{r setup, echo=FALSE, message=FALSE}
+library(batchelor)
+```
+
+# Overview 
+
+The `r Biocpkg("batchelor")` package provides the `batchCorrect()` generic that dispatches on its `PARAM` argument.
+Users writing code using `batchCorrect()` can easily change one method for another by simply modifying the class of object supplied as `PARAM`.
+For example:
+
+```{r}
+B1 <- matrix(rnorm(10000), ncol=50) # Batch 1 
+B2 <- matrix(rnorm(10000), ncol=50) # Batch 2
+
+# Switching easily between batch correction methods.
+m.out <- batchCorrect(B1, B2, PARAM=ClassicMnnParam())
+f.out <- batchCorrect(B1, B2, PARAM=FastMnnParam(d=20))
+r.out <- batchCorrect(B1, B2, PARAM=RescaleParam(pseudo.count=0))
+```
+
+Developers of other packages can extend this further by adding their batch correction methods to this dispatch system.
+This improves interoperability across packages by allowing users to easily experiment with different methods.
+
+# Setting up 
+
+You will need to `Imports: batchelor, methods` in your `DESCRIPTION` file.
+You will also need to add `import(methods)`, `importFrom(batchelor, "batchCorrect")` and `importClassesFrom(batchelor, "BatchelorParam")` in your `NAMESPACE` file.
+
+Obviously, you will also need to have a function that implements your batch correction method.
+For demonstration purposes, we will use an identity function that simply returns the input values^[Not a very good correction, but that's not the point right now.].
+This is implemented like so:
+
+```{r}
+noCorrect <- function(...) 
+# Takes a set of batches and returns them without modification. 
+{
+   do.call(cbind, list(...)) 
+}
+```
+
+# Deriving a `BatchelorParam` subclass
+
+We need to define a new `BatchelorParam` subclass that instructs the `batchCorrect()` generic to dispatch to our new method.
+This is most easily done like so:
+
+```{r}
+NothingParam <- setClass("NothingParam", contains="BatchelorParam")
+```
+
+Note that `BatchelorParam` itself is derived from a `SimpleList` and can be modified with standard list operators like `$`.
+
+```{r}
+nothing <- NothingParam()
+nothing
+nothing$some_value <- 1
+nothing
+```
+
+If no parameters are set, the default values in the function will be used^[Here there are none in `noCorrect()`, but presumably your function is more complex than that.].
+Additional slots can be specified in the class definition if there are important parameters that need to be manually specified by the user.
+
+# Defining a `batchCorrect` method
+
+## Input
+
+The `batchCorrect()` generic looks like this:
+
+```{r}
+batchCorrect
+```
+
+Any implemented method must accept one or more matrix-like objects containing single-cell gene expression matrices in `...`.
+Rows are assumed to be genes and columns are assumed to be cells.
+If only one object is supplied, `batch` must be specified to indicate the batches to which each cell belongs.
+
+Alternatively, one or more `SingleCellExperiment` objects can be supplied, containing the gene expression matrix in the `assay.type` assay.
+These should not be mixed with matrix-like objects, i.e., if one object is a `SingleCellExperiment`, all objects should be `SingleCellExperiment`s.
+
+## Output 
+
+Any implemented method must return a `SingleCellExperiment` where the first assay contains corrected gene expression values for all genes. 
+Corrected values should be returned:
+
+- for all genes, if `correct.all=TRUE` for any input.
+- for all genes, if `subset.row=NULL` for matrix-like inputs.
+- for selected genes, if `subset.row` is not `NULL` for matrix-like inputs.
+- for all genes, if `subset.row=NULL` and `get.spikes=TRUE` for `SingleCellExperiment` inputs.
+- for all non-spike-in transcripts, if `subset.row=NULL` and `get.spikes=FALSE` for `SingleCellExperiment` inputs.
+- for selected genes, if `subset.row` is not `NULL` and `get.spikes=FALSE` for matrix-like inputs.
+- for selected genes that are not spike-in transcripts, if `subset.row` is not `NULL` and `get.spikes=FALSE` for `SingleCellExperiment` inputs.
+
+This looks more complicated than it really is, as developers can just modify `subset.row` to exclude spike-ins when `get.spikes=FALSE`.
+
+Cells should be reported in the same order that they are supplied in `...`.
+In cases with multiple batches, the cell identities are simply concatenated from successive objects in their specified order,
+i.e., all cells from the first object (in their provided order), then all cells from the second object, and so on.
+If there is only a single batch, the order of cells in that batch should be preserved.
+
+Finally, the `colData` slot should contain ‘batch’, a vector specifying the batch of origin for each cell.
+
+## Demonstration
+
+Finally, we define a method that calls our `noCorrect` function while satisfying all of the above input/output requirements.
+To be clear, it is not mandatory to lay out the code as shown below; this is simply one way that all the requirements can be satisfied.
+We have used some internal `r Biocpkg("batchelor")` functions for brevity - please contact us if you find these useful and want them to be exported.
+
+```{r}
+setMethod("batchCorrect", "NothingParam", function(..., batch = NULL, 
+    subset.row = NULL, correct.all = FALSE, assay.type = "logcounts", 
+    get.spikes = FALSE, PARAM) 
+{
+    batches <- list(...)
+
+    # Pulling out information from the SCE objects.        
+    if (batchelor:::.check_if_SCEs(batches)) {
+        batchelor:::.check_batch_consistency(batches, byrow=TRUE)
+        batchelor:::.check_spike_consistency(batches)
+        subset.row <- batchelor:::.SCE_subset_genes(subset.row, batches[[1]], get.spikes)
+
+        if (is.null(assay.type)) assay.type <- "logcounts" # due to default from generic.
+        batches <- lapply(batches, assay, i=assay.type, withDimnames=FALSE)
+    } else {
+        batchelor:::.check_batch_consistency(batches, byrow=TRUE)
+    }
+
+    # Subsetting by 'batch', if only one object is supplied. 
+    do.split <- length(batches)==1L
+    if (do.split) {
+        if (is.null(batch)) { 
+            stop("'batch' must be specified if '...' has only one object")
+        }
+
+        divided <- batchelor:::.divide_into_batches(batches[[1]], batch=batch, byrow=FALSE)
+        batches <- divided$batches
+    } 
+
+    output <- do.call(noCorrect, batches)
+
+    # Reordering the output for correctness.
+    if (do.split) {
+        d.reo <- divided$reorder
+        output <- output[,d.reo,drop=FALSE]
+    }
+
+    return(output)
+})
+```
+
+And it works^[In a strictly programming sense, as the method itself does no correction at all.]:
+
+```{r}
+n.out <- batchCorrect(B1, B2, PARAM=NothingParam())
+```
+
+Remember to export both the new method and the `NothingParam` class and constructor.
+
+# Session information
+
+```{r}
+sessionInfo()
+```    
