@@ -28,7 +28,8 @@
 #' @param compute.variances Logical scalar indicating whether the percentage of variance lost due to non-orthogonality should be computed.
 #' @param subset.row A vector specifying which features to use for correction. 
 #' Only relevant for gene expression inputs (i.e., \code{pc.input=FALSE} and \code{use.dimred=NULL}).
-#' @param rotate.all Logical scalar to be passed to \code{\link{multiBatchPCA}} for gene expression inputs.
+#' @param correct.all Logical scalar indicating whether a rotation matrix should be computed for genes not in \code{subset.row}.
+#' Only used for gene expression inputs, i.e., when \code{pc.input=FALSE}.
 #' @param pc.input Logical scalar indicating whether the values in \code{...} are already low-dimensional, e.g., the output of \code{\link{multiBatchPCA}}.
 #' Only used when \code{...} does \emph{not} contain SingleCellExperiment objects.
 #' @param assay.type A string or integer scalar specifying the assay containing the log-expression values.
@@ -42,24 +43,34 @@
 #' @param BPPARAM A \linkS4class{BiocParallelParam} object specifying whether the PCA and nearest-neighbor searches should be parallelized.
 #' 
 #' @return
-#' A \linkS4class{DataFrame} is returned containing:
+#' If \code{pc.input=FALSE}, a \linkS4class{SingleCellExperiment} is returned containing:
 #' \itemize{
-#' \item{\code{corrected}: a matrix with number of columns equal to \code{d}, and number of rows equal to the total number of cells in \code{...}.}
-#' \item{\code{batch}: a \linkS4class{Rle} containing the batch of origin for each row (i.e., cell) in \code{corrected}.}
+#' \item A \code{corrected} matrix in the \code{reducedDims} slot, containing corrected low-dimensional coordinates for each cell.
+#' This has number of columns equal to \code{d} and number of rows equal to the total number of cells in \code{...}.}
+#' \item A \code{batch} column in the \code{colData} slot.
+#' This is a \linkS4class{Rle} containing the batch of origin for each row (i.e., cell) in \code{corrected}.
+#' \item A \code{rotation} column the \code{rowData} slot, containing the rotation matrix used for the PCA.
+#' This has \code{d} columns and number of rows equal to the number of genes in \code{subset.row} (or the total number of genes, if \code{subset.row=NULL} or \code{correct.all=TRUE}).
+#' \item A \code{reconstructed} matrix in the \code{assays} slot, containing the low-rank reconstruction of the original expression matrix.
+#' This can be interpreted as per-gene corrected expression values but should not be used for quantitative analyses.
 #' }
 #' 
-#' Cells (i.e., rows) are always ordered in the same manner as supplied in \code{...}, regardless of the value of \code{auto.order}.
+#' If \code{pc.input=TRUE}, a \linkS4class{DataFrame} is returned containing the columns:
+#' \itemize{
+#' \item \code{corrected}, the matrix of corrected low-dimensional coordinates for each cell.
+#' \item \item{batch}, the Rle specifying the batch of origin for each row. 
+#' }
+#' 
+#' Regardless of \code{pc.input}, cells are always ordered in the same manner as supplied in \code{...}, regardless of the value of \code{auto.order}.
 #' In cases with multiple objects in \code{...}, the cell identities are simply concatenated from successive objects,
 #' i.e., all cells from the first object (in their provided order), then all cells from the second object, and so on.
 #' 
-#' The metadata of the DataFrame contains:
+#' The metadata of the output object contains:
 #' \itemize{
-#' \item{\code{pairs}: a list of DataFrames specifying which pairs of cells in \code{corrected} were identified as MNNs at each step.} 
-#' \item{\code{order}: a vector of batch names or indices, specifying the order in which batches were merged.}
-#' \item{\code{lost.var}: a numeric vector containing the proportion of lost variance from each batch supplied in \code{...}.
-#' Only returned when \code{compute.variances=TRUE}.}
-#' \item{\code{rotation}: a numeric matrix of rotation vectors used to project all cells into low-dimensional space.
-#' Only returned when \code{pc.input=FALSE} (for matrix inputs) or \code{use.dimred=NULL} (for SingleCellExperiment inputs).}
+#' \item \code{pairs}, a list of DataFrames specifying which pairs of cells in \code{corrected} were identified as MNNs at each step.} 
+#' \item \code{order}, a vector of batch names or indices, specifying the order in which batches were merged.}
+#' \item \code{lost.var}, a numeric vector containing the proportion of lost variance from each batch supplied in \code{...}.
+#' Only returned when \code{compute.variances=TRUE}.
 #' }
 #' 
 #' @details
@@ -173,8 +184,8 @@
 #' @importFrom SummarizedExperiment assay
 #' @importFrom BiocNeighbors KmknnParam
 #' @importFrom BiocSingular ExactParam
-fastMNN <- function(..., batch=NULL, k=20, cos.norm=FALSE, ndist=3, d=50, auto.order=FALSE, compute.variances=FALSE, 
-        subset.row=NULL, rotate.all=FALSE, pc.input=FALSE, assay.type="logcounts", get.spikes=FALSE, use.dimred=NULL, 
+fastMNN <- function(..., batch=NULL, k=20, cos.norm=TRUE, ndist=3, d=50, auto.order=FALSE, compute.variances=FALSE, 
+        subset.row=NULL, correct.all=FALSE, pc.input=FALSE, assay.type="logcounts", get.spikes=FALSE, use.dimred=NULL, 
         BSPARAM=ExactParam(), BNPARAM=KmknnParam(), BPPARAM=SerialParam()) 
 {
     batches <- list(...)
@@ -197,7 +208,7 @@ fastMNN <- function(..., batch=NULL, k=20, cos.norm=FALSE, ndist=3, d=50, auto.o
 
     # Subsetting by 'batch'.
     common.args <-list(k=k, cos.norm=cos.norm, ndist=ndist, d=d, subset.row=subset.row, 
-        rotate.all=rotate.all, auto.order=auto.order, pc.input=pc.input, 
+        correct.all=correct.all, auto.order=auto.order, pc.input=pc.input, 
         compute.variances=compute.variances, BSPARAM=BSPARAM, BNPARAM=BNPARAM, BPPARAM=BPPARAM)
 
     if (length(batches)==1L) {
@@ -215,10 +226,9 @@ fastMNN <- function(..., batch=NULL, k=20, cos.norm=FALSE, ndist=3, d=50, auto.o
 ############################################
 # Internal main function, to separate the input handling from the actual calculations.
 
-#' @importFrom BiocSingular ExactParam
+#' @importFrom BiocSingular ExactParam 
 #' @importFrom BiocParallel SerialParam
-#' @importFrom S4Vectors metadata metadata<-
-.fast_mnn_list <- function(batch.list, ..., subset.row=NULL, cos.norm=TRUE, pc.input=FALSE, d=50, rotate.all=FALSE, BSPARAM=ExactParam(), BPPARAM=SerialParam()) 
+.fast_mnn_list <- function(batch.list, ..., subset.row=NULL, cos.norm=TRUE, pc.input=FALSE, d=50, correct.all=FALSE, BSPARAM=ExactParam(), BPPARAM=SerialParam()) 
 {
     nbatches <- length(batch.list) 
     if (nbatches < 2L) { 
@@ -233,14 +243,14 @@ fastMNN <- function(..., batch=NULL, k=20, cos.norm=FALSE, ndist=3, d=50, auto.o
         if (cos.norm) { 
             batch.list <- lapply(batch.list, FUN=cosineNorm, mode="matrix")
         }
-        pc.mat <- .multi_pca_list(batch.list, d=d, rotate.all=rotate.all, BSPARAM=BSPARAM, BPPARAM=BPPARAM)
+        pc.mat <- .multi_pca_list(batch.list, d=d, rotate.all=correct.all, BSPARAM=BSPARAM, BPPARAM=BPPARAM)
     } else {
         pc.mat <- batch.list
     }
 
     out <- .fast_mnn(batches=pc.mat, ..., BPPARAM=BPPARAM)
     if (!pc.input) {
-        metadata(out)$rotation <- metadata(pc.mat)$rotation
+        out <- .convert_to_SCE(out, pc.mat)
     }
     out
 }
@@ -248,7 +258,7 @@ fastMNN <- function(..., batch=NULL, k=20, cos.norm=FALSE, ndist=3, d=50, auto.o
 #' @importFrom BiocSingular ExactParam
 #' @importFrom BiocParallel SerialParam
 #' @importFrom S4Vectors List metadata metadata<-
-.fast_mnn_single <- function(x, batch, ..., subset.row=NULL, cos.norm=TRUE, pc.input=FALSE, d=50, rotate.all=FALSE, BSPARAM=ExactParam(), BPPARAM=SerialParam()) 
+.fast_mnn_single <- function(x, batch, ..., subset.row=NULL, cos.norm=TRUE, pc.input=FALSE, d=50, correct.all=FALSE, BSPARAM=ExactParam(), BPPARAM=SerialParam()) 
 {
     batch <- factor(batch)
     if (nlevels(batch) < 2L) { 
@@ -263,7 +273,7 @@ fastMNN <- function(..., batch=NULL, k=20, cos.norm=FALSE, ndist=3, d=50, auto.o
         if (cos.norm) { 
             x <- cosineNorm(x, mode="matrix")
         }
-        mat <- .multi_pca_single(x, batch=batch, d=d, rotate.all=rotate.all, BSPARAM=BSPARAM, BPPARAM=BPPARAM)
+        mat <- .multi_pca_single(x, batch=batch, d=d, rotate.all=correct.all, BSPARAM=BSPARAM, BPPARAM=BPPARAM)
     } else {
         mat <- List(x)
     }
@@ -285,13 +295,13 @@ fastMNN <- function(..., batch=NULL, k=20, cos.norm=FALSE, ndist=3, d=50, auto.o
     metadata(output)$pairs <- pairings
 
     if (!pc.input) {
-        metadata(output)$rotation <- metadata(mat)$rotation
+        output <- .convert_to_SCE(output, mat)
     }
     output
 }
 
 #' @importFrom BiocParallel SerialParam
-#' @importFrom S4Vectors DataFrame metadata<- metadata
+#' @importFrom S4Vectors DataFrame metadata<- 
 #' @importFrom BiocNeighbors KmknnParam
 .fast_mnn <- function(batches, k=20, ndist=3, auto.order=FALSE, compute.variances=FALSE, BNPARAM=KmknnParam(), BPPARAM=SerialParam()) 
 {
@@ -505,3 +515,18 @@ fastMNN <- function(..., batch=NULL, k=20, cos.norm=FALSE, ndist=3, d=50, auto.o
     return(list(other=max.other, pairs=max.pairs))
 }
 
+############################################
+# Output formatting functions.
+
+#' @importFrom S4Vectors metadata DataFrame
+#' @importFrom BiocSingular LowRankMatrix
+#' @importFrom SingleCellExperiment SingleCellExperiment
+.convert_to_SCE <- function(corrected.df, pc.mat) {
+    rot <- metadata(pc.mat)$rotation
+    mat <- LowRankMatrix(rot, corrected.df$corrected)
+    SingleCellExperiment(list(reconstructed=mat),
+        colData=DataFrame(batch=corrected.df$batch),
+        rowData=DataFrame(rotation=I(rot)),
+        metadata=metadata(corrected.df),
+        reducedDims=list(corrected=corrected.df$corrected))
+}
