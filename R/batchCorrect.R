@@ -77,6 +77,7 @@ setMethod("batchCorrect", "FastMnnParam", function(..., batch=NULL, subset.row=N
 #' @export
 setMethod("batchCorrect", "RescaleParam", function(..., batch=NULL, subset.row=NULL, correct.all=FALSE, assay.type="logcounts", get.spikes=FALSE, PARAM) {
     if (is.null(assay.type)) assay.type <- "logcounts"
-    combined <- c(list(...), list(batch=batch, subset.row=subset.row, correct.all=correct.all, assay.type=assay.type, get.spikes=get.spikes), as.list(PARAM))
+    if (correct.all) subset.row <- NULL
+    combined <- c(list(...), list(batch=batch, subset.row=subset.row, assay.type=assay.type, get.spikes=get.spikes), as.list(PARAM))
     do.call(rescaleBatches, combined)
 })

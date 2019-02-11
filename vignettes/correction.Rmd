@@ -7,7 +7,7 @@ date: "Revised: 3 February 2019"
 output:
   BiocStyle::html_document:
     toc_float: true
-    package: scran
+package: batchelor
 bibliography: ref.bib
 vignette: >
   %\VignetteIndexEntry{1. Correcting batch effects}
