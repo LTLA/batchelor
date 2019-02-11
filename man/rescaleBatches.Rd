@@ -30,7 +30,7 @@ This is ignored if multiple objects are present.}
 Only used for SingleCellExperiment inputs.}
 }
 \value{
-A \linkS4class{SummarizedExperiment} object containing the \code{corrected} assay.
+A \linkS4class{SingleCellExperiment} object containing the \code{corrected} assay.
 This contains corrected log-expression values for each gene (row) in each cell (column) in each batch.
 A \code{batch} field is present in the column data, specifying the batch of origin for each cell.
 }

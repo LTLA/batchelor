@@ -75,8 +75,7 @@ If a PCA is performed, a \linkS4class{SingleCellExperiment} is returned containi
 \itemize{
 \item A \code{corrected} matrix in the \code{reducedDims} slot, containing corrected low-dimensional coordinates for each cell.
 This has number of columns equal to \code{d} and number of rows equal to the total number of cells in \code{...}.
-\item A \code{batch} column in the \code{colData} slot.
-This is a \linkS4class{Rle} containing the batch of origin for each row (i.e., cell) in \code{corrected}.
+\item A \code{batch} column in the \code{colData} slot, containing the batch of origin for each row (i.e., cell) in \code{corrected}.
 \item A \code{rotation} column the \code{rowData} slot, containing the rotation matrix used for the PCA.
 This has \code{d} columns and number of rows equal to the number of genes in \code{subset.row} (or the total number of genes, if \code{subset.row=NULL} or \code{correct.all=TRUE}).
 \item A \code{reconstructed} matrix in the \code{assays} slot, containing the low-rank reconstruction of the original expression matrix.
@@ -197,7 +196,7 @@ str(reducedDim(out)) # corrected values
 cB1 <- cosineNorm(B1)
 cB2 <- cosineNorm(B2)
 pcs <- multiBatchPCA(cB1, cB2)
-out.2 <- fastMNN(pcs[[1]], pcs[[2]], pc.input=TRUE)
+out2 <- fastMNN(pcs[[1]], pcs[[2]], pc.input=TRUE)
 
 all.equal(out, out2) # should be TRUE
 
