@@ -14,7 +14,7 @@
 #' Each entry of the list corresponds to one batch and specifies the cells to use when computing the correction.
 #' @param log.base A numeric scalar specifying the base of the log-transformation.
 #' @param pseudo.count A numeric scalar specifying the pseudo-count used for the log-transformation.
-#' @param subset.row A vector specifying which features to use for correction. 
+#' @param subset.row A vector specifying which features to use for correction.
 #' @param assay.type A string or integer scalar specifying the assay containing the log-expression values, if SingleCellExperiment objects are present in \code{...}.
 #' @param get.spikes A logical scalar indicating whether to retain rows corresponding to spike-in transcripts.
 #' Only used for SingleCellExperiment inputs.
@@ -24,10 +24,10 @@
 #' This contains corrected log-expression values for each gene (row) in each cell (column) in each batch.
 #' A \code{batch} field is present in the column data, specifying the batch of origin for each cell.
 #'
-#' Cells in the output are always ordered in the same manner as supplied in \code{...}.
-#' In cases with multiple objects in \code{...}, the cell identities are simply concatenated from successive objects,
+#' Cells in the output object are always ordered in the same manner as supplied in \code{...}.
+#' For a single input object, cells will be reported in the same order as they are arranged in that object.
+#' In cases with multiple input objects, the cell identities are simply concatenated from successive objects,
 #' i.e., all cells from the first object (in their provided order), then all cells from the second object, and so on.
-#' For a single input object, cells should be reported in the same order as the input.
 #' 
 #' @details
 #' This function assumes that the log-expression values were computed by a log-transformation of normalized count data, plus a pseudo-count.
@@ -41,6 +41,14 @@
 #'
 #' The output values are always re-log-transformed with the same \code{log.base} and \code{pseudo.count}.
 #' These can be used directly in place of the input values for downstream operations.
+#'
+#' @section Choice of genes:
+#' All genes are used with the default setting of \code{subset.row=NULL}.
+#' Users can set \code{subset.row} to subset the inputs, though this is purely for convenience as each gene is processed independently of other genes.
+#'
+#' For \linkS4class{SingleCellExperiment} inputs, spike-in transcripts are automatically removed unless \code{get.spikes=TRUE}.
+#' If \code{subset.row} is specified and \code{get.spikes=FALSE}, only the non-spike-in specified features will be used. 
+#' All SingleCellExperiment objects should have the same set of spike-in transcripts.
 #'
 #' @author Aaron Lun
 #'
