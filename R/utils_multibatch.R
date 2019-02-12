@@ -3,6 +3,7 @@
 .check_batch_consistency <- function(batches, byrow=TRUE, ignore.null=FALSE) 
 # Checking for identical number of rows (and rownames).
 # It can also do the same for columns, if we're dealing with PC results.
+# It then returns a list of dimnames for renaming the output.
 {
     if (length(batches)==0L) {
         if (byrow) {
@@ -95,42 +96,6 @@
         stop("cannot mix SingleCellExperiments and other objects")
     }
     any(all.sce) # don't do all.sce[1], avoid errors when length(batches)==0L.
-}
-
-.divide_into_batches <- function(x, batch, byrow=FALSE) 
-# Splits 'x' by column or row according to 'batch'.
-{
-    batch <- as.factor(batch)
-    if (byrow) {
-        if (length(batch)!=nrow(x)) {
-            stop("'length(batch)' and 'nrow(x)' are not the same")
-        }
-    } else {
-        if (length(batch)!=ncol(x)) {
-            stop("'length(batch)' and 'ncol(x)' are not the same")
-        }
-    }
-
-    output <- vector("list", nlevels(batch))
-    names(output) <- levels(batch)
-    reorder <- integer(ncol(x))
-    last <- 0L
-
-    for (b in levels(batch)) {
-        keep <- batch==b
-        if (byrow) {
-            current <- x[keep,,drop=FALSE]
-            N <- nrow(current)
-        } else {
-            current <- x[,keep,drop=FALSE]
-            N <- ncol(current)
-        }
-        output[[b]] <- current
-        reorder[keep] <- last + seq_len(N)
-        last <- last + N
-    }
-
-    list(batches=output, reorder=reorder) 
 }
 
 .create_batch_names <- function(batch.labels, ncells.per.batch) 
