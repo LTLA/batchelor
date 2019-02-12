@@ -143,6 +143,16 @@ test_that(".create_batch_names works correctly", {
     expect_identical(out$ids, rep(out$labels, c(10, 20, 30)))
 })
 
+set.seed(10000051)
+test_that(".check_restrictions works correctly", {
+    expect_error(batchelor:::.check_restrictions(list(1, 2), NULL), NA)
+    expect_error(batchelor:::.check_restrictions(list(1, 2), list()), "number of batches")
+    expect_error(batchelor:::.check_restrictions(list(1, 2), list(3, 4)), NA)
+    expect_error(batchelor:::.check_restrictions(list(A=1, B=2), list(3, 4)), "same names")
+    expect_error(batchelor:::.check_restrictions(list(A=1, B=2), list(B=3, A=4)), "same names")
+    expect_error(batchelor:::.check_restrictions(list(A=1, B=2), list(A=3, B=4)), NA)
+})
+
 set.seed(1000006)
 test_that(".row_subset_to_index works correctly", {
     A <- matrix(runif(1000), ncol=1)

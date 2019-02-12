@@ -131,3 +131,17 @@
     batch.ids <- rep(batch.labels, ncells.per.batch)
     list(labels=batch.labels, ids=batch.ids)
 }
+
+.check_restrictions <- function(batches, restrictions) {
+    if (is.null(restrictions)) {
+        return(NULL)
+    }
+    if (length(batches)!=length(restrictions)) {
+        stop("'restrictions' must of length equal to the number of batches") 
+    }
+    if (!identical(names(batches), names(restrictions))) {
+        stop("'restrictions' must have the same names as the batches")
+    }
+    return(NULL)
+}
+
