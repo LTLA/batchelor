@@ -208,7 +208,7 @@ set.seed(1200006)
 test_that("fastMNN works as expected for three batches with auto ordering", {
     B1 <- matrix(rnorm(10000), nrow=100) # Batch 1 
     B2 <- matrix(rnorm(20000), nrow=100) # Batch 2
-    B3 <- matrix(rnorm(5000), nrow=100) # Batch 2
+    B3 <- matrix(rnorm(5000), nrow=100) # Batch 3
     ref <- fastMNN(B1, B2, B3, d=50) 
 
     # Testing the auto-ordering algorithms. 
@@ -231,9 +231,9 @@ test_that("fastMNN works as expected for three batches with auto ordering", {
     expect_identical(fmerge$second, 1L)
     expect_identical(fmerge$pairs, findMutualNN(t(B2), t(B1), k1=20, k2=20))
 
-    expect_identical(BiocNeighbors::findKNN(precomputed=fmerge$precomputed[[1]], k=5), BiocNeighbors::findKNN(t(B1), k=5)) # checking that the precomputations are correct.
-    expect_identical(BiocNeighbors::findKNN(precomputed=fmerge$precomputed[[2]], k=10), BiocNeighbors::findKNN(t(B2), k=10))
-    expect_identical(BiocNeighbors::findKNN(precomputed=fmerge$precomputed[[3]], k=15), BiocNeighbors::findKNN(t(B3), k=15))
+    expect_identical(BiocNeighbors::findKNN(BNINDEX=fmerge$precomputed[[1]], k=5), BiocNeighbors::findKNN(t(B1), k=5)) # checking that the precomputations are correct.
+    expect_identical(BiocNeighbors::findKNN(BNINDEX=fmerge$precomputed[[2]], k=10), BiocNeighbors::findKNN(t(B2), k=10))
+    expect_identical(BiocNeighbors::findKNN(BNINDEX=fmerge$precomputed[[3]], k=15), BiocNeighbors::findKNN(t(B3), k=15))
 
     nmerge <- batchelor:::.define_next_merge(t(B1), list(t(B1), t(B2), t(B3)), processed=1L, precomputed=fmerge$precomputed, k=20)   
     expect_identical(nmerge$other, 2L) # 1 should have more MNNs with 2 than with 3.
