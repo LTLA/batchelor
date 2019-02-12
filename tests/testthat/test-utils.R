@@ -97,46 +97,6 @@ test_that(".check_if_SCEs works correctly", {
     expect_false(batchelor:::.check_if_SCEs(list()))
 })
 
-set.seed(1000004)
-test_that(".divide_into_batches works correctly", {
-    A <- matrix(runif(2000), 50, 40)
-
-    # Testing by row.
-    b <- sample(LETTERS[1:5], nrow(A), replace=TRUE)
-    X <- batchelor:::.divide_into_batches(A, b, byrow=TRUE) 
-    expect_identical(names(X$batches), sort(unique(b)))
-
-    Y <- do.call(rbind, X$batches)
-    expect_identical(Y[X$reorder,,drop=FALSE], A)
-
-    # Testing by column.
-    b <- sample(LETTERS[15:6], ncol(A), replace=TRUE)
-    X <- batchelor:::.divide_into_batches(A, b)
-    expect_identical(names(X$batches), sort(unique(b)))
-
-    Y <- do.call(cbind, X$batches)
-    expect_identical(Y[,X$reorder,drop=FALSE], A)
-
-    # Preserves dimnames.
-    B <- A
-    colnames(B) <- seq_len(ncol(B))
-    rownames(B) <- seq_len(nrow(B))
-    X <- batchelor:::.divide_into_batches(B, b)
-    Y <- do.call(cbind, X$batches)
-    expect_identical(Y[,X$reorder,drop=FALSE], B)
-
-    # Testing for errors.
-    expect_error(batchelor:::.divide_into_batches(A, 1), "not the same")
-    expect_error(batchelor:::.divide_into_batches(A, 1, byrow=TRUE), "not the same")
-
-    # Testing silly inputs.
-    X <- batchelor:::.divide_into_batches(A, rep(1, ncol(A)))
-    expect_identical(X$batches[[1]], A)
-    X <- batchelor:::.divide_into_batches(A[,0], integer(0))
-    expect_identical(length(X$batches), 0L)
-    expect_identical(X$reorder, integer(0))
-})
-
 set.seed(1000005)
 test_that(".create_batch_names works correctly", {
     out <- batchelor:::.create_batch_names(LETTERS[1:3], c(10, 20, 30))
