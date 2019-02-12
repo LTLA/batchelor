@@ -139,6 +139,28 @@ test_that(".row_subset_to_index works correctly", {
     expect_identical(batchelor:::.row_subset_to_index(A, character(0)), integer(0))
 })
 
+set.seed(10000061)
+test_that(".col_subset_to_index works correctly", {
+    A <- matrix(runif(1000), ncol=1000)
+    colnames(A) <- paste0("CELL_", seq_along(A))
+
+    i <- sample(ncol(A), ncol(A)/2)
+    expect_identical(i, batchelor:::.col_subset_to_index(A, i))
+
+    l <- rbinom(ncol(A), 1, 0.1)==1
+    expect_identical(which(l), batchelor:::.col_subset_to_index(A, l))
+
+    s <- sample(colnames(A), ncol(A)/2)
+    expect_identical(match(s, colnames(A)), batchelor:::.col_subset_to_index(A, s))
+
+    expect_identical(batchelor:::.col_subset_to_index(A, NULL), seq_along(A))
+
+    # Testing silly inputs.
+    expect_identical(batchelor:::.col_subset_to_index(A, integer(0)), integer(0))
+    expect_identical(batchelor:::.col_subset_to_index(A, logical(0)), integer(0))
+    expect_identical(batchelor:::.col_subset_to_index(A, character(0)), integer(0))
+})
+
 set.seed(1000007)
 test_that(".spike_subset works correctly", {
     sce <- SingleCellExperiment(list(logcounts=matrix(runif(2000), nrow=10)))

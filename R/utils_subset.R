@@ -7,6 +7,16 @@
     }
 }
 
+.col_subset_to_index <- function(x, index) {
+    if (is.null(index)) {
+        seq_len(ncol(x))
+    } else {
+        i <- seq_len(ncol(x))
+        names(i) <- colnames(x)
+        unname(i[index])
+    }
+}
+
 #' @importFrom SingleCellExperiment isSpike
 .spike_subset <- function(x, get.spikes) 
 # Returns a logical vector specifying which rows we should retain,
