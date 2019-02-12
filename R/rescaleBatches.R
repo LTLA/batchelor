@@ -50,6 +50,19 @@
 #' If \code{subset.row} is specified and \code{get.spikes=FALSE}, only the non-spike-in specified features will be used. 
 #' All SingleCellExperiment objects should have the same set of spike-in transcripts.
 #'
+#' @section Using restriction:
+#' It is possible to compute the correction using only a subset of cells in each batch, and then extrapolate that correction to all other cells.
+#' This may be desirable in experimental designs where a control set of cells from the same source population were run on different batches.
+#' Any difference in the controls must be artificial in origin and can be directly removed without making further biological assumptions.
+#'
+#' To do this, users should set \code{restrict} to specify the subset of cells in each batch to be used for correction.
+#' This should be set to a list of length equal to the length of \code{...}, where each element is a subsetting vector to be applied to the columns of the corresponding batch.
+#' A \code{NULL} elements indicates that all the cells from a batch should be used.
+#'
+#' The function will compute the scaling differences using only the specified subset of cells.
+#' However, the re-scaling will then be applied to all cells in each batch - hence the extrapolation.
+#' This means that the output is always of the same dimensionality, regardless of whether \code{restrict} is specified.
+#'
 #' @author Aaron Lun
 #'
 #' @examples
@@ -78,12 +91,9 @@ rescaleBatches <- function(..., batch=NULL, restrict=NULL, log.base=2, pseudo.co
     # Subsetting by 'batch'. 
     do.split <- length(batches)==1L
     if (do.split) {
-        if (is.null(batch)) { 
-            stop("'batch' must be specified if '...' has only one object")
-        }
-
-        divided <- .divide_into_batches(batches[[1]], batch=batch, byrow=FALSE)
+        divided <- divideIntoBatches(batches[[1]], batch=batch, byrow=FALSE, restrict=restrict[[1]])
         batches <- divided$batches
+        restrict <- divided$restrict
     } 
 
     output <- do.call(.rescale_batches, c(batches, list(log.base=log.base, pseudo.count=pseudo.count, subset.row=subset.row, restrict=restrict)))
@@ -121,6 +131,9 @@ rescaleBatches <- function(..., batch=NULL, restrict=NULL, log.base=2, pseudo.co
         currestrict <- restrict[[b]]
         if (!is.null(currestrict)) {
             curbatch <- curbatch[,currestrict,drop=FALSE]
+            if (ncol(curbatch)==0L) {
+                stop("no cells remaining in a batch after restriction")
+            }
         }
 
         averages[[b]] <- .Call(cxx_unlog_exprs_mean, curbatch, log.base, pseudo.count, subset.row.m1)

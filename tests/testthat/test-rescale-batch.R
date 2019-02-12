@@ -180,11 +180,34 @@ test_that("rescaleBatches works with restrictions", {
 
     C1 <- cbind(B1, B1[,1:10])
     C2 <- cbind(B2, B2[,1:20])
-    test <- rescaleBatches(C1, C2, restrict=list(seq_len(ncol(B1)), seq_len(ncol(B2))))
+    extras1 <- ncol(B1) + 1:10
+    extras2 <- ncol(B2) + 1:20
+    test <- rescaleBatches(C1, C2, restrict=list(-extras1, -extras2))
 
-    expect_identical(assay(ref), assay(test)[,c(seq_len(ncol(B1)), seq_len(ncol(B2)) + ncol(C1))])
-    expect_identical(assay(ref)[,1:10], assay(test)[,ncol(B1) + seq_len(10)])
-    expect_identical(assay(ref)[,ncol(B1) + 1:20], assay(test)[,ncol(C1) + ncol(B2) + seq_len(20)])
+    expect_identical(assay(ref), assay(test)[,c(-extras1, -(ncol(C1) + extras2))])
+    expect_identical(assay(ref)[,1:10], assay(test)[,extras1])
+    expect_identical(assay(ref)[,ncol(B1) + 1:20], assay(test)[,ncol(C1) + extras2])
+
+    expect_error(rescaleBatches(C1, C2, restrict=list(integer(0), integer(0))), "no cells remaining")
+
+    # Repeating with a single batch.
+    D <- cbind(C1, C2)
+    batches <- rep(LETTERS[1:2], c(ncol(C1), ncol(C2)))
+
+    to_remove <- logical(ncol(D))
+    to_remove[c(extras1, ncol(C1) + extras2)] <- TRUE
+    test <- rescaleBatches(D, batch=batches, restrict=list(!to_remove))
+
+    ref <- rescaleBatches(D[,!to_remove], batch=batches[!to_remove])
+    expect_identical(assay(ref), assay(test)[,!to_remove])
+    expect_identical(ref$batch, test$batch[!to_remove])
+    expect_identical(assay(ref)[,1:10], assay(test)[,extras1])
+    expect_identical(assay(ref)[,ncol(B1) + 1:20], assay(test)[,ncol(C1) + extras2])
+
+    # With shuffling of the cells.
+    shuffle <- sample(ncol(D))
+    test2 <- rescaleBatches(D[,shuffle], batch=batches[shuffle], restrict=list(!to_remove[shuffle]))
+    expect_equal(assay(test)[,shuffle], assay(test2))
 })
 
 set.seed(130003)
