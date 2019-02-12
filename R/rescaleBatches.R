@@ -10,6 +10,8 @@
 #' Note the same restrictions described above for matrix inputs.
 #' @param batch A factor specifying the batch of origin for all cells when only a single object is supplied in \code{...}.
 #' This is ignored if multiple objects are present.
+#' @param restrict A list of length equal to the number of objects in \code{...}.
+#' Each entry of the list corresponds to one batch and specifies the cells to use when computing the correction.
 #' @param log.base A numeric scalar specifying the base of the log-transformation.
 #' @param pseudo.count A numeric scalar specifying the pseudo-count used for the log-transformation.
 #' @param subset.row A vector specifying which features to use for correction. 
@@ -53,17 +55,16 @@
 #' 
 #' @export
 #' @importFrom SummarizedExperiment assay
-rescaleBatches <- function(..., batch=NULL, log.base=2, pseudo.count=1, subset.row=NULL, assay.type="logcounts", get.spikes=FALSE) {
+rescaleBatches <- function(..., batch=NULL, restrict=NULL, log.base=2, pseudo.count=1, subset.row=NULL, assay.type="logcounts", get.spikes=FALSE) {
     batches <- list(...)
+    original.names <- .check_batch_consistency(batches, byrow=TRUE)
+    .check_restrictions(batches, restrict)
 
-    # Pulling out information from the SCE objects.        
+    # Pulling out information from the SCE objects.
     if (.check_if_SCEs(batches)) {
-        .check_batch_consistency(batches, byrow=TRUE)
         .check_spike_consistency(batches)
         subset.row <- .SCE_subset_genes(subset.row, batches[[1]], get.spikes)
         batches <- lapply(batches, assay, i=assay.type, withDimnames=FALSE)
-    } else {
-        .check_batch_consistency(batches, byrow=TRUE)
     }
 
     # Subsetting by 'batch'. 
@@ -77,7 +78,7 @@ rescaleBatches <- function(..., batch=NULL, log.base=2, pseudo.count=1, subset.r
         batches <- divided$batches
     } 
 
-    output <- do.call(.rescale_batches, c(batches, list(log.base=log.base, pseudo.count=pseudo.count, subset.row=subset.row)))
+    output <- do.call(.rescale_batches, c(batches, list(log.base=log.base, pseudo.count=pseudo.count, subset.row=subset.row, restrict=restrict)))
 
     # Reordering the output for correctness.
     if (do.split) {
@@ -85,6 +86,8 @@ rescaleBatches <- function(..., batch=NULL, log.base=2, pseudo.count=1, subset.r
         output <- output[,d.reo,drop=FALSE]
     }
 
+    rownames(output) <- original.names[[1]]
+    colnames(output) <- unlist(original.names[[2]])
     return(output)
 }
 
@@ -93,18 +96,26 @@ rescaleBatches <- function(..., batch=NULL, log.base=2, pseudo.count=1, subset.r
 
 #' @importFrom SingleCellExperiment SingleCellExperiment
 #' @importFrom BiocGenerics cbind rowMeans
-.rescale_batches <- function(..., log.base=2, pseudo.count=1, subset.row=NULL) {
+.rescale_batches <- function(..., log.base=2, pseudo.count=1, subset.row=NULL, restrict=NULL) {
     batches <- list(...)
     nbatches <- length(batches)
     if (nbatches < 2L) { 
         stop("at least two batches must be specified") 
     }
 
-    # Computing the unlogged means for each matrix.
+    # Computing the unlogged means for each matrix, using only the restricted subset of cells.
     subset.row.m1 <- .row_subset_to_index(batches[[1]], subset.row) - 1L
     averages <- vector("list", nbatches)
+
     for (b in seq_along(batches)) {
-        averages[[b]] <- .Call(cxx_unlog_exprs_mean, batches[[b]], log.base, pseudo.count, subset.row.m1)
+        curbatch <- batches[[b]]
+
+        currestrict <- restrict[[b]]
+        if (!is.null(currestrict)) {
+            curbatch <- curbatch[,currestrict,drop=FALSE]
+        }
+
+        averages[[b]] <- .Call(cxx_unlog_exprs_mean, curbatch, log.base, pseudo.count, subset.row.m1)
     }
 
     # Defining the reference.

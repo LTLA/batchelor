@@ -114,6 +114,27 @@ test_that("rescaleBatches works correctly with SCE inputs", {
     expect_equal(ref2, out)
 })
 
+set.seed(1300011)
+test_that("rescaleBatches reports names correctly", {
+    A1 <- matrix(rpois(10000, lambda=10), nrow=100) # Batch 1 
+    A2 <- matrix(rpois(20000, lambda=10), nrow=100) # Batch 2
+    B1 <- log2(A1+1)
+    B2 <- log2(A2+1)
+    
+    rownames(B1) <- rownames(B2) <- sprintf("GENE_%i", seq_len(nrow(A1)))
+    out <- rescaleBatches(B1, B2)
+    expect_identical(rownames(out), rownames(B1))
+    expect_identical(colnames(out), NULL)
+
+    colnames(B1) <- sprintf("Cell_%i", seq_len(ncol(B1)))
+    out <- rescaleBatches(B1, B2)
+    expect_identical(colnames(out), c(colnames(B1), character(ncol(B2))))
+
+    colnames(B2) <- sprintf("Yay_%i", seq_len(ncol(B2)))
+    out <- rescaleBatches(B1, B2)
+    expect_identical(colnames(out), c(colnames(B1), colnames(B2)))
+})
+
 set.seed(130002)
 test_that("rescaleBatches works with within-object batches", {
     A1 <- matrix(rpois(10000, lambda=5), nrow=100) # Batch 1 
@@ -141,6 +162,29 @@ test_that("rescaleBatches works with within-object batches", {
     # Same for matrix input.        
     out2 <- rescaleBatches(logcounts(combined), batch=batches)
     expect_equal(out, out2)
+
+    # Preserves column names.
+    combined2 <- combined
+    colnames(combined2) <- sprintf("Cell_%i", shuffle)
+    out3 <- rescaleBatches(combined2, batch=batches)
+    expect_equal(colnames(combined2), colnames(out3))
+})
+
+set.seed(1300021)
+test_that("rescaleBatches works with restrictions", {
+    A1 <- matrix(rpois(10000, lambda=5), nrow=100) # Batch 1 
+    A2 <- matrix(rpois(20000, lambda=5), nrow=100) # Batch 2
+    B1 <- log2(A1+1)
+    B2 <- log2(A2+1)
+    ref <- rescaleBatches(B1, B2)
+
+    C1 <- cbind(B1, B1[,1:10])
+    C2 <- cbind(B2, B2[,1:20])
+    test <- rescaleBatches(C1, C2, restrict=list(seq_len(ncol(B1)), seq_len(ncol(B2))))
+
+    expect_identical(assay(ref), assay(test)[,c(seq_len(ncol(B1)), seq_len(ncol(B2)) + ncol(C1))])
+    expect_identical(assay(ref)[,1:10], assay(test)[,ncol(B1) + seq_len(10)])
+    expect_identical(assay(ref)[,ncol(B1) + 1:20], assay(test)[,ncol(C1) + ncol(B2) + seq_len(20)])
 })
 
 set.seed(130003)

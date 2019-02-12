@@ -4,8 +4,9 @@
 \alias{rescaleBatches}
 \title{Scale counts across batches}
 \usage{
-rescaleBatches(..., batch = NULL, log.base = 2, pseudo.count = 1,
-  subset.row = NULL, assay.type = "logcounts", get.spikes = FALSE)
+rescaleBatches(..., batch = NULL, restrict = NULL, log.base = 2,
+  pseudo.count = 1, subset.row = NULL, assay.type = "logcounts",
+  get.spikes = FALSE)
 }
 \arguments{
 \item{...}{Two or more log-expression matrices where genes correspond to rows and cells correspond to columns.
@@ -17,6 +18,9 @@ Note the same restrictions described above for matrix inputs.}
 
 \item{batch}{A factor specifying the batch of origin for all cells when only a single object is supplied in \code{...}.
 This is ignored if multiple objects are present.}
+
+\item{restrict}{A list of length equal to the number of objects in \code{...}.
+Each entry of the list corresponds to one batch and specifies the cells to use when computing the correction.}
 
 \item{log.base}{A numeric scalar specifying the base of the log-transformation.}
 
