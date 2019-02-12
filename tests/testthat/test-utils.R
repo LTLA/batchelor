@@ -6,38 +6,55 @@ test_that(".check_batch_consistency works correctly", {
     # Testing row checks.
     A1 <- matrix(runif(1000), nrow=10)
     A2 <- matrix(runif(2000), nrow=10)
-    expect_error(batchelor:::.check_batch_consistency(list(A1, A2)), NA)
-    expect_error(batchelor:::.check_batch_consistency(list(A1, A2, cbind(A1, A2))), NA)
+    expect_identical(batchelor:::.check_batch_consistency(list(A1, A2)), list(NULL, list(NULL, NULL)))
+    expect_identical(batchelor:::.check_batch_consistency(list(A1, A2, cbind(A1, A2))), list(NULL, list(NULL, NULL, NULL)))
 
     rownames(A1) <- rownames(A2) <- sample(nrow(A1))
-    expect_error(batchelor:::.check_batch_consistency(list(A1, A2)), NA)
+    expect_identical(batchelor:::.check_batch_consistency(list(A1, A2)), list(rownames(A1), list(NULL, NULL)))
     
     rownames(A2) <- NULL
     expect_error(batchelor:::.check_batch_consistency(list(A1, A2)), "row names are not the same")
-    expect_error(batchelor:::.check_batch_consistency(list(A1, A2), ignore.null=TRUE), NA)
+    expect_identical(batchelor:::.check_batch_consistency(list(A1, A2), ignore.null=TRUE), list(rownames(A1), list(NULL, NULL)))
+
     rownames(A2) <- sample(nrow(A1))
     expect_error(batchelor:::.check_batch_consistency(list(A1, A2)), "row names are not the same")
 
     # Testing column checks.
     B1 <- matrix(runif(1000), ncol=10)
     B2 <- matrix(runif(2000), ncol=10)
-    expect_error(batchelor:::.check_batch_consistency(list(B1, B2), byrow=FALSE), NA)
-    expect_error(batchelor:::.check_batch_consistency(list(B1, B2, rbind(B1, B2)), byrow=FALSE), NA)
+    expect_identical(batchelor:::.check_batch_consistency(list(B1, B2), byrow=FALSE), list(list(NULL, NULL), NULL))
+    expect_identical(batchelor:::.check_batch_consistency(list(B1, B2, rbind(B1, B2)), byrow=FALSE), list(list(NULL, NULL, NULL), NULL))
 
     colnames(B1) <- colnames(B2) <- seq_len(ncol(B1))
-    expect_error(batchelor:::.check_batch_consistency(list(B1, B2), byrow=FALSE), NA)
+    expect_identical(batchelor:::.check_batch_consistency(list(B1, B2), byrow=FALSE), list(list(NULL, NULL), colnames(B1)))
     
     colnames(B2) <- NULL
     expect_error(batchelor:::.check_batch_consistency(list(B1, B2), byrow=FALSE), "column names are not the same")
-    expect_error(batchelor:::.check_batch_consistency(list(B1, B2), byrow=FALSE, ignore.null=TRUE), NA)
+    expect_identical(batchelor:::.check_batch_consistency(list(B1, B2), byrow=FALSE, ignore.null=TRUE), list(list(NULL, NULL), colnames(B1)))
+
     colnames(B2) <- rev(seq_len(ncol(B1)))
     expect_error(batchelor:::.check_batch_consistency(list(B1, B2), byrow=FALSE), "column names are not the same")
 
+    # Flipping around the dimension names.
+    C1 <- A1
+    colnames(C1) <- seq_len(ncol(C1))
+    expect_identical(batchelor:::.check_batch_consistency(list(A1, C1)), list(rownames(A1), list(NULL, colnames(C1))))
+    expect_identical(batchelor:::.check_batch_consistency(list(X=A1, Y=C1)), list(rownames(A1), list(X=NULL, Y=colnames(C1))))
+
+    D1 <- B1
+    rownames(D1) <- seq_len(nrow(D1))
+    expect_identical(batchelor:::.check_batch_consistency(list(B1, D1), byrow=FALSE), list(list(NULL, rownames(D1)), colnames(B1)))
+    expect_identical(batchelor:::.check_batch_consistency(list(X=B1, Y=D1), byrow=FALSE), list(list(X=NULL, Y=rownames(D1)), colnames(B1)))
+
     # Getting coverage of extreme cases.
-    expect_error(batchelor:::.check_batch_consistency(list(A1)), NA)
-    expect_error(batchelor:::.check_batch_consistency(list()), NA)
-    expect_error(batchelor:::.check_batch_consistency(list(A1[0,], A2[0,])), NA)
-    expect_error(batchelor:::.check_batch_consistency(list(B1[,0], B2[,0]), byrow=FALSE), NA)
+    expect_identical(batchelor:::.check_batch_consistency(list(A1)), list(rownames(A1), list(NULL)))
+    expect_identical(batchelor:::.check_batch_consistency(list(B1), byrow=FALSE), list(list(NULL), colnames(B1)))
+
+    expect_identical(batchelor:::.check_batch_consistency(list()), list(NULL, list()))
+    expect_identical(batchelor:::.check_batch_consistency(list(), byrow=FALSE), list(list(), NULL))
+
+    expect_identical(batchelor:::.check_batch_consistency(list(A1[0,], A2[0,])), list(NULL, list(NULL, NULL)))
+    expect_identical(batchelor:::.check_batch_consistency(list(B1[,0], B2[,0]), byrow=FALSE), list(list(NULL, NULL), NULL))
 })
 
 set.seed(1000002)

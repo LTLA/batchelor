@@ -4,8 +4,12 @@
 # Checking for identical number of rows (and rownames).
 # It can also do the same for columns, if we're dealing with PC results.
 {
-    if (length(batches) < 2L) {
-        return(NULL)
+    if (length(batches)==0L) {
+        if (byrow) {
+            return(list(NULL, list()))
+        } else {
+            return(list(list(), NULL))
+        }
     }
 
     if (byrow) {
@@ -22,7 +26,7 @@
     ref.n <- DIMFUN(first)
     ref.names <- DIMNAMEFUN(first)
 
-    for (b in 2:length(batches)) { 
+    for (b in seq_along(batches)[-1]) { 
         current <- batches[[b]]
         if (!identical(DIMFUN(current), ref.n)) {
             stop(sprintf("number of %ss is not the same across batches", DIM))
@@ -41,7 +45,11 @@
         }
     }
 
-    return(NULL)
+    if (byrow) {
+        list(ref.names, lapply(batches, colnames))
+    } else {
+        list(lapply(batches, rownames), ref.names)
+    }
 }
 
 #' @importFrom SingleCellExperiment isSpike spikeNames
