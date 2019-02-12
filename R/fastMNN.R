@@ -290,7 +290,7 @@ fastMNN <- function(..., batch=NULL, k=20, cos.norm=TRUE, ndist=3, d=50, auto.or
         mat <- List(x)
     }
 
-    divided <- .divide_into_batches(mat[[1]], batch=batch, byrow=TRUE)
+    divided <- divideIntoBatches(mat[[1]], batch=batch, byrow=TRUE)
     output <- .fast_mnn(batches=divided$batches, ..., BPPARAM=BPPARAM)
 
     # Reordering by the input order.        

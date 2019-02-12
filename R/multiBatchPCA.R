@@ -112,7 +112,7 @@ multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, rotate.all=FAL
         rownames(collected[[1]]) <- colnames(originals[[1]])
 
         if (!preserve.single) {
-            output <- .divide_into_batches(collected[[1]], batch, byrow=TRUE)
+            output <- divideIntoBatches(collected[[1]], batch, byrow=TRUE)
             output <- as(output$batches, "List")
             metadata(output) <- metadata(collected)
             collected <- output

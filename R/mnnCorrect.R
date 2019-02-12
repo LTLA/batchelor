@@ -151,7 +151,7 @@ mnnCorrect <- function(..., batch=NULL, k=20, sigma=0.1, cos.norm.in=TRUE, cos.n
             stop("'batch' must be specified if '...' has only one object")
         }
 
-        divided <- .divide_into_batches(batches[[1]], batch=batch, byrow=FALSE)
+        divided <- divideIntoBatches(batches[[1]], batch=batch, byrow=FALSE)
         batches <- divided$batches
     }
 

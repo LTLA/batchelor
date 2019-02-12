@@ -152,7 +152,7 @@ setMethod("batchCorrect", "NothingParam", function(..., batch = NULL,
             stop("'batch' must be specified if '...' has only one object")
         }
 
-        divided <- batchelor:::.divide_into_batches(batches[[1]], batch=batch, byrow=FALSE)
+        divided <- divideIntoBatches(batches[[1]], batch=batch, byrow=FALSE)
         batches <- divided$batches
     } 
 
