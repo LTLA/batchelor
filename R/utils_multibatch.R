@@ -45,10 +45,21 @@
         }
     }
 
+    # Replace NULL names with empty strings so that the calling function doesn't have
+    # to worry about inputs where some batches are named and others are not.
+    GENERATE_NAMES <- function(batches, OTHERDIMFUN, OTHERDIMNAMEFUN) {
+        collected <- lapply(batches, OTHERDIMNAMEFUN)
+        nulled <- vapply(collected, is.null, FUN.VALUE=TRUE)
+        if (any(nulled) && !all(nulled)) {
+            collected[nulled] <- lapply(batches[nulled], FUN=function(x) character(OTHERDIMFUN(x)))
+        }
+        collected
+    }
+
     if (byrow) {
-        list(ref.names, lapply(batches, colnames))
+        list(ref.names, GENERATE_NAMES(batches, ncol, colnames))
     } else {
-        list(lapply(batches, rownames), ref.names)
+        list(GENERATE_NAMES(batches, nrow, rownames), ref.names)
     }
 }
 

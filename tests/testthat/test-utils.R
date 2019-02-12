@@ -38,13 +38,17 @@ test_that(".check_batch_consistency works correctly", {
     # Flipping around the dimension names.
     C1 <- A1
     colnames(C1) <- seq_len(ncol(C1))
-    expect_identical(batchelor:::.check_batch_consistency(list(A1, C1)), list(rownames(A1), list(NULL, colnames(C1))))
-    expect_identical(batchelor:::.check_batch_consistency(list(X=A1, Y=C1)), list(rownames(A1), list(X=NULL, Y=colnames(C1))))
+    expected <- list(rownames(A1), list(character(ncol(A1)), colnames(C1)))
+    expect_identical(batchelor:::.check_batch_consistency(list(A1, C1)), expected)
+    names(expected[[2]]) <- c("X", "Y")
+    expect_identical(batchelor:::.check_batch_consistency(list(X=A1, Y=C1)), expected)
 
     D1 <- B1
     rownames(D1) <- seq_len(nrow(D1))
-    expect_identical(batchelor:::.check_batch_consistency(list(B1, D1), byrow=FALSE), list(list(NULL, rownames(D1)), colnames(B1)))
-    expect_identical(batchelor:::.check_batch_consistency(list(X=B1, Y=D1), byrow=FALSE), list(list(X=NULL, Y=rownames(D1)), colnames(B1)))
+    expected <- list(list(character(nrow(B1)), rownames(D1)), colnames(B1))
+    expect_identical(batchelor:::.check_batch_consistency(list(B1, D1), byrow=FALSE), expected)
+    names(expected[[1]]) <- c("X", "Y")
+    expect_identical(batchelor:::.check_batch_consistency(list(X=B1, Y=D1), byrow=FALSE), expected)
 
     # Getting coverage of extreme cases.
     expect_identical(batchelor:::.check_batch_consistency(list(A1)), list(rownames(A1), list(NULL)))
