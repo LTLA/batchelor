@@ -38,10 +38,10 @@ A \linkS4class{SingleCellExperiment} object containing the \code{corrected} assa
 This contains corrected log-expression values for each gene (row) in each cell (column) in each batch.
 A \code{batch} field is present in the column data, specifying the batch of origin for each cell.
 
-Cells in the output are always ordered in the same manner as supplied in \code{...}.
-In cases with multiple objects in \code{...}, the cell identities are simply concatenated from successive objects,
+Cells in the output object are always ordered in the same manner as supplied in \code{...}.
+For a single input object, cells will be reported in the same order as they are arranged in that object.
+In cases with multiple input objects, the cell identities are simply concatenated from successive objects,
 i.e., all cells from the first object (in their provided order), then all cells from the second object, and so on.
-For a single input object, cells should be reported in the same order as the input.
 }
 \description{
 Scale counts so that the average count within each batch is the same for each gene.
@@ -59,6 +59,31 @@ It also mitigates issues with artificial differences in variance due to log-tran
 The output values are always re-log-transformed with the same \code{log.base} and \code{pseudo.count}.
 These can be used directly in place of the input values for downstream operations.
 }
+\section{Choice of genes}{
+
+All genes are used with the default setting of \code{subset.row=NULL}.
+Users can set \code{subset.row} to subset the inputs, though this is purely for convenience as each gene is processed independently of other genes.
+
+For \linkS4class{SingleCellExperiment} inputs, spike-in transcripts are automatically removed unless \code{get.spikes=TRUE}.
+If \code{subset.row} is specified and \code{get.spikes=FALSE}, only the non-spike-in specified features will be used. 
+All SingleCellExperiment objects should have the same set of spike-in transcripts.
+}
+
+\section{Using restriction}{
+
+It is possible to compute the correction using only a subset of cells in each batch, and then extrapolate that correction to all other cells.
+This may be desirable in experimental designs where a control set of cells from the same source population were run on different batches.
+Any difference in the controls must be artificial in origin and can be directly removed without making further biological assumptions.
+
+To do this, users should set \code{restrict} to specify the subset of cells in each batch to be used for correction.
+This should be set to a list of length equal to the length of \code{...}, where each element is a subsetting vector to be applied to the columns of the corresponding batch.
+A \code{NULL} elements indicates that all the cells from a batch should be used.
+
+The function will compute the scaling differences using only the specified subset of cells.
+However, the re-scaling will then be applied to all cells in each batch - hence the extrapolation.
+This means that the output is always of the same dimensionality, regardless of whether \code{restrict} is specified.
+}
+
 \examples{
 means <- 2^rgamma(1000, 2, 1)
 A1 <- matrix(rpois(10000, lambda=means), ncol=50) # Batch 1 

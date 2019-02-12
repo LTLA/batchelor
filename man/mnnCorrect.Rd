@@ -56,10 +56,10 @@ A \linkS4class{SingleCellExperiment} object containing the \code{corrected} assa
 This contains corrected (log-)expression values for each gene (row) in each cell (column) in each batch.
 A \code{batch} field is present in the column data, specifying the batch of origin for each cell.
 
-Cells (i.e., columns) are always ordered in the same manner as supplied in \code{...}, regardless of whether \code{order} is specified.
-In cases with multiple objects in \code{...}, the cell identities are simply concatenated from successive objects,
+Cells in the output object are always ordered in the same manner as supplied in \code{...}.
+For a single input object, cells will be reported in the same order as they are arranged in that object.
+In cases with multiple input objects, the cell identities are simply concatenated from successive objects,
 i.e., all cells from the first object (in their provided order), then all cells from the second object, and so on.
-For a single input object, cells should be reported in the same order as the input.
 
 The metadata of the SingleCellExperiment contains:
 \itemize{
@@ -90,13 +90,18 @@ The choice of \code{sigma} determines the extent of smoothing - a value of 0.1 i
 }
 \section{Choosing the gene set}{
 
-Distances between cells are calculated with all genes if \code{subset.row=NULL}.
-However, users can set \code{subset.row} to perform the distance calculation on a subset of genes, e.g., highly variable genes or marker genes.
+All genes are used with the default setting of \code{subset.row=NULL}.
+Users can set \code{subset.row} to subset the inputs to highly variable genes or marker genes.
 This may provide more meaningful identification of MNN pairs by reducing the noise from irrelevant genes.
+Note that users should not be too restrictive with subsetting, as high dimensionality is required to satisfy the orthogonality assumption in MNN detection.
+
+For \linkS4class{SingleCellExperiment} inputs, spike-in transcripts are automatically removed unless \code{get.spikes=TRUE}.
+If \code{subset.row} is specified and \code{get.spikes=FALSE}, only the non-spike-in specified features will be used. 
+All SingleCellExperiment objects should have the same set of spike-in transcripts.
 
 If \code{subset.row} is specified and \code{correct.all=TRUE}, corrected values are returned for \emph{all} genes.
 This is possible as \code{subset.row} is only used to identify the MNN pairs and other cell-based distance calculations.
-Correction vectors between MNN pairs can then be computed in the original space involving all genes in the supplied matrices.
+Correction vectors between MNN pairs can then be computed in for all genes in the supplied matrices.
 }
 
 \section{Expected type of input data}{

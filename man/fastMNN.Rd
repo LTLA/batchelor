@@ -71,27 +71,31 @@ Only used for SingleCellExperiment inputs.}
 \value{
 The output of this function depends on whether a PCA is performed on the input \code{...}.
 This will be the case if \code{pc.input=FALSE} for matrix inputs or if \code{use.dimred=NULL} for SingleCellExperiment inputs.
-If a PCA is performed, a \linkS4class{SingleCellExperiment} is returned containing:
+
+If a PCA is performed, a \linkS4class{SingleCellExperiment} is returned where each row is a gene and each column is a cell. 
+This contains:
 \itemize{
 \item A \code{corrected} matrix in the \code{reducedDims} slot, containing corrected low-dimensional coordinates for each cell.
 This has number of columns equal to \code{d} and number of rows equal to the total number of cells in \code{...}.
 \item A \code{batch} column in the \code{colData} slot, containing the batch of origin for each row (i.e., cell) in \code{corrected}.
 \item A \code{rotation} column the \code{rowData} slot, containing the rotation matrix used for the PCA.
-This has \code{d} columns and number of rows equal to the number of genes in \code{subset.row} (or the total number of genes, if \code{subset.row=NULL} or \code{correct.all=TRUE}).
+This has \code{d} columns and number of rows equal to the number of genes to report (see the \dQuote{Choice of genes} section).
 \item A \code{reconstructed} matrix in the \code{assays} slot, containing the low-rank reconstruction of the original expression matrix.
 This can be interpreted as per-gene corrected log-expression values (after cosine normalization, if \code{cos.norm=TRUE}) but should not be used for quantitative analyses.
 }
-Otherwise, a \linkS4class{DataFrame} is returned containing the columns:
+
+Otherwise, a \linkS4class{DataFrame} is returned where each row corresponds to a cell.
+It contains:
 \itemize{
 \item \code{corrected}, the matrix of corrected low-dimensional coordinates for each cell.
 \item \code{batch}, the Rle specifying the batch of origin for each row. 
 }
 
-In both cases, cells in the output are always ordered in the same manner as supplied in \code{...}.
-This is true regardless of the value of \code{auto.order}, which only affects the merge order.
-In cases with multiple objects in \code{...}, the cell identities are simply concatenated from successive objects,
+Cells in the output object are always ordered in the same manner as supplied in \code{...}.
+For a single input object, cells will be reported in the same order as they are arranged in that object.
+In cases with multiple input objects, the cell identities are simply concatenated from successive objects,
 i.e., all cells from the first object (in their provided order), then all cells from the second object, and so on.
-For a single input object, cells should be reported in the same order as the input.
+This is true regardless of the value of \code{auto.order}, which only affects the internal merge order of the batches.
 
 The metadata of the output object contains:
 \itemize{
@@ -157,16 +161,17 @@ before merging the corrected 1+4 and 2+3 to obtain the final set of corrected va
 
 \section{Choice of genes}{
 
-Users should set \code{subset.row} to subset the inputs to highly variable genes or marker genes.
-This provides more meaningful identification of MNN pairs by reducing the noise from irrelevant genes.
+All genes are used with the default setting of \code{subset.row=NULL}.
+Users can set \code{subset.row} to subset the inputs to highly variable genes or marker genes.
+This improves the quality of the PCA and identification of MNN pairs by reducing the noise from irrelevant genes.
 Note that users should not be too restrictive with subsetting, as high dimensionality is required to satisfy the orthogonality assumption in MNN detection.
 
-For SingleCellExperiment inputs, spike-in transcripts should be the same across all objects.
-They are automatically removed unless \code{get.spikes=TRUE}.
+For \linkS4class{SingleCellExperiment} inputs, spike-in transcripts are automatically removed unless \code{get.spikes=TRUE}.
 If \code{subset.row} is specified and \code{get.spikes=FALSE}, only the non-spike-in specified features will be used. 
+All SingleCellExperiment objects should have the same set of spike-in transcripts.
 
 By default, only the selected genes are used to compute rotation vectors and a low-rank representation of the input matrix.
-However, rotation vectors can be obtained for all genes in the supplied input data with \code{correct.all=TRUE}.
+However, rotation vectors can be obtained that span all genes in the supplied input data with \code{correct.all=TRUE}.
 This will not affect the corrected low-dimension coordinates or the output for the selected genes. 
 
 Note that these settings for the choice of genes are completely ignored when using low-dimensional inputs (see below).
