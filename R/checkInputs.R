@@ -4,7 +4,6 @@
 #'
 #' @param batches A list of batches, usually containing gene expression matrices or \linkS4class{SingleCellExperiment} objects.
 #' @param cells.in.columns A logical scalar specifying whether batches contain cells in the columns.
-#' @param ignore.null A logical scalar specifying whether \code{NULL} row names should be ignored when comparing to non-\code{NULL} row names.
 #' @param restrictions A list of length equal to \code{batches}, specifying the cells in each batch that should be used for correction.
 #'
 #' @details
@@ -21,13 +20,7 @@
 #' It will also check that each batch contains at least one usable cell after restriction.
 #'
 #' @return
-#' \code{checkBatchConsistency} will return a list of two elements.
-#' If \code{cells.in.columns=TRUE}, the first element is the common row names across all \code{batches}, and the second element is a list of column name vectors (one per batch).
-#' Otherwise, the first element is a list of row name vectors, and the second element is the common column names. 
-#' In situations where \code{NULL} names are mixed with non-\code{NULL} names, the former are converted to a vector of empty strings.
-#' This ensures the \code{\link{unlist}}ed vector of names has the same length as the total number of cells in \code{batches}.
-#'
-#' \code{checkSpikeConsistency} will return a \code{NULL} if there are no errors.
+#' \code{checkBatchConsistency} and \code{checkSpikeConsistency} will return an invisible \code{NULL} if there are no errors.
 #'
 #' \code{checkIfSCE} will return \code{TRUE} if all entries of \code{batches} are SingleCellExperiment objects.
 #' If none of them are, it will return \code{FALSE}.
@@ -49,17 +42,13 @@
 #' @export
 #' @importMethodsFrom BiocGenerics nrow ncol
 #' @importFrom BiocGenerics colnames rownames
-checkBatchConsistency <- function(batches, cells.in.columns=TRUE, ignore.null=FALSE) 
+checkBatchConsistency <- function(batches, cells.in.columns=TRUE)
 # Checking for identical number of rows (and rownames).
 # It can also do the same for columns, if we're dealing with PC results.
 # It then returns a list of dimnames for renaming the output.
 {
     if (length(batches)==0L) {
-        if (cells.in.columns) {
-            return(list(NULL, list()))
-        } else {
-            return(list(list(), NULL))
-        }
+        return(invisible(NULL))
     }
 
     if (cells.in.columns) {
@@ -83,34 +72,12 @@ checkBatchConsistency <- function(batches, cells.in.columns=TRUE, ignore.null=FA
         }
 
         cur.names <- DIMNAMEFUN(current)
-        if (ignore.null) { 
-            if (is.null(cur.names)) { 
-                cur.names <- ref.names
-            } else if (is.null(ref.names)) {
-                ref.names <- cur.names
-            }
-        }
         if (!identical(cur.names, ref.names)) {
             stop(sprintf("%s names are not the same across batches", DIM))
         }
     }
 
-    # Replace NULL names with empty strings so that the calling function doesn't have
-    # to worry about inputs where some batches are named and others are not.
-    GENERATE_NAMES <- function(batches, OTHERDIMFUN, OTHERDIMNAMEFUN) {
-        collected <- lapply(batches, OTHERDIMNAMEFUN)
-        nulled <- vapply(collected, is.null, FUN.VALUE=TRUE)
-        if (any(nulled) && !all(nulled)) {
-            collected[nulled] <- lapply(batches[nulled], FUN=function(x) character(OTHERDIMFUN(x)))
-        }
-        collected
-    }
-
-    if (cells.in.columns) {
-        list(ref.names, GENERATE_NAMES(batches, ncol, colnames))
-    } else {
-        list(GENERATE_NAMES(batches, nrow, rownames), ref.names)
-    }
+    invisible(NULL)
 }
 
 #' @rdname checkInputs
@@ -120,7 +87,7 @@ checkSpikeConsistency <- function(batches)
 # Checking for identical spike-in sets and (overall) identities.
 {
     if (length(batches) < 2L) {
-        return(NULL)
+        return(invisible(NULL))
     }
 
     ref.spike.names <- spikeNames(batches[[1]])
@@ -133,7 +100,7 @@ checkSpikeConsistency <- function(batches)
             stop("spike-in identities differ across batches")
         }
     }
-    return(NULL)
+    invisible(NULL)
 }
 
 #' @rdname checkInputs

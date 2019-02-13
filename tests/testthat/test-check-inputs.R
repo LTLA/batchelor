@@ -6,15 +6,14 @@ test_that("checkBatchConsistency works correctly", {
     # Testing row checks.
     A1 <- matrix(runif(1000), nrow=10)
     A2 <- matrix(runif(2000), nrow=10)
-    expect_identical(checkBatchConsistency(list(A1, A2)), list(NULL, list(NULL, NULL)))
-    expect_identical(checkBatchConsistency(list(A1, A2, cbind(A1, A2))), list(NULL, list(NULL, NULL, NULL)))
+    expect_error(checkBatchConsistency(list(A1, A2)), NA)
+    expect_error(checkBatchConsistency(list(A1, A2, cbind(A1, A2))), NA)
 
     rownames(A1) <- rownames(A2) <- sample(nrow(A1))
-    expect_identical(checkBatchConsistency(list(A1, A2)), list(rownames(A1), list(NULL, NULL)))
+    expect_error(checkBatchConsistency(list(A1, A2)), NA)
     
     rownames(A2) <- NULL
     expect_error(checkBatchConsistency(list(A1, A2)), "row names are not the same")
-    expect_identical(checkBatchConsistency(list(A1, A2), ignore.null=TRUE), list(rownames(A1), list(NULL, NULL)))
 
     rownames(A2) <- sample(nrow(A1))
     expect_error(checkBatchConsistency(list(A1, A2)), "row names are not the same")
@@ -22,57 +21,33 @@ test_that("checkBatchConsistency works correctly", {
     # Testing column checks.
     B1 <- matrix(runif(1000), ncol=10)
     B2 <- matrix(runif(2000), ncol=10)
-    expect_identical(checkBatchConsistency(list(B1, B2), cells.in.columns=FALSE), list(list(NULL, NULL), NULL))
-    expect_identical(checkBatchConsistency(list(B1, B2, rbind(B1, B2)), cells.in.columns=FALSE), list(list(NULL, NULL, NULL), NULL))
+    expect_error(checkBatchConsistency(list(B1, B2), cells.in.columns=FALSE), NA)
+    expect_error(checkBatchConsistency(list(B1, B2, rbind(B1, B2)), cells.in.columns=FALSE), NA)
 
     colnames(B1) <- colnames(B2) <- seq_len(ncol(B1))
-    expect_identical(checkBatchConsistency(list(B1, B2), cells.in.columns=FALSE), list(list(NULL, NULL), colnames(B1)))
+    expect_error(checkBatchConsistency(list(B1, B2), cells.in.columns=FALSE), NA)
     
     colnames(B2) <- NULL
     expect_error(checkBatchConsistency(list(B1, B2), cells.in.columns=FALSE), "column names are not the same")
-    expect_identical(checkBatchConsistency(list(B1, B2), cells.in.columns=FALSE, ignore.null=TRUE), list(list(NULL, NULL), colnames(B1)))
 
     colnames(B2) <- rev(seq_len(ncol(B1)))
     expect_error(checkBatchConsistency(list(B1, B2), cells.in.columns=FALSE), "column names are not the same")
 })
 
-set.seed(10000011)
-test_that("checkBatchConsistency fills in NULL character names", {
-    # For columns:
-    A <- B <- matrix(runif(1000), nrow=10)
-    rownames(A) <- rownames(B) <- sprintf("GENE_%i", seq_len(nrow(A)))
-    colnames(B) <- seq_len(ncol(A))
-
-    expected <- list(rownames(A), list(character(ncol(A)), colnames(B)))
-    expect_identical(checkBatchConsistency(list(A, B)), expected)
-    names(expected[[2]]) <- c("X", "Y")
-    expect_identical(checkBatchConsistency(list(X=A, Y=B)), expected)
-
-    # For rows:
-    C <- D <- matrix(runif(2000), nrow=10)
-    colnames(C) <- colnames(D) <- sprintf("CELL_%i", seq_len(ncol(C)))
-    rownames(D) <- seq_len(nrow(D))
-
-    expected <- list(list(character(nrow(C)), rownames(D)), colnames(C))
-    expect_identical(checkBatchConsistency(list(C, D), cells.in.columns=FALSE), expected)
-    names(expected[[1]]) <- c("X", "Y")
-    expect_identical(checkBatchConsistency(list(X=C, Y=D), cells.in.columns=FALSE), expected)
-})
-
 set.seed(10000012)
-test_that("checkBatchConsistency fills in character names", {
+test_that("checkBatchConsistency handles corner cases", {
     A <- matrix(runif(1000), nrow=10)
     B <- matrix(runif(2000), nrow=10)
 
     # Getting coverage of extreme cases.
-    expect_identical(checkBatchConsistency(list(A)), list(NULL, list(NULL)))
-    expect_identical(checkBatchConsistency(list(B), cells.in.columns=FALSE), list(list(NULL), NULL))
+    expect_error(checkBatchConsistency(list(A)), NA)
+    expect_error(checkBatchConsistency(list(B), cells.in.columns=FALSE), NA)
 
-    expect_identical(checkBatchConsistency(list()), list(NULL, list()))
-    expect_identical(checkBatchConsistency(list(), cells.in.columns=FALSE), list(list(), NULL))
+    expect_error(checkBatchConsistency(list()), NA)
+    expect_error(checkBatchConsistency(list(), cells.in.columns=FALSE), NA)
 
-    expect_identical(checkBatchConsistency(list(A[0,], A[0,])), list(NULL, list(NULL, NULL)))
-    expect_identical(checkBatchConsistency(list(B[,0], B[,0]), cells.in.columns=FALSE), list(list(NULL, NULL), NULL))
+    expect_error(checkBatchConsistency(list(A[0,], A[0,])), NA)
+    expect_error(checkBatchConsistency(list(B[,0], B[,0]), cells.in.columns=FALSE), NA)
 })
 
 set.seed(1000002)

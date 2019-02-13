@@ -1,6 +1,40 @@
 # Unit tests utilities that are indirectly covered by the other tests.
 # library(batchelor); library(testthat); source("test-utils.R")
 
+set.seed(1000004)
+test_that(".rename_output works correctly", {
+    # For columns:
+    A <- B <- matrix(runif(1000), nrow=10)
+    rownames(A) <- rownames(B) <- sprintf("GENE_%i", seq_len(nrow(A)))
+    colnames(B) <- seq_len(ncol(B))
+
+    output <- matrix(0, nrow=10, ncol=2*ncol(A))
+    output2 <- batchelor:::.rename_output(output, list(A, B))
+    expect_equivalent(output2, output)   
+    expect_identical(rownames(output2), rownames(A))
+    expect_identical(colnames(output2), c(character(ncol(A)), colnames(B)))
+
+    output3 <- batchelor:::.rename_output(output[1:5,], list(A, B), subset.row=1:5)
+    expect_identical(output3, output2[1:5,])
+    i <- sample(rownames(A), 5)
+    output4 <- batchelor:::.rename_output(output[1:5,], list(A, B), subset.row=i)
+    expect_identical(output4, output2[i,])
+
+    # For rows:
+    A <- B <- matrix(runif(1000), ncol=10)
+    colnames(A) <- colnames(B) <- sprintf("PC_%i", seq_len(ncol(A)))
+    rownames(A) <- seq_len(nrow(A))
+
+    output <- matrix(0, nrow=2*nrow(A), ncol=10)
+    output2 <- batchelor:::.rename_output(output, list(A, B), cells.in.columns=FALSE)
+    expect_equivalent(output2, output) 
+    expect_identical(rownames(output2), c(rownames(A), character(nrow(B))))
+    expect_identical(colnames(output2), colnames(A))
+
+    output3 <- batchelor:::.rename_output(output, list(A, B), cells.in.columns=FALSE, subset.row=1:5)
+    expect_identical(output3, output2) # no effect!
+})
+
 set.seed(1000005)
 test_that(".create_batch_names works correctly", {
     out <- batchelor:::.create_batch_names(LETTERS[1:3], c(10, 20, 30))
