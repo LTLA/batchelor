@@ -196,26 +196,29 @@
 #' @importFrom SummarizedExperiment assay
 #' @importFrom BiocNeighbors KmknnParam
 #' @importFrom BiocSingular ExactParam
-fastMNN <- function(..., batch=NULL, k=20, cos.norm=TRUE, ndist=3, d=50, auto.order=FALSE, compute.variances=FALSE, 
+fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3, d=50, auto.order=FALSE, compute.variances=FALSE, 
         subset.row=NULL, correct.all=FALSE, pc.input=FALSE, assay.type="logcounts", get.spikes=FALSE, use.dimred=NULL, 
         BSPARAM=ExactParam(), BNPARAM=KmknnParam(), BPPARAM=SerialParam()) 
 {
-    batches <- list(...)
+    originals <- batches <- list(...)
     
     # Pulling out information from the SCE objects.        
-    if (.check_if_SCEs(batches)) {
+    if (checkIfSCE(batches)) {
+        checkBatchConsistency(batches)
+        checkSpikeConsistency(batches)
+        restrict <- checkRestrictions(batches, restrict)
+
         pc.input <- !is.null(use.dimred)
         if (pc.input) {
             batches <- lapply(batches, reducedDim, type=use.dimred, withDimnames=FALSE)
-            .check_batch_consistency(batches, byrow=FALSE)
+            checkBatchConsistency(batches, cells.in.columns=FALSE) # re-checking dimensions of reddim matrices.
         } else {
-            .check_batch_consistency(batches, byrow=TRUE)
-            .check_spike_consistency(batches)
             subset.row <- .SCE_subset_genes(subset.row, batches[[1]], get.spikes)
             batches <- lapply(batches, assay, i=assay.type, withDimnames=FALSE)
         }
     } else {
-        .check_batch_consistency(batches, byrow=!pc.input)
+        checkBatchConsistency(batches, cells.in.columns=!pc.input)
+        restrict <- checkRestrictions(batches, restrict, cells.in.columns=!pc.input)
     }
 
     # Subsetting by 'batch'.
@@ -227,11 +230,11 @@ fastMNN <- function(..., batch=NULL, k=20, cos.norm=TRUE, ndist=3, d=50, auto.or
         if (is.null(batch)) { 
             stop("'batch' must be specified if '...' has only one object")
         }
-        output <- do.call(.fast_mnn_single, c(list(x=batches[[1]], batch=batch), common.args))
+        output <- do.call(.fast_mnn_single, c(list(x=batches[[1]], batch=batch, restrict=restrict[[1]]), common.args))
     } else {
-        output <- do.call(.fast_mnn_list, c(list(batch.list=batches), common.args))
+        output <- do.call(.fast_mnn_list, c(list(batch.list=batches, restrict=restrict), common.args))
     }
-    
+
     return(output)
 }
 
@@ -270,7 +273,7 @@ fastMNN <- function(..., batch=NULL, k=20, cos.norm=TRUE, ndist=3, d=50, auto.or
 #' @importFrom BiocSingular ExactParam
 #' @importFrom BiocParallel SerialParam
 #' @importFrom S4Vectors List metadata metadata<-
-.fast_mnn_single <- function(x, batch, ..., subset.row=NULL, cos.norm=TRUE, pc.input=FALSE, d=50, correct.all=FALSE, BSPARAM=ExactParam(), BPPARAM=SerialParam()) 
+.fast_mnn_single <- function(x, batch, restrict=NULL, ..., subset.row=NULL, cos.norm=TRUE, pc.input=FALSE, d=50, correct.all=FALSE, BSPARAM=ExactParam(), BPPARAM=SerialParam()) 
 {
     batch <- factor(batch)
     if (nlevels(batch) < 2L) { 
@@ -290,8 +293,8 @@ fastMNN <- function(..., batch=NULL, k=20, cos.norm=TRUE, ndist=3, d=50, auto.or
         mat <- List(x)
     }
 
-    divided <- divideIntoBatches(mat[[1]], batch=batch, byrow=TRUE)
-    output <- .fast_mnn(batches=divided$batches, ..., BPPARAM=BPPARAM)
+    divided <- divideIntoBatches(mat[[1]], batch=batch, restrict=restrict, byrow=TRUE)
+    output <- .fast_mnn(batches=divided$batches, restrict=divided$restricted, ..., BPPARAM=BPPARAM)
 
     # Reordering by the input order.        
     d.reo <- divided$reorder
@@ -315,79 +318,55 @@ fastMNN <- function(..., batch=NULL, k=20, cos.norm=TRUE, ndist=3, d=50, auto.or
 #' @importFrom BiocParallel SerialParam
 #' @importFrom S4Vectors DataFrame metadata<- 
 #' @importFrom BiocNeighbors KmknnParam
-.fast_mnn <- function(batches, k=20, ndist=3, auto.order=FALSE, compute.variances=FALSE, BNPARAM=KmknnParam(), BPPARAM=SerialParam()) 
+.fast_mnn <- function(batches, k=20, restrict=NULL, ndist=3, auto.order=FALSE, compute.variances=FALSE, BNPARAM=KmknnParam(), BPPARAM=SerialParam()) 
 {
     nbatches <- length(batches)
     var.kept <- rep(1, nbatches)
-    re.order <- NULL 
+
+    # Defining ordering vectors.
     if (!is.logical(auto.order)) {
         re.order <- as.integer(auto.order)
         if (!identical(sort(re.order), seq_len(nbatches))) {
             stop("integer 'auto.order' must contain a permutation of 1:nbatches") 
         }
-        auto.order <- FALSE
+        mnn.store <- MNN_supplied_order(batches, restrict, re.order)
+    } else if (auto.order) {
+        mnn.store <- MNN_auto_order(batches, restrict)
+    } else {
+        mnn.store <- MNN_supplied_order(batches, restrict)
     }
-    use.order <- !is.null(re.order)
 
     mnn.pairings <- vector("list", nbatches-1L)
     for (bdx in 2:nbatches) {
+        mnn.store <- .advance(mnn.store, k=k, BNPARAM=BNPARAM, BPPARAM=BPPARAM)
+        refdata <- .get_reference(mnn.store)
+        curdata <- .get_current(mnn.store)
 
-        if (auto.order) {
-            # Automatically choosing to merge batches with the largest number of MNNs.
-            if (bdx==2L) {
-                d.out <- .define_first_merge(batches, k=k, BNPARAM=BNPARAM, BPPARAM=BPPARAM)
-                refdata <- batches[[d.out$first]]
-                curdata <- batches[[d.out$second]]
-                mnn.sets <- d.out$pairs
-                precomp <- d.out$precomputed
-                processed <- c(d.out$first, d.out$second)
-            } else {
-                d.out <- .define_next_merge(refdata, batches, processed, precomp, k=k, BNPARAM=BNPARAM, BPPARAM=BPPARAM)
-                curdata <- batches[[d.out$other]]
-                mnn.sets <- d.out$pairs
-                processed <- c(processed, d.out$other)
-            }
-        } else {
-            # Using the suggested merge order, or the supplied order in ...
-            if (bdx==2L) {
-                ref.idx <- if (use.order) re.order[1] else 1L
-                refdata <- batches[[ref.idx]]
-                processed <- ref.idx
-            }
-            cur.idx <- if (use.order) re.order[bdx] else bdx
-            curdata <- batches[[cur.idx]]
-            mnn.sets <- findMutualNN(refdata, curdata, k1=k, k2=k, BNPARAM=BNPARAM, BPPARAM=BPPARAM)
-            processed <- c(processed, cur.idx)
-        }
-
-        # Estimate the overall batch vector.
+        # Estimate the overall batch vector (implicitly 'restrict'd by definition of MNNs).
+        mnn.sets <- .get_mnn_result(mnn.store) 
         ave.out <- .average_correction(refdata, mnn.sets$first, curdata, mnn.sets$second)
         overall.batch <- colMeans(ave.out$averaged)
 
-        # Remove variation along the batch vector.
-        # Also recording the lost variation if desired.
+        # Remove variation along the batch vector, which responds to 'restrict'.
+        # Also recording the lost variation if desired, which does not respond to 'restrict'.
         if (compute.variances) {
             var.before <- .compute_intra_var(refdata, curdata, batches, processed)
         }
 
-        refdata <- .center_along_batch_vector(refdata, overall.batch)
-        curdata <- .center_along_batch_vector(curdata, overall.batch)
+        refdata <- .center_along_batch_vector(refdata, overall.batch, restrict=.get_reference_restrict(mnn.store))
+        curdata <- .center_along_batch_vector(curdata, overall.batch, restrict=.get_current_restrict(mnn.store))
 
         if (compute.variances) {
             var.after <- .compute_intra_var(refdata, curdata, batches, processed)
             var.kept[seq_len(bdx)] <- var.kept[seq_len(bdx)] * var.after/var.before
         }
 
-        # Repeating the MNN discovery, now that the spread along the batch vector is removed.
-#        re.mnn.sets <- find.mutual.nn(refdata, curdata, k1=k, k2=k, BPPARAM=BPPARAM)
-#        re.ave.out <- .average_correction(refdata, re.mnn.sets$first, curdata, re.mnn.sets$second)
-
-        # Recompute correction vectors and apply them.
+        # Recompute correction vectors and apply them to all cells (hence, no restriction).
         re.ave.out <- .average_correction(refdata, mnn.sets$first, curdata, mnn.sets$second)
         curdata <- .tricube_weighted_correction(curdata, re.ave.out$averaged, re.ave.out$second, k=k, ndist=ndist, BNPARAM=BNPARAM, BPPARAM=BPPARAM)
 
         mnn.pairings[[bdx-1L]] <- DataFrame(first=mnn.sets$first, second=mnn.sets$second + nrow(refdata))
-        refdata <- rbind(refdata, curdata)
+        mnn.store <- .compile(mnn.store, curdata)
     }
 
     # Reporting the batch identities.
@@ -395,16 +374,17 @@ fastMNN <- function(..., batch=NULL, k=20, cos.norm=TRUE, ndist=3, d=50, auto.or
     batch.names <- .create_batch_names(names(batches), ncells.per.batch)
 
     # Adjusting the output back to the input order in 'batches'.
-    if (auto.order || use.order) {
-        ordering <- .restore_original_order(processed, ncells.per.batch)
+    merge.order <- .get_reference_indices(mnn.store)
+    if (is.unsorted(merge.order)) {
+        ordering <- .restore_original_order(merge.order, ncells.per.batch)
         refdata <- refdata[ordering,,drop=FALSE]
         mnn.pairings <- .reindex_pairings(mnn.pairings, ordering)
-        var.kept[processed] <- var.kept
+        var.kept[merge.order] <- var.kept
     }
     
     # Formatting the output.
-    output <- DataFrame(corrected=I(refdata), batch=batch.names$ids)
-    m.out <- list(pairs=mnn.pairings, order=batch.names$labels[processed])
+    output <- DataFrame(corrected=I(.get_reference(mnn.store)), batch=batch.names$ids)
+    m.out <- list(pairs=mnn.pairings, order=batch.names$labels[merge.order])
     if (compute.variances) {
         m.out$lost.var <- 1 - var.kept
     }
@@ -427,13 +407,19 @@ fastMNN <- function(..., batch=NULL, k=20, cos.norm=TRUE, ndist=3, d=50, auto.or
     list(averaged=corvec, second=as.integer(names(npairs)))
 }
 
-.center_along_batch_vector <- function(mat, batch.vec) 
+.center_along_batch_vector <- function(mat, batch.vec, restrict=NULL) 
 # Projecting along the batch vector, and shifting all cells to the center _within_ each batch.
 # This removes any variation along the overall batch vector within each matrix.
 {
     batch.vec <- batch.vec/sqrt(sum(batch.vec^2))
     batch.loc <- as.vector(mat %*% batch.vec)
-    central.loc <- mean(batch.loc)
+
+    if (is.null(restrict)) {
+        central.loc <- mean(batch.loc) 
+    } else { 
+        central.loc <- mean(batch.loc[restrict])
+    }
+
     mat <- mat + outer(central.loc - batch.loc, batch.vec, FUN="*")
     return(mat)
 }
@@ -470,61 +456,6 @@ fastMNN <- function(..., batch=NULL, k=20, cos.norm=TRUE, ndist=3, d=50, auto.or
 
     all.var[length(order)] <- sum(colVars(DelayedArray(current)))
     return(all.var)
-}
-
-############################################
-# Auto-ordering functions.
-
-#' @importFrom BiocNeighbors queryKNN buildIndex KmknnParam
-#' @importFrom BiocParallel SerialParam
-.define_first_merge <- function(pc.mat, k=20, BNPARAM=KmknnParam(), BPPARAM=SerialParam())
-# Find the pair of matrices in 'options' which has the greatest number of MNNs.
-{
-    precomputed <- lapply(pc.mat, buildIndex, BNPARAM=BNPARAM)
-    max.pairs <- list()
-
-    for (First in seq_along(precomputed)) {
-        fdata <- pc.mat[[First]]
-        for (Second in seq_len(First-1L)) {
-            sdata <- pc.mat[[Second]]
-
-            W21 <- queryKNN(BNINDEX=precomputed[[Second]], query=fdata, k=k, BPPARAM=BPPARAM, get.distance=FALSE)
-            W12 <- queryKNN(BNINDEX=precomputed[[First]], query=sdata, k=k, BPPARAM=BPPARAM, get.distance=FALSE)
-            out <- .Call(cxx_find_mutual_nns, W21$index, W12$index)
-            names(out) <- c("first", "second")
-
-            if (length(out$first) > length(max.pairs$first))  {
-                max.pairs <- out
-                max.first <- First
-                max.second <- Second
-            }
-        }
-    }
-
-    return(list(first=max.first, second=max.second, pairs=max.pairs, precomputed=precomputed))
-}
-
-#' @importFrom BiocNeighbors queryKNN buildIndex KmknnParam
-#' @importFrom BiocParallel SerialParam
-.define_next_merge <- function(refdata, pc.mat, processed, precomputed, k=20, BNPARAM=KmknnParam(), BPPARAM=SerialParam()) 
-# Find the matrix in pc.mat[-processed] that has the greater number of MNNs to 'refdata'.
-{
-    max.pairs <- list()
-    precomp.ref <- buildIndex(refdata, BNPARAM=BNPARAM)
-
-    for (other in seq_along(pc.mat)[-processed]) {
-        W21 <- queryKNN(BNINDEX=precomputed[[other]], query=refdata, k=k, BPPARAM=BPPARAM, get.distance=FALSE)
-        W12 <- queryKNN(BNINDEX=precomp.ref, query=pc.mat[[other]], k=k, BPPARAM=BPPARAM, get.distance=FALSE)
-        out <- .Call(cxx_find_mutual_nns, W21$index, W12$index)
-        names(out) <- c("first", "second")
-
-        if (length(out$first) > length(max.pairs$first))  {
-            max.pairs <- out
-            max.other <- other
-        }
-    }
-
-    return(list(other=max.other, pairs=max.pairs))
 }
 
 ############################################
