@@ -23,7 +23,7 @@
     if (!is.null(out)) {
         out
     } else {
-        seq_len(ncol(.get_batches(x)[[b]]))
+        seq_len(nrow(.get_batches(x)[[b]]))
     }
 }
 
@@ -42,7 +42,7 @@
 }
 
 .unrestrict_indices <- function(index, restrict) {
-    if (is.null(restrict)) index <- restrict[index]        
+    if (!is.null(restrict)) index <- restrict[index]
     index
 }
 
@@ -88,7 +88,7 @@ setMethod(".advance", "MNN_supplied_order", function(x, k, BNPARAM, BPPARAM) {
 
     # Restricting the MNN search, if desired.
     if (.do_restrict(x)) {
-        curres <- restrict[[cur.idx]]
+        curres <- .get_restrict(x)[[cur.idx]]
         if (!is.null(curres)) {
             curdata <- curdata[curres,,drop=FALSE]
         }
@@ -100,7 +100,7 @@ setMethod(".advance", "MNN_supplied_order", function(x, k, BNPARAM, BPPARAM) {
     # Correcting the indices to refer to non-restricted indices.
     if (.do_restrict(x)) {
         vals$first <- .unrestrict_indices(vals$first, .get_reference_restrict(x))
-        vals$second <- .unrestrict_indices(vals$second, restrict[[cur.idx]])
+        vals$second <- .unrestrict_indices(vals$second, .get_restrict(x)[[cur.idx]])
     }
 
     x@current.index <- cur.idx
@@ -233,13 +233,13 @@ setMethod(".advance", "MNN_auto_order", function(x, k, BNPARAM, BPPARAM) {
 
     # Updating the reference information.
     cur.dex <- .get_current_index(x)
+    refN <- nrow(.get_reference(x))
     x@reference <- rbind(.get_reference(x), corrected)
     x@reference.indices <- c(.get_reference_indices(x), cur.dex)
 
     # Updating the restricted set in the current reference.
     if (.do_restrict(x)) {
-        refN <- ncol(.get_reference(x))
-        x@reference.restrice <- c(.get_reference_restrict(x), refN + .coerce_restrict(x, cur.dex))
+        x@reference.restrict <- c(.get_reference_restrict(x), refN + .coerce_restrict(x, cur.dex))
     }
 
     # Clearing other contents.
