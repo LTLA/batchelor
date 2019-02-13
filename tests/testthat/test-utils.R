@@ -1,102 +1,6 @@
 # Unit tests utilities that are indirectly covered by the other tests.
 # library(batchelor); library(testthat); source("test-utils.R")
 
-set.seed(1000001)
-test_that(".check_batch_consistency works correctly", {
-    # Testing row checks.
-    A1 <- matrix(runif(1000), nrow=10)
-    A2 <- matrix(runif(2000), nrow=10)
-    expect_identical(batchelor:::.check_batch_consistency(list(A1, A2)), list(NULL, list(NULL, NULL)))
-    expect_identical(batchelor:::.check_batch_consistency(list(A1, A2, cbind(A1, A2))), list(NULL, list(NULL, NULL, NULL)))
-
-    rownames(A1) <- rownames(A2) <- sample(nrow(A1))
-    expect_identical(batchelor:::.check_batch_consistency(list(A1, A2)), list(rownames(A1), list(NULL, NULL)))
-    
-    rownames(A2) <- NULL
-    expect_error(batchelor:::.check_batch_consistency(list(A1, A2)), "row names are not the same")
-    expect_identical(batchelor:::.check_batch_consistency(list(A1, A2), ignore.null=TRUE), list(rownames(A1), list(NULL, NULL)))
-
-    rownames(A2) <- sample(nrow(A1))
-    expect_error(batchelor:::.check_batch_consistency(list(A1, A2)), "row names are not the same")
-
-    # Testing column checks.
-    B1 <- matrix(runif(1000), ncol=10)
-    B2 <- matrix(runif(2000), ncol=10)
-    expect_identical(batchelor:::.check_batch_consistency(list(B1, B2), byrow=FALSE), list(list(NULL, NULL), NULL))
-    expect_identical(batchelor:::.check_batch_consistency(list(B1, B2, rbind(B1, B2)), byrow=FALSE), list(list(NULL, NULL, NULL), NULL))
-
-    colnames(B1) <- colnames(B2) <- seq_len(ncol(B1))
-    expect_identical(batchelor:::.check_batch_consistency(list(B1, B2), byrow=FALSE), list(list(NULL, NULL), colnames(B1)))
-    
-    colnames(B2) <- NULL
-    expect_error(batchelor:::.check_batch_consistency(list(B1, B2), byrow=FALSE), "column names are not the same")
-    expect_identical(batchelor:::.check_batch_consistency(list(B1, B2), byrow=FALSE, ignore.null=TRUE), list(list(NULL, NULL), colnames(B1)))
-
-    colnames(B2) <- rev(seq_len(ncol(B1)))
-    expect_error(batchelor:::.check_batch_consistency(list(B1, B2), byrow=FALSE), "column names are not the same")
-
-    # Flipping around the dimension names.
-    C1 <- A1
-    colnames(C1) <- seq_len(ncol(C1))
-    expected <- list(rownames(A1), list(character(ncol(A1)), colnames(C1)))
-    expect_identical(batchelor:::.check_batch_consistency(list(A1, C1)), expected)
-    names(expected[[2]]) <- c("X", "Y")
-    expect_identical(batchelor:::.check_batch_consistency(list(X=A1, Y=C1)), expected)
-
-    D1 <- B1
-    rownames(D1) <- seq_len(nrow(D1))
-    expected <- list(list(character(nrow(B1)), rownames(D1)), colnames(B1))
-    expect_identical(batchelor:::.check_batch_consistency(list(B1, D1), byrow=FALSE), expected)
-    names(expected[[1]]) <- c("X", "Y")
-    expect_identical(batchelor:::.check_batch_consistency(list(X=B1, Y=D1), byrow=FALSE), expected)
-
-    # Getting coverage of extreme cases.
-    expect_identical(batchelor:::.check_batch_consistency(list(A1)), list(rownames(A1), list(NULL)))
-    expect_identical(batchelor:::.check_batch_consistency(list(B1), byrow=FALSE), list(list(NULL), colnames(B1)))
-
-    expect_identical(batchelor:::.check_batch_consistency(list()), list(NULL, list()))
-    expect_identical(batchelor:::.check_batch_consistency(list(), byrow=FALSE), list(list(), NULL))
-
-    expect_identical(batchelor:::.check_batch_consistency(list(A1[0,], A2[0,])), list(NULL, list(NULL, NULL)))
-    expect_identical(batchelor:::.check_batch_consistency(list(B1[,0], B2[,0]), byrow=FALSE), list(list(NULL, NULL), NULL))
-})
-
-set.seed(1000002)
-test_that(".check_spike_consistency works correctly", {
-    sce1 <- SingleCellExperiment(list(logcounts=matrix(runif(5000), nrow=10)))
-    sce2 <- SingleCellExperiment(list(logcounts=matrix(runif(2000), nrow=10)))
-    expect_error(batchelor:::.check_spike_consistency(list(sce1, sce2)), NA)
-    expect_error(batchelor:::.check_spike_consistency(list(sce1, sce2, cbind(sce1, sce2))), NA)
-
-    isSpike(sce1, "ERCC") <- isSpike(sce2, "ERCC") <- 1:5
-    expect_error(batchelor:::.check_spike_consistency(list(sce1, sce2)), NA)
-
-    isSpike(sce2, "ERCC") <- NULL
-    expect_error(batchelor:::.check_spike_consistency(list(sce1, sce2)), "spike-in sets differ")
-
-    isSpike(sce2, "SIRV") <- isSpike(sce1, "ERCC")
-    expect_error(batchelor:::.check_spike_consistency(list(sce1, sce2)), "spike-in sets differ")
-    
-    expect_error(batchelor:::.check_spike_consistency(list(sce1)), NA)
-    expect_error(batchelor:::.check_spike_consistency(list()), NA)
-})
-
-set.seed(1000003)
-test_that(".check_if_SCEs works correctly", {
-    sce1 <- SingleCellExperiment(list(logcounts=matrix(runif(5000), nrow=10)))
-    sce2 <- SingleCellExperiment(list(logcounts=matrix(runif(2000), nrow=10)))
-
-    expect_true(batchelor:::.check_if_SCEs(list(sce1, sce2)))
-    expect_false(batchelor:::.check_if_SCEs(list(assay(sce1), assay(sce2))))
-
-    expect_error(batchelor:::.check_if_SCEs(list(assay(sce1), sce2)), "cannot mix")
-    expect_error(batchelor:::.check_if_SCEs(list(sce1, assay(sce2))), "cannot mix")
-
-    expect_true(batchelor:::.check_if_SCEs(list(sce1)))
-    expect_false(batchelor:::.check_if_SCEs(list(assay(sce1))))
-    expect_false(batchelor:::.check_if_SCEs(list()))
-})
-
 set.seed(1000005)
 test_that(".create_batch_names works correctly", {
     out <- batchelor:::.create_batch_names(LETTERS[1:3], c(10, 20, 30))
@@ -105,16 +9,6 @@ test_that(".create_batch_names works correctly", {
     
     out <- batchelor:::.create_batch_names(NULL, c(10, 20, 30))
     expect_identical(out$ids, rep(out$labels, c(10, 20, 30)))
-})
-
-set.seed(10000051)
-test_that(".check_restrictions works correctly", {
-    expect_error(batchelor:::.check_restrictions(list(1, 2), NULL), NA)
-    expect_error(batchelor:::.check_restrictions(list(1, 2), list()), "number of batches")
-    expect_error(batchelor:::.check_restrictions(list(1, 2), list(3, 4)), NA)
-    expect_error(batchelor:::.check_restrictions(list(A=1, B=2), list(3, 4)), "same names")
-    expect_error(batchelor:::.check_restrictions(list(A=1, B=2), list(B=3, A=4)), "same names")
-    expect_error(batchelor:::.check_restrictions(list(A=1, B=2), list(A=3, B=4)), NA)
 })
 
 set.seed(1000006)
