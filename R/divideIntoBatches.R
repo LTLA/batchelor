@@ -81,7 +81,11 @@ divideIntoBatches <- function(x, batch, byrow=FALSE, restrict=NULL)
         }
 
         if (!is.null(restrict)) {
-            restricted[[b]] <- which(restrict[keep])
+            cur.restrict <- which(restrict[keep])
+            if (length(cur.restrict)==0L) {
+                stop("no cells remaining in a batch after restriction")
+            }
+            restricted[[b]] <- cur.restrict
         }
 
         output[[b]] <- current

@@ -52,8 +52,8 @@ test_that("divideIntoBatches handles restriction correctly", {
     X <- divideIntoBatches(A, b, restrict=NULL)
     expect_identical(X$restricted, NULL)
 
-    X <- divideIntoBatches(A, b, restrict=integer(0)) 
-    expect_identical(X$restricted, lapply(split(logical(ncol(A)), b), which))
+    expect_error(X <- divideIntoBatches(A, b, restrict=integer(0)), "no cells") 
+    expect_error(X <- divideIntoBatches(A, b, restrict=b==b[1]), "no cells") 
 })
 
 set.seed(1002)
