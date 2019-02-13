@@ -57,7 +57,7 @@
 #'
 #' To do this, users should set \code{restrict} to specify the subset of cells in each batch to be used for correction.
 #' This should be set to a list of length equal to the length of \code{...}, where each element is a subsetting vector to be applied to the columns of the corresponding batch.
-#' A \code{NULL} elements indicates that all the cells from a batch should be used.
+#' A \code{NULL} element indicates that all the cells from a batch should be used.
 #'
 #' The function will compute the scaling differences using only the specified subset of cells.
 #' However, the re-scaling will then be applied to all cells in each batch - hence the extrapolation.
@@ -78,12 +78,12 @@
 #' @importFrom SummarizedExperiment assay
 rescaleBatches <- function(..., batch=NULL, restrict=NULL, log.base=2, pseudo.count=1, subset.row=NULL, assay.type="logcounts", get.spikes=FALSE) {
     batches <- list(...)
-    original.names <- .check_batch_consistency(batches, byrow=TRUE)
-    .check_restrictions(batches, restrict)
+    original.names <- checkBatchConsistency(batches)
+    restrict <- checkRestrictions(batches, restrict)
 
     # Pulling out information from the SCE objects.
-    if (.check_if_SCEs(batches)) {
-        .check_spike_consistency(batches)
+    if (checkIfSCE(batches)) {
+        checkSpikeConsistency(batches)
         subset.row <- .SCE_subset_genes(subset.row, batches[[1]], get.spikes)
         batches <- lapply(batches, assay, i=assay.type, withDimnames=FALSE)
     }
@@ -104,9 +104,15 @@ rescaleBatches <- function(..., batch=NULL, restrict=NULL, log.base=2, pseudo.co
         output <- output[,d.reo,drop=FALSE]
     }
 
-    rownames(output) <- original.names[[1]]
+    # Adding dimension names.
+    gene.names <- original.names[[1]]
+    if (!is.null(gene.names) && !is.null(subset.row)) {
+        gene.names <- gene.names[.row_subset_to_index(batches[[1]], subset.row)]
+    }
+    rownames(output) <- gene.names
     colnames(output) <- unlist(original.names[[2]])
-    return(output)
+
+    output
 }
 
 ############################################
@@ -131,9 +137,6 @@ rescaleBatches <- function(..., batch=NULL, restrict=NULL, log.base=2, pseudo.co
         currestrict <- restrict[[b]]
         if (!is.null(currestrict)) {
             curbatch <- curbatch[,currestrict,drop=FALSE]
-            if (ncol(curbatch)==0L) {
-                stop("no cells remaining in a batch after restriction")
-            }
         }
 
         averages[[b]] <- .Call(cxx_unlog_exprs_mean, curbatch, log.base, pseudo.count, subset.row.m1)
