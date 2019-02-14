@@ -118,6 +118,11 @@ In cases with multiple batches, the cell identities are simply concatenated from
 i.e., all cells from the first object (in their provided order), then all cells from the second object, and so on.
 If there is only a single batch, the order of cells in that batch should be preserved.
 
+The output object should have row names equal to the row names of the input objects.
+Column names should be equivalent to the concatenated column names of the input objects, unless all are `NULL`, in which case the column names in the output can be `NULL`.
+In situations where some input objects have column names, and others are `NULL`, those missing column names should be filled in with empty strings.
+This represents the expected behaviour when `cbind`ing multiple matrices together.
+
 Finally, the `colData` slot should contain ‘batch’, a vector specifying the batch of origin for each cell.
 
 ## Demonstration
@@ -132,39 +137,48 @@ setMethod("batchCorrect", "NothingParam", function(..., batch = NULL,
     get.spikes = FALSE, PARAM) 
 {
     batches <- list(...)
+    checkBatchConsistency(batches)
 
     # Pulling out information from the SCE objects.        
-    if (batchelor:::.check_if_SCEs(batches)) {
-        batchelor:::.check_batch_consistency(batches, byrow=TRUE)
-        batchelor:::.check_spike_consistency(batches)
+    if (checkIfSCE(batches)) {
+        checkSpikeConsistency(batches)
         subset.row <- batchelor:::.SCE_subset_genes(subset.row, batches[[1]], get.spikes)
-
-        if (is.null(assay.type)) assay.type <- "logcounts" # due to default from generic.
-        batches <- lapply(batches, assay, i=assay.type, withDimnames=FALSE)
-    } else {
-        batchelor:::.check_batch_consistency(batches, byrow=TRUE)
+        batches <- lapply(batches, assay, i=assay.type)
     }
 
     # Subsetting by 'batch', if only one object is supplied. 
     do.split <- length(batches)==1L
     if (do.split) {
-        if (is.null(batch)) { 
-            stop("'batch' must be specified if '...' has only one object")
-        }
-
-        divided <- divideIntoBatches(batches[[1]], batch=batch, byrow=FALSE)
+        divided <- divideIntoBatches(batches[[1]], batch=batch)
         batches <- divided$batches
     } 
 
+    # Subsetting by row.
+    # This is a per-gene "method", so correct.all=TRUE will ignore subset.row.
+    # More complex methods will need to handle this differently.
+    if (correct.all) {
+        subset.row <- NULL
+    } else if (!is.null(subset.row)) {
+        subset.row <- normalizeSingleBracketSubscript(originals[[1]], subset.row)
+        batches <- lapply(batches, "[", i=subset.row, , drop=FALSE)
+    }
+
     output <- do.call(noCorrect, batches)
 
-    # Reordering the output for correctness.
+    # Reordering the output for correctness if it was previously split.
     if (do.split) {
         d.reo <- divided$reorder
         output <- output[,d.reo,drop=FALSE]
     }
 
-    return(output)
+    ncells.per.batch <- vapply(batches, FUN=ncol, FUN.VALUE=0L)
+    batch.names <- names(batches)
+    if (is.null(batch.names)) {
+        batch.names <- seq_along(batches)
+    }
+    
+    SingleCellExperiment(list(corrected=output), 
+        colData=DataFrame(batch=rep(batch.names, ncells.per.batch)))
 })
 ```
 
@@ -172,6 +186,7 @@ And it works^[In a strictly programming sense, as the method itself does no corr
 
 ```{r}
 n.out <- batchCorrect(B1, B2, PARAM=NothingParam())
+n.out
 ```
 
 Remember to export both the new method and the `NothingParam` class and constructor.
