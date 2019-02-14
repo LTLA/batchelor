@@ -335,6 +335,57 @@ test_that("fastMNN works with within-object batches", {
     expect_equal(as.character(ref$batch)[shuffle], as.character(out$batch))
 })
 
+set.seed(12000053)
+test_that("fastMNN works correctly with restriction", {
+    B1 <- matrix(rnorm(10000), ncol=10) # Batch 1 
+    B2 <- matrix(rnorm(20000), ncol=10) # Batch 2
+    B3 <- matrix(rnorm(5000), ncol=10) # Batch 3
+
+    # Restricted results are only directly comparable if we're not doing a PCA internally.
+    ref <- fastMNN(B1, B2, B3, d=50, pc.input=TRUE) 
+
+    i1 <- 100:50
+    C1 <- rbind(B1, B1[i1,])
+    i2 <- 1:20
+    C2 <- rbind(B2, B2[i2,])
+    i3 <- 50:100
+    C3 <- rbind(B3, B3[i3,])
+
+    keep1 <- seq_len(nrow(B1))
+    keep2 <- seq_len(nrow(B2))
+    keep3 <- seq_len(nrow(B3))
+    out <- fastMNN(C1, C2, C3, d=50, pc.input=TRUE, restrict=list(keep1, keep2, keep3)) 
+    CHECK_PAIRINGS(out)
+
+    expect_identical(ref$corrected[ref$batch==1,], out$corrected[out$batch==1,][keep1,])
+    expect_identical(ref$corrected[ref$batch==2,], out$corrected[out$batch==2,][keep2,])
+    expect_identical(ref$corrected[ref$batch==3,], out$corrected[out$batch==3,][keep3,])
+
+    expect_identical(ref$corrected[ref$batch==1,][i1,], out$corrected[out$batch==1,][-keep1,])
+    expect_identical(ref$corrected[ref$batch==2,][i2,], out$corrected[out$batch==2,][-keep2,])
+    expect_identical(ref$corrected[ref$batch==3,][i3,], out$corrected[out$batch==3,][-keep3,])
+
+    # Also behaves with a single batch.
+    DX <- rbind(B1, B2, B3)
+    batch_X <- rep(1:3, c(nrow(B1), nrow(B2), nrow(B3)))
+    ref2 <- fastMNN(DX, batch=batch_X, d=50, pc.input=TRUE)
+    expect_identical(ref$corrected, ref2$corrected)
+    ref <- ref2
+
+    DY <- rbind(C1, C2, C3)
+    batch_Y <- rep(1:3, c(nrow(C1), nrow(C2), nrow(C3)))
+    out <- fastMNN(DY, batch=batch_Y, d=50, pc.input=TRUE, restrict=list(c(keep1, keep2 + nrow(C1), keep3 + nrow(C1) + nrow(C2))))
+    CHECK_PAIRINGS(out)
+
+    expect_identical(ref$corrected[ref$batch==1,], out$corrected[out$batch==1,][keep1,])
+    expect_identical(ref$corrected[ref$batch==2,], out$corrected[out$batch==2,][keep2,])
+    expect_identical(ref$corrected[ref$batch==3,], out$corrected[out$batch==3,][keep3,])
+
+    expect_identical(ref$corrected[ref$batch==1,][i1,], out$corrected[out$batch==1,][-keep1,])
+    expect_identical(ref$corrected[ref$batch==2,][i2,], out$corrected[out$batch==2,][-keep2,])
+    expect_identical(ref$corrected[ref$batch==3,][i3,], out$corrected[out$batch==3,][-keep3,])
+})
+
 set.seed(1200006)
 test_that("fastMNN fails on silly inputs", {
     B1 <- matrix(rnorm(10000), nrow=100) # Batch 1 
