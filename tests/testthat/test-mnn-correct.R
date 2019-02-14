@@ -77,13 +77,16 @@ test_that("Batch vectors are correctly calculated", {
 
 set.seed(100032)
 test_that("Variance shift adjustment is correctly performed", {
-    data1 <- matrix(rnorm(10000, sd=0.1), ncol=25)
-    data2 <- matrix(rnorm(25000, sd=0.1), ncol=25)
-    corvect <- matrix(runif(length(data2)), nrow=nrow(data2))
+    data1 <- matrix(rnorm(10000, sd=0.1), nrow=25)
+    data2 <- matrix(rnorm(25000, sd=0.1), nrow=25)
+    corvect <- matrix(runif(length(data2)), nrow=ncol(data2)) # Yes, this is transposed relative to 'data2'.
 
     # Constructing a reference function.
     REF <- function(data1, data2, cell.vect, sigma) {
+        data1 <- t(data1)
+        data2 <- t(data2)
         scaling <- numeric(nrow(cell.vect))
+
         for (cell in seq_along(scaling)) {
             # For each cell, projecting both data sets onto the normalized correction vector for that cell.
             cur.cor.vect <- cell.vect[cell,]
@@ -114,16 +117,40 @@ test_that("Variance shift adjustment is correctly performed", {
             quan2 <- coords2[cell]
             scaling[cell] <- (quan1 - quan2)/l2norm
         }
-        return(scaling)
+
+        scaling 
+    }
+
+    TEST <- function(data1, data2, cell.vect, sigma) {
+        .Call(batchelor:::cxx_adjust_shift_variance, data1, data2, cell.vect, sigma, seq_len(ncol(data1))-1L, seq_len(ncol(data2))-1L)
     }
 
     ref <- REF(data1, data2, corvect, 1)
-    test <- .Call(batchelor:::cxx_adjust_shift_variance, t(data1), t(data2), corvect, 1)
+    test <- TEST(data1, data2, corvect, 1)
     expect_equal(ref, test)
 
     ref <- REF(data1, data2, corvect, 0.1)
-    test <- .Call(batchelor:::cxx_adjust_shift_variance, t(data1), t(data2), corvect, 0.1)
+    test <- TEST(data1, data2, corvect, 0.1)
     expect_equal(ref, test)
+
+    # Handles subsetting.
+    i <- 10:20
+    test1 <- batchelor:::.adjust_shift_variance(data1, data2, corvect, 1, subset.row=i)
+    test2 <- batchelor:::.adjust_shift_variance(data1[i,], data2[i,], corvect[,i], 1)
+    expect_equal(test1[,i], test2)
+
+    # Handles restriction. 
+    i1 <- 10:20
+    A1 <- cbind(data1, data1[,i1])
+    i2 <- 20:10
+    A2 <- cbind(data2, data2[,i2])
+
+    test1 <- batchelor:::.adjust_shift_variance(data1, data2, corvect, 1)
+    test2 <- batchelor:::.adjust_shift_variance(A1, A2, rbind(corvect, corvect[i2,]), 1, restrict1=i1, restrict2=i2)
+
+    common <- seq_len(ncol(data2))
+    expect_identical(test1, test2[common,])
+    expect_identical(test1[i2,], test2[-common,])
 })
 
 set.seed(10004)
@@ -203,13 +230,13 @@ test_that("mnnCorrect behaves consistently with subsetting and cosine normalizat
 })
     
 set.seed(100042)
-test_that("mnnCorrect behaves correctly with the order", {
+test_that("mnnCorrect behaves correctly with an alternative order", {
     alpha <- matrix(rnorm(1000), ncol=100)
     bravo <- matrix(rnorm(2000), ncol=200)
     charlie <- matrix(rnorm(3000), ncol=300)
 
     new.order <- c(2, 3, 1)
-    out <- mnnCorrect(alpha, bravo, charlie, order=new.order)
+    out <- mnnCorrect(alpha, bravo, charlie, auto.order=new.order)
     expect_false(is.unsorted(out$batch))
 
     ref <- mnnCorrect(bravo, charlie, alpha)
@@ -231,6 +258,11 @@ test_that("mnnCorrect behaves correctly with the order", {
             curout[order(curout[,1], curout[,2]),]
         )
     }
+
+    # Works with automatic ordering.
+    auto <- mnnCorrect(A=alpha, B=bravo, C=charlie, auto.order=TRUE)
+    expect_identical(auto$batch, LETTERS[out$batch])
+    expect_identical(metadata(auto)$order, c("C","B","A")) # charlie and bravo would have most MNNs.
 })
 
 set.seed(100043)
@@ -267,7 +299,7 @@ set.seed(100043)
 test_that("mnnCorrect behaves with within-object batches", {
     B1 <- matrix(rnorm(10000), nrow=100) # Batch 1 
     B2 <- matrix(rnorm(20000), nrow=100) # Batch 2
-    B3 <- matrix(rnorm(15000), nrow=100) # Batch 2
+    B3 <- matrix(rnorm(15000), nrow=100) # Batch 3
     
     combined <- cbind(B1, B2, B3)
     batches <- rep(1:3, c(ncol(B1), ncol(B2), ncol(B3)))
@@ -293,6 +325,65 @@ test_that("mnnCorrect behaves with within-object batches", {
             curref[order(curref[,1], curref[,2]),],
             curout[order(curout[,1], curout[,2]),]
         )
+    }
+})
+
+set.seed(100045)
+test_that("mnnCorrect behaves with restriction", {
+    B1 <- matrix(rnorm(10000), nrow=100) # Batch 1 
+    B2 <- matrix(rnorm(20000, 2), nrow=100) # Batch 2
+    B3 <- matrix(rnorm(15000, 3), nrow=100) # Batch 3
+
+    i1 <- 20:10
+    C1 <- cbind(B1, B1[,i1])
+    i2 <- 30:100
+    C2 <- cbind(B2, B2[,i2])
+    i3 <- 100:20
+    C3 <- cbind(B3, B3[,i3])
+
+    keep1 <- seq_len(ncol(B1))
+    keep2 <- seq_len(ncol(B2))
+    keep3 <- seq_len(ncol(B3))
+    
+    for (it in 1:4) {
+        if (it==1L) {
+            args <- list(var.adj=FALSE)
+        } else if (it==2L) {
+            args <- list()
+        } else if (it==3L) {
+            args <- list(svd.dim=2L)
+        } else {
+            # To trigger same.set=FALSE. Do NOT set cos.norm.out=TRUE, as 
+            # the large distances result in kernels of 1 (basically only itself)
+            # which causes a lot of ties that are broken randomly due to 'sample' below.
+            args <- list(subset.row=50:1, correct.all=TRUE) 
+        }
+
+        ref <- do.call(mnnCorrect, c(list(B1, B2, B3), args))
+        out <- do.call(mnnCorrect, c(list(C1, C2, C3, restrict=list(keep1, keep2, keep3)), args))
+
+        expect_identical(assay(ref)[,ref$batch==1], assay(out)[,out$batch==1][,keep1])
+        expect_identical(assay(ref)[,ref$batch==2], assay(out)[,out$batch==2][,keep2])
+        expect_identical(assay(ref)[,ref$batch==3], assay(out)[,out$batch==3][,keep3])
+    
+        expect_identical(assay(ref)[,ref$batch==1][,i1], assay(out)[,out$batch==1][,-keep1])
+        expect_identical(assay(ref)[,ref$batch==2][,i2], assay(out)[,out$batch==2][,-keep2])
+        expect_identical(assay(ref)[,ref$batch==3][,i3], assay(out)[,out$batch==3][,-keep3])
+    
+        # Also behaves with a single batch.
+        DY <- cbind(C1, C2, C3)
+        batch <- rep(1:3, c(ncol(C1), ncol(C2), ncol(C3)))
+    
+        shuffle <- sample(ncol(DY))
+        out2 <- do.call(mnnCorrect, c(
+            list(DY[,shuffle], batch=batch[shuffle], 
+                restrict=list(shuffle %in% c(keep1, keep2 + ncol(C1), keep3 + ncol(C1) + ncol(C2)))
+            ),
+            args
+        ))
+    
+        expect_equal(assay(out2), assay(out)[,shuffle])
+        expect_identical(out2$batch, as.character(out$batch)[shuffle])
     }
 })
 
