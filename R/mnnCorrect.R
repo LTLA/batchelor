@@ -266,8 +266,6 @@ mnnCorrect <- function(..., batch=NULL, restrict=NULL, k=20, sigma=0.1, cos.norm
             ref.restrict <- .get_reference_restrict(mnn.store)
             cur.restrict <- .get_current_restrict(mnn.store)
             args <- list(sigma=sigma, restrict1=ref.restrict, restrict2=cur.restrict)
-            print(str(ref.restrict))
-            print(str(cur.restrict))
 
             correction.in <- do.call(.adjust_shift_variance, c(list(t(ref.batch.in), other.batch.in.untrans, correction.in), args)) 
             if (!same.set) {
