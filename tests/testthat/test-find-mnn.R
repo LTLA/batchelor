@@ -10,20 +10,20 @@ test_that("Mutual NN detection is correct", {
         n2 <- nrow(d2)
         n.total <- n1 + n2
    
-        W21 <- BiocNeighbors::queryKNN(d2, query=d1, k=k2)
-        W12 <- BiocNeighbors::queryKNN(d1, query=d2, k=k1)
-        W <- sparseMatrix(i=c(rep(seq_len(n1), k2), rep(n1 + seq_len(n2), k1)),
-                          j=c(n1 + W21$index, W12$index),
-                          x=rep(1, n1*k2 + n2*k1), dims=c(n.total, n.total))
+        nn21 <- BiocNeighbors::queryKNN(d2, query=d1, k=k2)
+        nn12 <- BiocNeighbors::queryKNN(d1, query=d2, k=k1)
 
-        W <- W * t(W) # elementwise multiplication to keep mutual nns only
-        A <- Matrix::which(W>0, arr.ind=TRUE) # row/col indices of mutual NNs
+        all.pairs.1 <- all.pairs.2 <- vector("list", n1)
 
-        A1 <- A[,1]
-        A1 <- A1[A1 <= n1]
-        A2 <- A[,2] - n1
-        A2 <- A2[A2 > 0]
-        return(list(first=A1, second=A2))
+        for (i in seq_len(n1)) {
+            neighbors <- nn21$index[i,]
+            converse <- nn12$index[neighbors,,drop=FALSE]
+            mutual <- rowSums(converse==i) > 0L
+            all.pairs.1[[i]] <- rep(i, sum(mutual))
+            all.pairs.2[[i]] <- neighbors[mutual]
+        }
+
+        list(first=unlist(all.pairs.1), second=unlist(all.pairs.2))
     }
     
     # Check that the values are identical.
@@ -40,10 +40,12 @@ test_that("Mutual NN detection is correct", {
     comparator(REF(A, B, 10, 10), findMutualNN(A, B, 10, 10))
     comparator(REF(A, B, 5, 20), findMutualNN(A, B, 5, 20))
     comparator(REF(A, B, 20, 5), findMutualNN(A, B, 20, 5))
+    comparator(REF(A, B, 1, 1), findMutualNN(A, B, 1, 1))
 
     A <- matrix(rpois(25000, lambda=20), ncol=100)
     B <- matrix(rpois(15000, lambda=50), ncol=100)
     comparator(REF(A, B, 10, 10), findMutualNN(A, B, 10, 10))
     comparator(REF(A, B, 5, 20), findMutualNN(A, B, 5, 20))
     comparator(REF(A, B, 20, 5), findMutualNN(A, B, 20, 5))
+    comparator(REF(A, B, 1, 1), findMutualNN(A, B, 1, 1))
 })
