@@ -17,10 +17,16 @@ test_that("averaging correction vectors works as expected", {
     }
     ref <- do.call(rbind, collected)
 
-    # Comparing the implementation in batchelor.
+    # Comparing to the implementation in batchelor.
     out <- batchelor:::.average_correction(test1, mnn1, test2, mnn2)  
     expect_equal(out$averaged, ref)
     expect_identical(out$second, sort(unique(mnn2)))
+    expect_identical(out$second, as.integer(names(by.mnn)))
+
+    # Doesn't fail on dummy inputs.
+    empty <- batchelor:::.average_correction(test1, integer(0), test2, integer(0))  
+    expect_identical(dim(empty$averaged), c(0L, ncol(test2)))
+    expect_identical(empty$second, integer(0))
 })
 
 set.seed(1200002)

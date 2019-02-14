@@ -426,9 +426,12 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
     corvec <- refdata[mnn1,,drop=FALSE] - curdata[mnn2,,drop=FALSE]
     corvec <- rowsum(corvec, mnn2)
     npairs <- table(mnn2)
-    stopifnot(identical(names(npairs), rownames(corvec)))
+
+    second.names <- as.character(names(npairs))
+    stopifnot(identical(second.names, rownames(corvec)))
+
     corvec <- unname(corvec)/as.vector(npairs)
-    list(averaged=corvec, second=as.integer(names(npairs)))
+    list(averaged=corvec, second=as.integer(second.names))
 }
 
 .center_along_batch_vector <- function(mat, batch.vec, restrict=NULL) 
