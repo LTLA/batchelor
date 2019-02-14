@@ -76,11 +76,11 @@ multiBatchNorm <- function(..., assay.type="counts", norm.args=list(), min.mean=
 # created 4 June 2018
 {
     batches <- list(...)
-    .check_batch_consistency(batches, byrow=TRUE)
-    .check_spike_consistency(batches)
-    if (length(batches)==0L) {
+    checkBatchConsistency(batches)
+    if (!checkIfSCE(batches) || length(batches)==0L) {
         stop("at least one SingleCellExperiment object must be supplied")
     }
+    checkSpikeConsistency(batches)
 
     # Centering the size factors, to avoid large rescaling factors due to systematically larger size factors in the input.
     # This would not be reflective of the actual magnitude of the counts.
