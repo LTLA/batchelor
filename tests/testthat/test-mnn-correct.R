@@ -295,7 +295,7 @@ test_that("mnnCorrect behaves with SingleCellExperiment inputs", {
     expect_equal(ref, out)
 })
 
-set.seed(100043)
+set.seed(100044)
 test_that("mnnCorrect behaves with within-object batches", {
     B1 <- matrix(rnorm(10000), nrow=100) # Batch 1 
     B2 <- matrix(rnorm(20000), nrow=100) # Batch 2
@@ -385,6 +385,27 @@ test_that("mnnCorrect behaves with restriction", {
         expect_equal(assay(out2), assay(out)[,shuffle])
         expect_identical(out2$batch, as.character(out$batch)[shuffle])
     }
+})
+
+set.seed(100046)
+test_that("mnnCorrect preserves names in its output", {
+    B1 <- matrix(rnorm(10000), nrow=100) # Batch 1 
+    B2 <- matrix(rnorm(20000), nrow=100) # Batch 2
+
+    out <- mnnCorrect(X=B1, Y=B2) 
+    expect_identical(out$batch, rep(c("X", "Y"), c(ncol(B1), ncol(B2))))
+
+    rownames(B1) <- rownames(B2) <- sprintf("GENE_%i", seq_len(nrow(B1)))
+    out <- mnnCorrect(B1, B2) 
+    expect_identical(rownames(out), rownames(B1))
+
+    out <- mnnCorrect(B1, B2, subset.row=1:50) 
+    expect_identical(rownames(out), rownames(B1)[1:50])
+
+    colnames(B1) <- sprintf("CELL_%i", seq_len(ncol(B1)))
+    colnames(B2) <- sprintf("CELL_%i", seq_len(ncol(B2)))
+    out <- mnnCorrect(B1, B2) 
+    expect_identical(colnames(out), c(colnames(B1), colnames(B2)))
 })
 
 set.seed(10005)

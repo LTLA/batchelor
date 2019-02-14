@@ -351,7 +351,7 @@ test_that("fastMNN works with within-object batches", {
 
 set.seed(120000521)
 test_that("fastMNN works with within-object batches for PCs", {
-    pcd <- List(
+    pcd <- list(
         matrix(rnorm(10000), ncol=50), # Batch 1 
         matrix(rnorm(20000), ncol=50), # Batch 2
         matrix(rnorm(15000), ncol=50) # Batch 2
