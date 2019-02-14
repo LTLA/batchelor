@@ -7,9 +7,11 @@
 #' Each matrix should contain the same number of rows, corresponding to the same genes (in the same order).
 #' 
 #' Alternatively, one or more \linkS4class{SingleCellExperiment} objects can be supplied containing a log-expression matrix in the \code{assay.type} assay.
-#' Note the same restrictions described above for matrix inputs.
+#' Note the same constraints described above for matrix inputs.
 #' @param batch A factor specifying the batch of origin for all cells when only a single object is supplied in \code{...}.
 #' This is ignored if multiple objects are present.
+#' @param restrict A list of length equal to the number of objects in \code{...}.
+#' Each entry of the list corresponds to one batch and specifies the cells to use when computing the correction.
 #' @param k An integer scalar specifying the number of nearest neighbors to consider when identifying mutual nearest neighbors.
 #' @param sigma A numeric scalar specifying the bandwidth of the Gaussian smoothing kernel used to compute the correction vector for each cell.
 #' @param cos.norm.in A logical scalar indicating whether cosine normalization should be performed on the input data prior to calculating distances between cells.
@@ -104,7 +106,21 @@
 #' The adjustment ensures that the cells from the two batches are properly intermingled after correction.
 #' This is done by identifying each cell's position on the correction vector, identifying corresponding quantiles between batches, 
 #' and scaling the correction vector to ensure that the quantiles are matched after correction.
+#'
+#' @section Using restriction:
+#' It is possible to compute the correction using only a subset of cells in each batch, and then extrapolate that correction to all other cells.
+#' This may be desirable in experimental designs where a control set of cells from the same source population were run on different batches.
+#' Any difference in the controls must be artificial in origin and can be directly removed without making further biological assumptions.
+#'
+#' To do this, users should set \code{restrict} to specify the subset of cells in each batch to be used for correction.
+#' This should be set to a list of length equal to the length of \code{...}, where each element is a subsetting vector to be applied to the columns of the corresponding batch.
+#' A \code{NULL} element indicates that all the cells from a batch should be used.
+#' In situations where one input object contains multiple batches, \code{restrict} is simply a list containing a single subsetting vector for that object.
 #' 
+#' \code{mnnCorrect} will only use the restricted subset of cells in each batch to identify MNN pairs (and to perform variance adjustment, if \code{var.adj=TRUE}).
+#' However, it will apply the correction to all cells in each batch - hence the extrapolation.
+#' This means that the output is always of the same dimensionality, regardless of whether \code{restrict} is specified.
+#'
 #' @author
 #' Laleh Haghverdi,
 #' with modifications by Aaron Lun

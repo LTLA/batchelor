@@ -169,7 +169,7 @@
 #' A \code{NULL} element indicates that all the cells from a batch should be used.
 #' In situations where one input object contains multiple batches, \code{restrict} is simply a list containing a single subsetting vector for that object.
 #' 
-#' \code{fastMNN} will only use the restricted subset of cells in each batch o identify MNN pairs and the center of the orthogonalization.
+#' \code{fastMNN} will only use the restricted subset of cells in each batch to identify MNN pairs and the center of the orthogonalization.
 #' However, it will apply the correction to all cells in each batch - hence the extrapolation.
 #' This means that the output is always of the same dimensionality, regardless of whether \code{restrict} is specified.
 #'
