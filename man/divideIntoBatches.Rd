@@ -20,7 +20,8 @@ A list containing:
 \itemize{
 \item \code{batches}, a named list of matrix-like objects where each element corresponds to a level of \code{batch} and contains all cells from that batch.
 \item \code{reorder}, an integer vector to be applied to the combined \code{batches} to recover the ordering of cells in \code{x}. 
-\item \code{restrict}, a named list of integer vectors specifying which cells are to be used for correction.
+\item \code{restricted}, a named list of integer vectors specifying which cells are to be used for correction.
+Set to \code{NULL} if the input \code{restrict} was also \code{NULL}.
 }
 }
 \description{

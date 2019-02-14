@@ -4,10 +4,10 @@
 \alias{mnnCorrect}
 \title{Mutual nearest neighbors correction}
 \usage{
-mnnCorrect(..., batch = NULL, k = 20, sigma = 0.1,
+mnnCorrect(..., batch = NULL, restrict = NULL, k = 20, sigma = 0.1,
   cos.norm.in = TRUE, cos.norm.out = TRUE, svd.dim = 0L,
   var.adj = TRUE, subset.row = NULL, correct.all = FALSE,
-  order = NULL, assay.type = "logcounts", get.spikes = FALSE,
+  auto.order = FALSE, assay.type = "logcounts", get.spikes = FALSE,
   BSPARAM = ExactParam(), BNPARAM = KmknnParam(),
   BPPARAM = SerialParam())
 }
@@ -17,10 +17,13 @@ Each matrix should contain cells from the same batch; multiple matrices represen
 Each matrix should contain the same number of rows, corresponding to the same genes (in the same order).
 
 Alternatively, one or more \linkS4class{SingleCellExperiment} objects can be supplied containing a log-expression matrix in the \code{assay.type} assay.
-Note the same restrictions described above for matrix inputs.}
+Note the same constraints described above for matrix inputs.}
 
 \item{batch}{A factor specifying the batch of origin for all cells when only a single object is supplied in \code{...}.
 This is ignored if multiple objects are present.}
+
+\item{restrict}{A list of length equal to the number of objects in \code{...}.
+Each entry of the list corresponds to one batch and specifies the cells to use when computing the correction.}
 
 \item{k}{An integer scalar specifying the number of nearest neighbors to consider when identifying mutual nearest neighbors.}
 
@@ -38,7 +41,9 @@ This is ignored if multiple objects are present.}
 
 \item{correct.all}{A logical scalar specifying whether correction should be applied to all genes, even if only a subset is used for the MNN calculations.}
 
-\item{order}{An integer vector specifying the order in which batches are to be corrected.}
+\item{auto.order}{Logical scalar indicating whether re-ordering of batches should be performed to maximize the number of MNN pairs at each step.
+
+Alternatively, an integer vector containing a permutation of \code{1:N} where \code{N} is the number of batches.}
 
 \item{assay.type}{A string or integer scalar specifying the assay containing the log-expression values, if SingleCellExperiment objects are present in \code{...}.}
 
@@ -116,11 +121,21 @@ This can be turned off when there are no scaling differences between data sets.
 This can be turned off to obtain corrected values on the log-scale, similar to the input data.
 }
 The cosine normalization is achieved using the \code{\link{cosineNorm}} function.
+}
 
-Users should note that the order in which batches are corrected will affect the final results.
-The first batch in \code{order} is used as the reference batch against which the second batch is corrected.
+\section{Controlling the merge order}{
+
+The order in which batches are corrected will affect the final results.
+The first batch in \code{auto.order} is used as the reference batch against which the second batch is corrected.
 Corrected values of the second batch are added to the reference batch, against which the third batch is corrected, and so on.
 This strategy maximizes the chance of detecting sufficient MNN pairs for stable calculation of correction vectors in subsequent batches.
+
+If \code{auto.order=TRUE}, batches are ordered to maximize the number of MNN pairs at each step.
+The aim is to improve the stability of the correction by first merging more similar batches with more MNN pairs.
+This can be somewhat time-consuming as MNN pairs need to be iteratively recomputed for all possible batch pairings.
+It is often more convenient for the user to specify an appropriate ordering based on prior knowledge about the batches.
+
+Note that, no matter what the setting of \code{auto.order} is, the order of cells in the output corrected matrix is \emph{always} the same.
 }
 
 \section{Further options}{
@@ -137,6 +152,22 @@ Naive correction would then bring only the surfaces into contact, rather than fu
 The adjustment ensures that the cells from the two batches are properly intermingled after correction.
 This is done by identifying each cell's position on the correction vector, identifying corresponding quantiles between batches, 
 and scaling the correction vector to ensure that the quantiles are matched after correction.
+}
+
+\section{Using restriction}{
+
+It is possible to compute the correction using only a subset of cells in each batch, and then extrapolate that correction to all other cells.
+This may be desirable in experimental designs where a control set of cells from the same source population were run on different batches.
+Any difference in the controls must be artificial in origin and can be directly removed without making further biological assumptions.
+
+To do this, users should set \code{restrict} to specify the subset of cells in each batch to be used for correction.
+This should be set to a list of length equal to the length of \code{...}, where each element is a subsetting vector to be applied to the columns of the corresponding batch.
+A \code{NULL} element indicates that all the cells from a batch should be used.
+In situations where one input object contains multiple batches, \code{restrict} is simply a list containing a single subsetting vector for that object.
+
+\code{mnnCorrect} will only use the restricted subset of cells in each batch to identify MNN pairs (and to perform variance adjustment, if \code{var.adj=TRUE}).
+However, it will apply the correction to all cells in each batch - hence the extrapolation.
+This means that the output is always of the same dimensionality, regardless of whether \code{restrict} is specified.
 }
 
 \examples{
