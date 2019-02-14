@@ -17,6 +17,8 @@
 #' In all cases, each object contains cells from a single batch; multiple objects represent separate batches of cells.
 #' @param batch A factor specifying the batch of origin for all cells when only a single object is supplied in \code{...}.
 #' This is ignored if multiple objects are present.
+#' @param restrict A list of length equal to the number of objects in \code{...}.
+#' Each entry of the list corresponds to one batch and specifies the cells to use when computing the correction.
 #' @param k An integer scalar specifying the number of nearest neighbors to consider when identifying MNNs.
 #' @param cos.norm A logical scalar indicating whether cosine normalization should be performed on the input data prior to PCA.
 #' @param ndist A numeric scalar specifying the threshold beyond which neighbours are to be ignored when computing correction vectors.
@@ -156,6 +158,20 @@
 #'     \item Setting \code{pc.input=TRUE} is criticial to avoid unnecessary (and incorrect) cosine-normalization and PCA within each step of the merge.
 #' }
 #' Users are referred to the Examples for a demonstration of this functionality.
+#'
+#' @section Using restriction:
+#' It is possible to compute the correction using only a subset of cells in each batch, and then extrapolate that correction to all other cells.
+#' This may be desirable in experimental designs where a control set of cells from the same source population were run on different batches.
+#' Any difference in the controls must be artificial in origin and can be directly removed without making further biological assumptions.
+#'
+#' To do this, users should set \code{restrict} to specify the subset of cells in each batch to be used for correction.
+#' This should be set to a list of length equal to the length of \code{...}, where each element is a subsetting vector to be applied to the columns of the corresponding batch.
+#' A \code{NULL} element indicates that all the cells from a batch should be used.
+#' In situations where one input object contains multiple batches, \code{restrict} is simply a list containing a single subsetting vector for that object.
+#' 
+#' \code{fastMNN} will only use the restricted subset of cells in each batch o identify MNN pairs and the center of the orthogonalization.
+#' However, it will apply the correction to all cells in each batch - hence the extrapolation.
+#' This means that the output is always of the same dimensionality, regardless of whether \code{restrict} is specified.
 #'
 #' @author Aaron Lun
 #'

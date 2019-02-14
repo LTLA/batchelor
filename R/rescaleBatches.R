@@ -58,6 +58,7 @@
 #' To do this, users should set \code{restrict} to specify the subset of cells in each batch to be used for correction.
 #' This should be set to a list of length equal to the length of \code{...}, where each element is a subsetting vector to be applied to the columns of the corresponding batch.
 #' A \code{NULL} element indicates that all the cells from a batch should be used.
+#' In situations where one input object contains multiple batches, \code{restrict} is simply a list containing a single subsetting vector for that object.
 #'
 #' The function will compute the scaling differences using only the specified subset of cells.
 #' However, the re-scaling will then be applied to all cells in each batch - hence the extrapolation.
