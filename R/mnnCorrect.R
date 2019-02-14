@@ -128,20 +128,19 @@
 #' @importFrom SummarizedExperiment assay
 #' @importFrom BiocSingular ExactParam
 #' @importFrom BiocNeighbors KmknnParam
-mnnCorrect <- function(..., batch=NULL, k=20, sigma=0.1, cos.norm.in=TRUE, cos.norm.out=TRUE, svd.dim=0L, var.adj=TRUE, 
-    subset.row=NULL, correct.all=FALSE, order=NULL, 
+mnnCorrect <- function(..., batch=NULL, restrict=NULL, k=20, sigma=0.1, cos.norm.in=TRUE, cos.norm.out=TRUE, svd.dim=0L, var.adj=TRUE, 
+    subset.row=NULL, correct.all=FALSE, auto.order=FALSE, 
     assay.type="logcounts", get.spikes=FALSE, BSPARAM=ExactParam(), BNPARAM=KmknnParam(), BPPARAM=SerialParam())
 {
-    batches <- list(...)
+    original <- batches <- list(...)
+    checkBatchConsistency(batches)
+    restrict <- checkRestrictions(batches, restrict)
     
     # Pulling out information from the SCE objects.        
-    if (.check_if_SCEs(batches)) {
-        .check_batch_consistency(batches, byrow=TRUE)
-        .check_spike_consistency(batches)
+    if (checkIfSCE(batches)) {
+        checkSpikeConsistency(batches)
         subset.row <- .SCE_subset_genes(subset.row, batches[[1]], get.spikes)
         batches <- lapply(batches, assay, i=assay.type, withDimnames=FALSE)
-    } else {
-        .check_batch_consistency(batches, byrow=TRUE)
     }
 
     # Subsetting by 'batch'.
@@ -151,14 +150,15 @@ mnnCorrect <- function(..., batch=NULL, k=20, sigma=0.1, cos.norm.in=TRUE, cos.n
             stop("'batch' must be specified if '...' has only one object")
         }
 
-        divided <- divideIntoBatches(batches[[1]], batch=batch, byrow=FALSE)
+        divided <- divideIntoBatches(batches[[1]], batch=batch, restrict=restrict[[1]])
         batches <- divided$batches
+        restrict <- divided$restrict
     }
 
     output <- do.call(.mnn_correct, c(batches, 
         list(k=k, sigma=sigma, cos.norm.in=cos.norm.in, cos.norm.out=cos.norm.out, svd.dim=svd.dim, 
-            var.adj=var.adj, subset.row=subset.row, correct.all=correct.all, order=order, 
-            BSPARAM=BSPARAM, BNPARAM=BNPARAM, BPPARAM=BPPARAM)))
+            var.adj=var.adj, subset.row=subset.row, correct.all=correct.all, restrict=restrict,
+            auto.order=auto.order, BSPARAM=BSPARAM, BNPARAM=BNPARAM, BPPARAM=BPPARAM)))
 
     # Reordering the output for correctness.
     if (do.split) {
@@ -167,7 +167,7 @@ mnnCorrect <- function(..., batch=NULL, k=20, sigma=0.1, cos.norm.in=TRUE, cos.n
         metadata(output)$pairs <- .reindex_pairings(metadata(output)$pairs, d.reo)
     }
 
-    return(output)
+    .rename_output(output, original, subset.row=subset.row)
 }
 
 ####################################
@@ -181,7 +181,7 @@ mnnCorrect <- function(..., batch=NULL, k=20, sigma=0.1, cos.norm.in=TRUE, cos.n
 #' @importFrom BiocSingular ExactParam
 #' @importFrom BiocNeighbors KmknnParam
 .mnn_correct <- function(..., k=20, sigma=0.1, cos.norm.in=TRUE, cos.norm.out=TRUE, svd.dim=0L, var.adj=TRUE, 
-    subset.row=NULL, correct.all=FALSE, order=NULL, BSPARAM=ExactParam(), BNPARAM=KmknnParam(), BPPARAM=SerialParam())
+    subset.row=NULL, correct.all=FALSE, restrict=NULL, auto.order=FALSE, BSPARAM=ExactParam(), BNPARAM=KmknnParam(), BPPARAM=SerialParam())
 {
     batches <- list(...) 
     nbatches <- length(batches) 
@@ -189,53 +189,56 @@ mnnCorrect <- function(..., batch=NULL, k=20, sigma=0.1, cos.norm.in=TRUE, cos.n
         stop("at least two batches must be specified") 
     }
     
+    # Setting up the variables.
     prep.out <- .prepare_input_data(batches, cos.norm.in=cos.norm.in, cos.norm.out=cos.norm.out, subset.row=subset.row, correct.all=correct.all)
     in.batches <- prep.out$In
     out.batches <- prep.out$Out
     subset.row <- prep.out$Subset
     same.set <- prep.out$Same
 
-    # Setting up the order.
-    use.order <- !is.null(order)
-    if (!use.order) {
-        order <- seq_len(nbatches)
-    } else {
-        order <- as.integer(order)
-        if (!identical(seq_len(nbatches), sort(order))) { 
-            stop(sprintf("'order' should contain values in 1:%i", nbatches))
+    in.batches.trans <- lapply(in.batches, t)
+    if (!is.logical(auto.order)) {
+        re.order <- as.integer(auto.order)
+        if (!identical(sort(re.order), seq_len(nbatches))) {
+            stop("integer 'auto.order' must contain a permutation of 1:nbatches") 
         }
+        mnn.store <- MNN_supplied_order(in.batches.trans, restrict, re.order)
+    } else if (auto.order) {
+        mnn.store <- MNN_auto_order(in.batches.trans, restrict)
+    } else {
+        mnn.store <- MNN_supplied_order(in.batches.trans, restrict)
     }
-   
-    # Setting up the variables.
-    ref <- order[1]
-    ref.batch.in <- t(in.batches[[ref]])
-    if (!same.set) { 
-        ref.batch.out <- t(out.batches[[ref]])
-    }
+ 
     mnn.pairings <- vector("list", nbatches-1L)
+    ref.batch.out <- NULL
 
     # Looping through the batches.
-    for (b in 2:nbatches) { 
-        target <- order[b]
+    for (b in 2:nbatches) {
+        mnn.store <- .advance(mnn.store, k=k, BNPARAM=BNPARAM, BPPARAM=BPPARAM)
+        ref.batch.in <- .get_reference(mnn.store)
+        target <- .get_current_index(mnn.store)
+
         other.batch.in.untrans <- in.batches[[target]]
-        other.batch.in <- t(other.batch.in.untrans)
+        other.batch.in <- in.batches.trans[[target]]
         if (!same.set) { 
+            if (b==2L) {
+                ref.batch.out <- t(out.batches[[.get_reference_indices(mnn.store)]])
+            }
             other.batch.out.untrans <- out.batches[[target]]
             other.batch.out <- t(other.batch.out.untrans)
         }
         
-        # Finding pairs of mutual nearest neighbours.
-        sets <- findMutualNN(ref.batch.in, other.batch.in, k1=k, k2=k, BNPARAM=BNPARAM, BPPARAM=BPPARAM)
+        sets <- .get_mnn_result(mnn.store)
         s1 <- sets$first
         s2 <- sets$second      
         mnn.pairings[[b-1L]] <- DataFrame(first=s1, second=s2 + nrow(ref.batch.in))
 
-        # Computing the correction vector.
+        # Computing the correction vector for each cell.
         correction.in <- .compute_correction_vectors(ref.batch.in, other.batch.in, s1, s2, other.batch.in.untrans, sigma)
         if (!same.set) {
             correction.out <- .compute_correction_vectors(ref.batch.out, other.batch.out, s1, s2, other.batch.in.untrans, sigma)
-            # NOTE: use of 'other.batch.in.untrans' here is intentional, 
-            # as the distances should be the same as the MNN distances.
+            # NOTE: use of 'other.batch.in.untrans' here is intentional, as the distances used for the kernel weighting should be 
+            # comparable to 'sigma'; this protects against the case where cos.in=TRUE and cos.out=FALSE.
         }
 
         # Removing any component of the correction vector that's parallel to the biological basis vectors in either batch.
@@ -259,39 +262,45 @@ mnnCorrect <- function(..., batch=NULL, k=20, sigma=0.1, cos.norm.in=TRUE, cos.n
         } 
        
         # Adjusting the shift variance; done after any SVD so that variance along the correction vector is purely technical.
-        if (var.adj) { 
-            correction.in <- .adjust_shift_variance(ref.batch.in, other.batch.in, correction.in, sigma=sigma)
+        if (var.adj) {
+            ref.restrict <- .get_reference_restrict(mnn.store)
+            cur.restrict <- .get_current_restrict(mnn.store)
+            args <- list(sigma=sigma, restrict1=ref.restrict, restrict2=cur.restrict)
+            print(str(ref.restrict))
+            print(str(cur.restrict))
+
+            correction.in <- do.call(.adjust_shift_variance, c(list(t(ref.batch.in), other.batch.in.untrans, correction.in), args)) 
             if (!same.set) {
-                correction.out <- .adjust_shift_variance(ref.batch.out, other.batch.out, correction.out, sigma=sigma, subset.row=subset.row) 
+                correction.out <- do.call(.adjust_shift_variance, c(list(t(ref.batch.out), other.batch.out.untrans, correction.out, subset.row=subset.row), args))
             }
         }
 
         # Applying the correction and expanding the reference batch. 
         other.batch.in <- other.batch.in + correction.in
-        ref.batch.in <- rbind(ref.batch.in, other.batch.in)
+        mnn.store <- .compile(mnn.store, other.batch.in)
         if (!same.set) {
             other.batch.out <- other.batch.out + correction.out
             ref.batch.out <- rbind(ref.batch.out, other.batch.out)
         }
     }
 
-    # Formatting the output.
     if (same.set) {
-        ref.batch.out <- ref.batch.in
+        ref.batch.out <- .get_reference(mnn.store)
     }
+    merge.order <- .get_reference_indices(mnn.store)
 
+    # Formatting the output. Restoring to the input order in '...', if necessary.
     ncells.per.batch <- vapply(batches, FUN=ncol, FUN.VALUE=0L)
     batch.names <- .create_batch_names(names(batches), ncells.per.batch)
 
-    # Adjusting the output back to the input order in '...'.
-    if (use.order) {
-        ordering <- .restore_original_order(order, ncells.per.batch)
+    if (is.unsorted(merge.order)) {
+        ordering <- .restore_original_order(merge.order, ncells.per.batch)
         ref.batch.out <- ref.batch.out[ordering,,drop=FALSE]
         mnn.pairings <- .reindex_pairings(mnn.pairings, ordering)
     }
    
 	SingleCellExperiment(list(corrected=t(ref.batch.out)), colData=DataFrame(batch=batch.names$ids),
-        metadata=list(pairs=mnn.pairings, order=batch.names$labels[order]))
+        metadata=list(pairs=mnn.pairings, order=batch.names$labels[merge.order]))
 }
 
 ####################################
@@ -357,19 +366,24 @@ mnnCorrect <- function(..., batch=NULL, k=20, sigma=0.1, cos.norm.in=TRUE, cos.n
     return(t(cell.vect)) 
 }
 
-.adjust_shift_variance <- function(data1, data2, correction, sigma, subset.row=NULL) 
+.adjust_shift_variance <- function(data1, data2, correction, sigma, subset.row=NULL, restrict1=NULL, restrict2=NULL) 
 # Performs variance adjustment to avoid kissing effects.    
 {
     cell.vect <- correction 
+
     if (!is.null(subset.row)) { 
         # Only using subsetted genes to compute locations, consistent with our policy in SVD. 
         cell.vect <- cell.vect[,subset.row,drop=FALSE]
-        data1 <- data1[,subset.row,drop=FALSE]
-        data2 <- data2[,subset.row,drop=FALSE]
+        data1 <- data1[subset.row,,drop=FALSE]
+        data2 <- data2[subset.row,,drop=FALSE]
     }
-    scaling <- .Call(cxx_adjust_shift_variance, t(data1), t(data2), cell.vect, sigma)
+
+    restrict1 <- .col_subset_to_index(data1, restrict1) - 1L
+    restrict2 <- .col_subset_to_index(data2, restrict2) - 1L
+    scaling <- .Call(cxx_adjust_shift_variance, data1, data2, cell.vect, sigma, restrict1, restrict2)
+
     scaling <- pmax(scaling, 1)
-    return(scaling * correction)
+    scaling * correction
 }
 
 #' @importFrom BiocSingular runSVD ExactParam
