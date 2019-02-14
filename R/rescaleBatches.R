@@ -77,8 +77,8 @@
 #' @export
 #' @importFrom SummarizedExperiment assay
 rescaleBatches <- function(..., batch=NULL, restrict=NULL, log.base=2, pseudo.count=1, subset.row=NULL, assay.type="logcounts", get.spikes=FALSE) {
-    batches <- list(...)
-    original.names <- checkBatchConsistency(batches)
+    originals <- batches <- list(...)
+    checkBatchConsistency(batches)
     restrict <- checkRestrictions(batches, restrict)
 
     # Pulling out information from the SCE objects.
@@ -105,14 +105,7 @@ rescaleBatches <- function(..., batch=NULL, restrict=NULL, log.base=2, pseudo.co
     }
 
     # Adding dimension names.
-    gene.names <- original.names[[1]]
-    if (!is.null(gene.names) && !is.null(subset.row)) {
-        gene.names <- gene.names[.row_subset_to_index(batches[[1]], subset.row)]
-    }
-    rownames(output) <- gene.names
-    colnames(output) <- unlist(original.names[[2]])
-
-    output
+    .rename_output(output, originals, subset.row=subset.row)
 }
 
 ############################################

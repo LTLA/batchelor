@@ -93,10 +93,10 @@ multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, rotate.all=FAL
     if (length(mat.list)==0L) {
         stop("at least one batch must be specified") 
     }
-    .check_batch_consistency(mat.list, byrow=TRUE)
+    checkBatchConsistency(mat.list)
 
-    if (.check_if_SCEs(mat.list)) {
-		.check_spike_consistency(mat.list)
+    if (checkIfSCE(mat.list)) {
+        checkSpikeConsistency(mat.list)
         subset.row <- .SCE_subset_genes(subset.row, mat.list[[1]], get.spikes)
         mat.list <- lapply(mat.list, assay, i=assay.type, withDimnames=FALSE)
     }
