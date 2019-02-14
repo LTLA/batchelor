@@ -251,7 +251,13 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
         output <- do.call(.fast_mnn_list, c(list(batch.list=batches, restrict=restrict), common.args))
     }
 
-    return(output)
+    if (pc.input) {
+        output$corrected <- .rename_output(output$corrected, originals, cells.in.columns=FALSE)
+        rownames(output) <- rownames(output$corrected)
+    } else {
+        output <- .rename_output(output, originals, subset.row=subset.row)
+    }
+    output
 }
 
 ############################################

@@ -131,12 +131,6 @@ test_that("fastMNN works as expected for two batches", {
     expect_identical(ncol(reducedDim(out.10)), 10L)
     CHECK_PAIRINGS(out.10)
 
-    # Handles names correctly.
-    out.n <- fastMNN(X=B1, Y=B2, d=50) 
-    expect_identical(reducedDim(out), reducedDim(out.n))
-    expect_identical(as.character(out.n$batch), rep(c("X", "Y"), c(ncol(B1), ncol(B2))))
-    CHECK_PAIRINGS(out.n)
-
     # Behaves if we turn off cosine-norm.
     nB1 <- t(t(B1)/ sqrt(colSums(B1^2)))
     nB2 <- t(t(B2)/ sqrt(colSums(B2^2)))
@@ -160,7 +154,44 @@ test_that("fastMNN works as expected for two batches", {
     expect_equal(out.pre$batch, out.norm$batch)
 })
 
-set.seed(1200004)
+set.seed(12000041)
+test_that("fastMNN handles names correctly", {
+    B1 <- matrix(rnorm(10000), nrow=100) # Batch 1 
+    B2 <- matrix(rnorm(20000), nrow=100) # Batch 2
+
+    out <- fastMNN(X=B1, Y=B2, d=50) 
+    expect_identical(out$batch, rep(c("X", "Y"), c(ncol(B1), ncol(B2))))
+
+    rownames(B1) <- rownames(B2) <- sprintf("GENE_%i", seq_len(nrow(B1)))
+    out <- fastMNN(B1, B2, d=50) 
+    expect_identical(rownames(out), rownames(B1))
+
+    out <- fastMNN(B1, B2, d=50, subset.row=1:50) 
+    expect_identical(rownames(out), rownames(B1)[1:50])
+
+    colnames(B1) <- sprintf("CELL_%i", seq_len(ncol(B1)))
+    colnames(B2) <- sprintf("CELL_%i", seq_len(ncol(B2)))
+    out <- fastMNN(B1, B2, d=50) 
+    expect_identical(colnames(out), c(colnames(B1), colnames(B2)))
+
+    # Same for PCs.
+    C1 <- matrix(rnorm(1000), ncol=10)
+    C2 <- matrix(rnorm(2000), ncol=10)
+    out <- fastMNN(Y=C1, X=C2, pc.input=TRUE) 
+    expect_identical(out$batch, rep(c("Y", "X"), c(ncol(B1), ncol(B2))))
+
+    rownames(C1) <- sprintf("CELL_%i", seq_len(nrow(C1)))
+    rownames(C2) <- sprintf("CELL_%i", seq_len(nrow(C2)))
+    out <- fastMNN(C1, C2, pc.input=TRUE)
+    expect_identical(rownames(out), c(rownames(C1), rownames(C2)))
+    expect_identical(rownames(out), rownames(out$corrected))
+
+    colnames(C1) <- colnames(C2) <- sprintf("PC%i", seq_len(ncol(C1)))
+    out <- fastMNN(C1, C2, pc.input=TRUE)
+    expect_identical(colnames(out$corrected), colnames(C1))
+})
+
+set.seed(12000042)
 test_that("variance loss calculations work as expected", {
     PC1 <- matrix(rnorm(10000), ncol=10) # Batch 1 
     PC2 <- matrix(rnorm(20000), ncol=10) # Batch 2
@@ -310,29 +341,61 @@ test_that("fastMNN works with within-object batches", {
             curout[order(curout[,1], curout[,2]),]
         )
     }
+})
+
+set.seed(120000521)
+test_that("fastMNN works with within-object batches for PCs", {
+    pcd <- List(
+        matrix(rnorm(10000), ncol=50), # Batch 1 
+        matrix(rnorm(20000), ncol=50), # Batch 2
+        matrix(rnorm(15000), ncol=50) # Batch 2
+    )
+    com.pcd <- do.call(rbind, pcd)
+    batches <- rep(1:3, vapply(pcd, nrow, FUN.VALUE=0L))
+
+    shuffle <- sample(nrow(com.pcd))
+    com.pcd <- com.pcd[shuffle,]
+    batches <- batches[shuffle]
 
     # Splits PC inputs properly.
-    pcd <- multiBatchPCA(B1, B2, B3)
-    com.pcd <- do.call(rbind, as.list(pcd))[shuffle,]
     out <- fastMNN(com.pcd, batch=batches, pc.input=TRUE)
     ref <- fastMNN(pcd[[1]], pcd[[2]], pcd[[3]], pc.input=TRUE)
     expect_equal(ref$corrected[shuffle,], out$corrected)
     expect_equal(as.character(ref$batch)[shuffle], as.character(out$batch))
 
     # ... and same for use.dimred=.
-    sce1x <- sce1
-    reducedDim(sce1x, "PCA") <- pcd[[1]]
-    sce2x <- sce2
-    reducedDim(sce2x, "PCA") <- pcd[[2]]
-    sce3x <- sce3
-    reducedDim(sce3x, "PCA") <- pcd[[3]]
-    combinedx <- combined
-    reducedDim(combinedx, "PCA") <- com.pcd
+    sce1 <- SingleCellExperiment(matrix(0, 0, nrow(pcd[[1]])), reducedDims=list(PCA=pcd[[1]]))
+    sce2 <- SingleCellExperiment(matrix(0, 0, nrow(pcd[[2]])), reducedDims=list(PCA=pcd[[2]]))
+    sce3 <- SingleCellExperiment(matrix(0, 0, nrow(pcd[[3]])), reducedDims=list(PCA=pcd[[3]]))
+    combined <- SingleCellExperiment(matrix(0, 0, nrow(com.pcd)), reducedDims=list(PCA=com.pcd)) 
 
-    out <- fastMNN(combinedx, batch=batches, use.dimred="PCA")
-    ref <- fastMNN(sce1x, sce2x, sce3x, use.dimred="PCA")
+    out <- fastMNN(combined, batch=batches, use.dimred="PCA")
+    ref <- fastMNN(sce1, sce2, sce3, use.dimred="PCA")
     expect_equal(ref$corrected[shuffle,], out$corrected)
-    expect_equal(as.character(ref$batch)[shuffle], as.character(out$batch))
+    expect_equal(as.character(ref$batch[shuffle]), out$batch)
+})
+
+set.seed(120000522)
+test_that("fastMNN names within-object batches correctly", {
+    B1 <- matrix(rnorm(10000), nrow=100) # Batch 1 
+    B2 <- matrix(rnorm(20000), nrow=100) # Batch 2
+    B3 <- matrix(rnorm(15000), nrow=100) # Batch 2
+
+    rownames(B1) <- rownames(B2) <- rownames(B3) <- sprintf("GENE_%i", sample(nrow(B1)))
+    colnames(B1) <- sprintf("CELL_1_%i", seq_len(ncol(B1)))
+    colnames(B2) <- sprintf("CELL_2_%i", seq_len(ncol(B2)))
+    colnames(B3) <- sprintf("CELL_3_%i", seq_len(ncol(B3)))
+
+    combined <- cbind(B1, B2, B3)
+    batches <- rep(1:3, c(ncol(sce1), ncol(sce2), ncol(sce3)))
+
+    shuffle <- sample(ncol(combined))
+    combined <- combined[,shuffle]
+    batches <- batches[shuffle]
+
+    out <- fastMNN(combined, batch=batches)
+    expect_identical(rownames(out), rownames(B1))
+    expect_identical(colnames(out), colnames(combined))
 })
 
 set.seed(12000053)
