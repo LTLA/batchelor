@@ -117,9 +117,9 @@ setMethod(".advance", "MNN_supplied_order", function(x, k, BNPARAM, BPPARAM) {
 .get_restricted_batches <- function(x) x@restricted.batches
 
 #' @importFrom methods new
-MNN_auto_order <- function(batches, restrict) {
+MNN_auto_order <- function(batches, restrict=NULL) {
     restricted.batches <- batches
-    if (.do_restrict(x)) {
+    if (!is.null(restrict)) {
         for (b in seq_along(restricted.batches)) {
             curres <- restrict[[b]]
             if (!is.null(curres)) {
@@ -136,7 +136,7 @@ MNN_auto_order <- function(batches, restrict) {
 
 #' @importFrom BiocNeighbors queryKNN buildIndex 
 .init_auto_order <- function(x, k, BNPARAM, BPPARAM) {
-    restricted.batches <- get_restricted_batches(x)
+    restricted.batches <- .get_restricted_batches(x)
 
     precomputed <- list()
     for (b in seq_along(restricted.batches)) {
@@ -188,7 +188,7 @@ MNN_auto_order <- function(batches, restrict) {
     }
     precomp.ref <- buildIndex(refdata, BNPARAM=BNPARAM)
    
-    restricted.batches <- get_restricted_batches(x)
+    restricted.batches <- .get_restricted_batches(x)
     precomputed <- .get_precomputed(x)
     max.pairs <- list()
     processed <- .get_reference_indices(x)

@@ -1,9 +1,15 @@
 # Tests the MNN re-ordering.
 # library(batchelor); library(testthat); source("test-mnn-order.R")
 
+GENERATOR <- function(ncells, ndim) {
+    lapply(ncells, FUN=function(n) matrix(rnorm(n*ndim), ncol=ndim))
+}
+
+#####################################################
+
 set.seed(123001)
 test_that("use of a pre-supplied store works as expected", {
-    batches <- list(matrix(rnorm(10000), ncol=10), matrix(rnorm(20000), ncol=10), matrix(rnorm(5000), ncol=10))
+    batches <- GENERATOR(c(1000, 2000, 500), 10)
 
     for (it in 1:3) {
         if (it==1L) {
@@ -46,23 +52,24 @@ test_that("use of a pre-supplied store works as expected", {
 
 set.seed(123002)
 test_that("use of a pre-supplied store works with restriction", {
-    batches <- list(matrix(rnorm(10000), ncol=10), matrix(rnorm(20000), ncol=10), matrix(rnorm(5000), ncol=10))
-    restrict <- list(NULL, sample(nrow(batches[[2]]), nrow(batches[[2]])/4), sample(nrow(batches[[3]]), nrow(batches[[3]])/2))
-    processed <- mapply(FUN=batchelor:::.row_subset_to_index, x=batches, index=restrict)
-
-    for (it in 1:3) {
-        if (it==1L) {
-            store <- batchelor:::MNN_supplied_order(batches, restrict)
-            ordering <- 1:3
+    ncells <- c(1000, 2000, 500)
+    for (restrict.it in 1:4) {
+        if (restrict.it==1L) {
+            restrict <- lapply(ncells, FUN=seq_len)
+        } else if (restrict.it==2L) {
+            restrict <- lapply(ncells, FUN=function(n) NULL)
+        } else if (restrict.it==3L) {
+            restrict <- lapply(ncells, FUN=function(n) sample(n, n/2))
         } else {
-            # test the case where the NULL is not at the start.
-            if (it==2L) {
-                ordering <- c(2L, 3L, 1L)
-            } else {
-                ordering <- 3:1
-            }
-            store <- batchelor:::MNN_supplied_order(batches, restrict, ordering=ordering)
+            restrict <- lapply(ncells, FUN=function(n) sample(n, n/2))
+            restrict[sample(length(restrict), 1)] <- list(NULL) # mix of integer and NULLs.
         }
+
+        batches <- GENERATOR(ncells, 10)
+        processed <- mapply(FUN=batchelor:::.row_subset_to_index, x=batches, index=restrict)
+
+        ordering <- sample(3) # random order, for some variety.
+        store <- batchelor:::MNN_supplied_order(batches, restrict, ordering=ordering)
   
         expect_identical(batchelor:::.get_batches(store), batches)
         expect_identical(batchelor:::.get_restrict(store), restrict)
@@ -108,7 +115,7 @@ UNRESTRICT <- function(store) {
 
 set.seed(123002)
 test_that("comparing a pre-supplied run with and without restriction", {
-    batches <- list(matrix(rnorm(10000), ncol=10), matrix(rnorm(20000), ncol=10), matrix(rnorm(5000), ncol=10))
+    batches <- GENERATOR(c(1000, 2000, 500), 10)
     restrict <- lapply(batches, FUN=function(b) seq_len(nrow(b)))
 
     for (it in 1:2) {
@@ -133,6 +140,96 @@ test_that("comparing a pre-supplied run with and without restriction", {
             store <- batchelor:::.compile(store, curbatch)
             ref <- batchelor:::.compile(ref, curbatch)
             expect_identical(UNRESTRICT(store), ref)
+        }
+    }
+})
+
+#####################################################
+
+compare_common <- function(x, y) {
+    common <- intersect(slotNames(x), slotNames(y))
+    for (i in common) expect_identical(slot(x, i), slot(y, i))
+    TRUE
+}
+
+set.seed(123003)
+test_that("use of an auto-ordered store works as expected", {
+    for (it in 1:3) {
+        if (it==1L) {
+            ncells <- c(100, 1000, 2000, 500)
+            ordering <- c(3L, 2L, 4L, 1L) # ncells in decreasing order.
+        } else if (it==2L) {
+            ncells <- c(100, 1000, 2000, 5000)
+            ordering <- c(4L, 3L, 2L, 1L) 
+        } else {
+            ncells <- c(5000, 2000, 1000, 100)
+            ordering <- c(2L, 1L, 3L, 4L) # known swap at start.
+        }
+
+        # This tests compares to the output of the true pre-supplied ordering.
+        batches <- GENERATOR(ncells, 10)
+        store <- batchelor:::MNN_auto_order(batches)
+        ref <- batchelor:::MNN_supplied_order(batches, ordering=ordering)
+        compare_common(store, ref)
+
+        for (j in 2:length(batches)) {
+            k <- 20 + j
+
+            store <- batchelor:::.advance(store, k=k)
+            ref <- batchelor:::.advance(ref, k=k)
+            compare_common(store, ref)
+            
+            expect_identical(head(ordering, j-1), batchelor:::.get_reference_indices(store))
+            current <- batchelor:::.get_current_index(store)
+            expect_identical(ordering[j], current)
+
+            store <- batchelor:::.compile(store, batches[[current]])
+            ref <- batchelor:::.compile(ref, batches[[current]])
+            compare_common(store, ref)
+
+            expect_identical(head(ordering, j), batchelor:::.get_reference_indices(store))
+        }
+    }
+})
+
+set.seed(123004)
+test_that("use of an auto-ordered store works with restriction", {
+    ncells <- c(100, 1000, 2000, 500)
+    ordering <- c(3L, 2L, 4L, 1L) # ncells in decreasing order.
+
+    for (restrict.it in 1:4) {
+        if (restrict.it==1L) {
+            restrict <- lapply(ncells, FUN=seq_len)
+        } else if (restrict.it==2L) {
+            restrict <- lapply(ncells, FUN=function(n) NULL)
+        } else if (restrict.it==3L) {
+            restrict <- lapply(ncells, FUN=function(n) sample(n, n/2))
+        } else {
+            restrict <- lapply(ncells, FUN=function(n) sample(n, n/2))
+            restrict[sample(length(restrict), 1)] <- list(NULL) # mix of integer and NULLs.
+        }
+
+        batches <- GENERATOR(ncells, 10)
+        store <- batchelor:::MNN_auto_order(batches, restrict=restrict)
+        ref <- batchelor:::MNN_supplied_order(batches, restrict=restrict, ordering=ordering)
+        compare_common(store, ref)
+
+        for (j in 2:length(batches)) {
+            k <- 20 + j
+
+            store <- batchelor:::.advance(store, k=k)
+            ref <- batchelor:::.advance(ref, k=k)
+            compare_common(store, ref)
+            
+            expect_identical(head(ordering, j-1), batchelor:::.get_reference_indices(store))
+            current <- batchelor:::.get_current_index(store)
+            expect_identical(ordering[j], current)
+
+            store <- batchelor:::.compile(store, batches[[current]])
+            ref <- batchelor:::.compile(ref, batches[[current]])
+            compare_common(store, ref)
+
+            expect_identical(head(ordering, j), batchelor:::.get_reference_indices(store))
         }
     }
 })
