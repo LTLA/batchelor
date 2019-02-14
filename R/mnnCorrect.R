@@ -20,7 +20,9 @@
 #' @param var.adj A logical scalar indicating whether variance adjustment should be performed on the correction vectors.
 #' @param subset.row A vector specifying which features to use for correction. 
 #' @param correct.all A logical scalar specifying whether correction should be applied to all genes, even if only a subset is used for the MNN calculations.
-#' @param order An integer vector specifying the order in which batches are to be corrected.
+#' @param auto.order Logical scalar indicating whether re-ordering of batches should be performed to maximize the number of MNN pairs at each step.
+#' 
+#' Alternatively, an integer vector containing a permutation of \code{1:N} where \code{N} is the number of batches.
 #' @param assay.type A string or integer scalar specifying the assay containing the log-expression values, if SingleCellExperiment objects are present in \code{...}.
 #' @param get.spikes A logical scalar indicating whether to retain rows corresponding to spike-in transcripts.
 #' Only used for SingleCellExperiment inputs.
@@ -88,10 +90,18 @@
 #' }
 #' The cosine normalization is achieved using the \code{\link{cosineNorm}} function.
 #' 
-#' Users should note that the order in which batches are corrected will affect the final results.
-#' The first batch in \code{order} is used as the reference batch against which the second batch is corrected.
+#' @section Controlling the merge order:
+#' The order in which batches are corrected will affect the final results.
+#' The first batch in \code{auto.order} is used as the reference batch against which the second batch is corrected.
 #' Corrected values of the second batch are added to the reference batch, against which the third batch is corrected, and so on.
 #' This strategy maximizes the chance of detecting sufficient MNN pairs for stable calculation of correction vectors in subsequent batches.
+#'
+#' If \code{auto.order=TRUE}, batches are ordered to maximize the number of MNN pairs at each step.
+#' The aim is to improve the stability of the correction by first merging more similar batches with more MNN pairs.
+#' This can be somewhat time-consuming as MNN pairs need to be iteratively recomputed for all possible batch pairings.
+#' It is often more convenient for the user to specify an appropriate ordering based on prior knowledge about the batches.
+#' 
+#' Note that, no matter what the setting of \code{auto.order} is, the order of cells in the output corrected matrix is \emph{always} the same.
 #' 
 #' @section Further options:
 #' The function depends on a shared biological manifold, i.e., one or more cell types/states being present in multiple batches.
@@ -162,10 +172,6 @@ mnnCorrect <- function(..., batch=NULL, restrict=NULL, k=20, sigma=0.1, cos.norm
     # Subsetting by 'batch'.
     do.split <- length(batches)==1L
     if (do.split) {
-        if (is.null(batch)) { 
-            stop("'batch' must be specified if '...' has only one object")
-        }
-
         divided <- divideIntoBatches(batches[[1]], batch=batch, restrict=restrict[[1]])
         batches <- divided$batches
         restrict <- divided$restrict
