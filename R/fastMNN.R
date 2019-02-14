@@ -350,14 +350,14 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
         # Remove variation along the batch vector, which responds to 'restrict'.
         # Also recording the lost variation if desired, which does not respond to 'restrict'.
         if (compute.variances) {
-            var.before <- .compute_intra_var(refdata, curdata, batches, processed)
+            var.before <- .compute_intra_var(refdata, curdata, batches, .get_reference_indices(mnn.store))
         }
 
         refdata <- .center_along_batch_vector(refdata, overall.batch, restrict=.get_reference_restrict(mnn.store))
         curdata <- .center_along_batch_vector(curdata, overall.batch, restrict=.get_current_restrict(mnn.store))
 
         if (compute.variances) {
-            var.after <- .compute_intra_var(refdata, curdata, batches, processed)
+            var.after <- .compute_intra_var(refdata, curdata, batches, .get_reference_indices(mnn.store))
             var.kept[seq_len(bdx)] <- var.kept[seq_len(bdx)] * var.after/var.before
         }
 
@@ -369,12 +369,14 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
         mnn.store <- .compile(mnn.store, curdata)
     }
 
+    refdata <- .get_reference(mnn.store)
+    merge.order <- .get_reference_indices(mnn.store)
+
     # Reporting the batch identities.
     ncells.per.batch <- vapply(batches, FUN=nrow, FUN.VALUE=0L)
     batch.names <- .create_batch_names(names(batches), ncells.per.batch)
 
     # Adjusting the output back to the input order in 'batches'.
-    merge.order <- .get_reference_indices(mnn.store)
     if (is.unsorted(merge.order)) {
         ordering <- .restore_original_order(merge.order, ncells.per.batch)
         refdata <- refdata[ordering,,drop=FALSE]
@@ -383,7 +385,7 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
     }
     
     # Formatting the output.
-    output <- DataFrame(corrected=I(.get_reference(mnn.store)), batch=batch.names$ids)
+    output <- DataFrame(corrected=I(refdata), batch=batch.names$ids)
     m.out <- list(pairs=mnn.pairings, order=batch.names$labels[merge.order])
     if (compute.variances) {
         m.out$lost.var <- 1 - var.kept

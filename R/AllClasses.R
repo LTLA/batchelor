@@ -28,4 +28,4 @@ setClass("MNN_order", contains="VIRTUAL",
 
 setClass("MNN_supplied_order", contains="MNN_order", slots=c(ordering="integer"))
 
-setClass("MNN_auto_order", contains="MNN_order", slots=c(precomputed="list", restricted.batches="list"))
+setClass("MNN_auto_order", contains="MNN_order", slots=c(precomputed="list", restricted.batches="ANY"))

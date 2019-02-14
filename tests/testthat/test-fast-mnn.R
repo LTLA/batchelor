@@ -29,7 +29,17 @@ test_that("centering along a batch vector works correctly", {
     batch <- rnorm(10) 
     centered <- batchelor:::.center_along_batch_vector(test, batch)
     new.locations <- centered %*% batch
-    expect_true(mad(new.locations) < 1e-8)
+    expect_true(sd(new.locations) < 1e-8)
+
+    # Support restriction.
+    test <- matrix(rnorm(1000), ncol=10)
+    test2 <- rbind(test, test[1:10,])
+    batch <- rnorm(10) 
+
+    original <- batchelor:::.center_along_batch_vector(test, batch)
+    keep <- seq_len(nrow(test))
+    current <- batchelor:::.center_along_batch_vector(test2, batch, restrict=keep)
+    expect_identical(original, current[keep,])
 })
 
 set.seed(1200003)
@@ -224,20 +234,6 @@ test_that("fastMNN works as expected for three batches with auto ordering", {
     # Auto-ordering consistently handles the BiocNeighborIndex class.
     expect_error(out.approx <- fastMNN(B1, B2, B3, auto.order=TRUE, BNPARAM=BiocNeighbors::AnnoyParam()), NA)
     expect_identical(metadata(out.approx)$order, metadata(out.auto)$order)
-
-    # Testing the internal auto-ordering functions.
-    fmerge <- batchelor:::.define_first_merge(list(t(B1), t(B2), t(B3)), k=20)   
-    expect_identical(fmerge$first, 2L) # 2 is arbitrarily 'first', and 1 is arbitrarily 'second'; but 3 should never show up.
-    expect_identical(fmerge$second, 1L)
-    expect_identical(fmerge$pairs, findMutualNN(t(B2), t(B1), k1=20, k2=20))
-
-    expect_identical(BiocNeighbors::findKNN(BNINDEX=fmerge$precomputed[[1]], k=5), BiocNeighbors::findKNN(t(B1), k=5)) # checking that the precomputations are correct.
-    expect_identical(BiocNeighbors::findKNN(BNINDEX=fmerge$precomputed[[2]], k=10), BiocNeighbors::findKNN(t(B2), k=10))
-    expect_identical(BiocNeighbors::findKNN(BNINDEX=fmerge$precomputed[[3]], k=15), BiocNeighbors::findKNN(t(B3), k=15))
-
-    nmerge <- batchelor:::.define_next_merge(t(B1), list(t(B1), t(B2), t(B3)), processed=1L, precomputed=fmerge$precomputed, k=20)   
-    expect_identical(nmerge$other, 2L) # 1 should have more MNNs with 2 than with 3.
-    expect_identical(nmerge$pairs, findMutualNN(t(B1), t(B2), k1=20, k2=20))
 })
 
 set.seed(12000051)
