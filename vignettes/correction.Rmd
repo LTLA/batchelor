@@ -160,6 +160,40 @@ While this method is fast and simple, it makes the strong assumption that the po
 This is usually not the case for scRNA-seq experiments in real systems that exhibit biological variation.
 Thus, `rescaleBatches()` is best suited for merging technical replicates of the same sample, e.g., that have been sequenced separately.
 
+# Using data subsets
+
+## Selecting genes
+
+The `subset.row=` argument will only perform the correction on a subset of genes in the data set.
+This is useful for focusing on highly variable or marker genes during high-dimensional procedures like PCA or neighbor searches, mitigating noise from irrelevant genes.
+For per-gene methods, this argument provides a convenient alternative to subsetting the input.
+Functions operating on `SingleCellExperiment` inputs will also automatically remove spike-in transcripts unless `get.spikes=TRUE`.
+
+```{r}
+# Just picking a bunch of random genes:
+chosen.genes <- sample(nrow(combined), 1000)
+f.out3 <- fastMNN(combined, batch=combined$batch,
+    subset.row=chosen.genes)
+str(reducedDim(f.out2, "corrected"))
+```
+
+For some functions, it is also possible to set `correct.all=TRUE` when `subset.row=` is specified.
+This will compute corrected values for the unselected genes as well, which is possible once the per-cell statistics are obtained with the gene subset.
+With this setting, we can guarantee that the output contains all the genes provided in the input.
+
+## Restricted correction
+
+Many functions support the `restrict=` argument whereby the correction is determined using only a restricted subset of cells in each batch.
+The effect of the correction is then - for want of a better word - "extrapolated" to all other cells in that batch.
+This is useful for experimental designs where a control set of cells from the same source population were run on different batches.
+Any difference in the controls between batches must be artificial in origin, allowing us to estimate and remove the batch effect without making further biological assumptions.
+
+```{r}
+# Pretend the first X cells in each batch are controls.
+restrict <- list(1:100, 1:200) 
+rescale.out <- rescaleBatches(sce1, sce2, restrict=restrict)
+```
+
 # Other utilities
 
 ## Multi-batch normalization

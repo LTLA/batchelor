@@ -98,6 +98,14 @@ If only one object is supplied, `batch` must be specified to indicate the batche
 Alternatively, one or more `SingleCellExperiment` objects can be supplied, containing the gene expression matrix in the `assay.type` assay.
 These should not be mixed with matrix-like objects, i.e., if one object is a `SingleCellExperiment`, all objects should be `SingleCellExperiment`s.
 
+The `subset.row=` argument specifies a subset of genes on which to perform the correction.
+The `get.spikes=` argument specifies whether spike-in transcripts should be used for `SingleCellExperiment` inputs.
+The `correct.all=` argument specifies whether corrected values should be returned for all genes, by "extrapolating" from the results for the genes that were used^[If your method cannot support this option, setting it to `TRUE` should raise an error.]. 
+See the Output section below for the expected output from each combination of these settings.
+
+The `restrict=` argument allows users to compute the correction using only a subset of cells in each batch (e.g., from cell controls).
+The correction is then "extrapolated" to all cells in the batch^[Again, if your method cannot support this, any non-`NULL` value of `restrict` should raise an error.], such that corrected values are returned for all cells.
+
 ## Output 
 
 Any implemented method must return a `SingleCellExperiment` where the first assay contains corrected gene expression values for all genes. 
@@ -133,8 +141,8 @@ We have used some internal `r Biocpkg("batchelor")` functions for brevity - plea
 
 ```{r}
 setMethod("batchCorrect", "NothingParam", function(..., batch = NULL, 
-    subset.row = NULL, correct.all = FALSE, assay.type = "logcounts", 
-    get.spikes = FALSE, PARAM) 
+    restrict=NULL, subset.row = NULL, correct.all = FALSE, 
+    assay.type = "logcounts", get.spikes = FALSE, PARAM) 
 {
     batches <- list(...)
     checkBatchConsistency(batches)
@@ -149,8 +157,9 @@ setMethod("batchCorrect", "NothingParam", function(..., batch = NULL,
     # Subsetting by 'batch', if only one object is supplied. 
     do.split <- length(batches)==1L
     if (do.split) {
-        divided <- divideIntoBatches(batches[[1]], batch=batch)
+        divided <- divideIntoBatches(batches[[1]], batch=batch, restrict=restrict)
         batches <- divided$batches
+        restrict <- divided$restricted
     } 
 
     # Subsetting by row.
@@ -163,6 +172,8 @@ setMethod("batchCorrect", "NothingParam", function(..., batch = NULL,
         batches <- lapply(batches, "[", i=subset.row, , drop=FALSE)
     }
 
+    # Don't really need to consider restrict!=NULL here, as this function
+    # doesn't do anything with the cells anyway.
     output <- do.call(noCorrect, batches)
 
     # Reordering the output for correctness if it was previously split.
