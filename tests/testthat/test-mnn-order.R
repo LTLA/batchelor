@@ -233,3 +233,44 @@ test_that("use of an auto-ordered store works with restriction", {
         }
     }
 })
+
+#####################################################
+
+set.seed(123005)
+test_that("replacement of the reference works in MNN store", {
+    batches <- GENERATOR(c(1000, 2000, 500), 10)
+
+    store <- batchelor:::MNN_supplied_order(batches)
+    store <- batchelor:::.advance(store, 10)
+
+    running.ref <- batches[[1]] 
+    running.ref <- running.ref + rnorm(length(running.ref))
+    store <- batchelor:::.compile(store, batches[[2]], new.reference=running.ref)
+    running.ref <- rbind(running.ref, batches[[2]])
+    expect_identical(batchelor:::.get_reference(store), running.ref)
+    
+    store <- batchelor:::.advance(store, 10)
+
+    running.ref <- batchelor:::.get_reference(store)
+    running.ref <- running.ref + rnorm(length(running.ref))
+    store <- batchelor:::.compile(store, batches[[3]], new.reference=running.ref)
+    running.ref <- rbind(running.ref, batches[[3]])
+    expect_identical(batchelor:::.get_reference(store), running.ref)
+})
+
+set.seed(123006)
+test_that("error conditions trigger successfully", {
+    batches <- GENERATOR(c(1000, 2000, 500), 10)
+    expect_error(batchelor:::MNN_supplied_order(list(batches[[1]][,1:5], batches[[2]])), "number of columns must be the same")
+
+    ref <- batchelor:::MNN_supplied_order(batches)
+    expect_error(batchelor:::.compile(ref), "not available yet")
+    ref <- batchelor:::.advance(ref, 10)
+    expect_error(batchelor:::.advance(ref, 20), "not been assimilated yet")
+    
+    expect_error(ref <- batchelor:::.compile(ref, batches[[2]][,1:5]), "invalid dimensions for the corrected batch")
+    expect_error(ref <- batchelor:::.compile(ref, batches[[3]]), "invalid dimensions for the corrected batch")
+    expect_error(ref <- batchelor:::.compile(ref, batches[[2]], new.reference=batches[[3]]), "invalid dimensions for the updated reference")
+    ref <- batchelor:::.compile(ref, batches[[2]])
+    expect_error(ref <- batchelor:::.compile(ref, batches[[2]]), "not available yet")
+})

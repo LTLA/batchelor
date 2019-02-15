@@ -14,6 +14,23 @@
 
 .get_current_index <- function(x) x@current.index
 
+# Basic validity method
+
+#' @import methods
+setValidity("MNN_order", function(object) {
+    msg <- NULL
+
+    ncols <- vapply(.get_batches(object), ncol, FUN.VALUE=0L)
+    if (length(unique(ncols))!=1L) {
+        msg <- c(msg, "number of columns must be the same across batches")
+    }
+
+    if (length(msg)) {
+        return(msg)
+    }
+    return(TRUE)
+})
+
 # Other utilities 
 
 .do_restrict <- function(x) !is.null(.get_restrict(x))
@@ -228,13 +245,26 @@ setMethod(".advance", "MNN_auto_order", function(x, k, BNPARAM, BPPARAM) {
 
 #############################################
 
-.compile <- function(x, corrected) {
+.compile <- function(x, corrected, new.reference=NULL) {
     .check_unclean(x)
 
     # Updating the reference information.
+    old.reference <- .get_reference(x)
+    if (!is.null(new.reference)) {
+        if (!identical(dim(new.reference), dim(old.reference))) {
+            stop("invalid dimensions for the updated reference")
+        }
+    } else {
+        new.reference <- old.reference
+    }
+
     cur.dex <- .get_current_index(x)
-    refN <- nrow(.get_reference(x))
-    x@reference <- rbind(.get_reference(x), corrected)
+    refN <- nrow(new.reference) # for later use.
+    if (!identical(dim(corrected), dim(.get_batches(x)[[cur.dex]]))) {
+        stop("invalid dimensions for the corrected batch")
+    }
+
+    x@reference <- rbind(new.reference, corrected)
     x@reference.indices <- c(.get_reference_indices(x), cur.dex)
 
     # Updating the restricted set in the current reference.
