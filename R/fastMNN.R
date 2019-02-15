@@ -173,6 +173,10 @@
 #' However, it will apply the correction to all cells in each batch - hence the extrapolation.
 #' This means that the output is always of the same dimensionality, regardless of whether \code{restrict} is specified.
 #'
+#' Note that \emph{all} cells are used to perform the PCA, regardless of whether \code{restrict} is set.
+#' Constructing the projection vectors with only control cells will not guarantee resolution of unique non-control populations in each batch.
+#' The function will only completely ignore cells that are not in \code{restrict} if \code{pc.input=TRUE} or, for SingleCellExperiment inputs, \code{use.dimred} is set.
+#'
 #' @author Aaron Lun
 #'
 #' @seealso
