@@ -8,20 +8,20 @@
 \alias{batchCorrect,RescaleParam-method}
 \title{Batch correction methods}
 \usage{
-batchCorrect(..., batch = NULL, subset.row = NULL,
+batchCorrect(..., batch = NULL, restrict = NULL, subset.row = NULL,
   correct.all = FALSE, assay.type = NULL, get.spikes = FALSE, PARAM)
 
 \S4method{batchCorrect}{ClassicMnnParam}(..., batch = NULL,
-  subset.row = NULL, correct.all = FALSE, assay.type = "logcounts",
-  get.spikes = FALSE, PARAM)
+  restrict = NULL, subset.row = NULL, correct.all = FALSE,
+  assay.type = "logcounts", get.spikes = FALSE, PARAM)
 
 \S4method{batchCorrect}{FastMnnParam}(..., batch = NULL,
-  subset.row = NULL, correct.all = FALSE, assay.type = "logcounts",
-  get.spikes = FALSE, PARAM)
+  restrict = NULL, subset.row = NULL, correct.all = FALSE,
+  assay.type = "logcounts", get.spikes = FALSE, PARAM)
 
 \S4method{batchCorrect}{RescaleParam}(..., batch = NULL,
-  subset.row = NULL, correct.all = FALSE, assay.type = "logcounts",
-  get.spikes = FALSE, PARAM)
+  restrict = NULL, subset.row = NULL, correct.all = FALSE,
+  assay.type = "logcounts", get.spikes = FALSE, PARAM)
 }
 \arguments{
 \item{...}{Named data-dependent parameters to pass to the dispatched batch correction methods.
@@ -30,6 +30,9 @@ Alternatively, one or more \linkS4class{SingleCellExperiment} objects can be sup
 
 \item{batch}{A factor specifying the batch of origin for each cell if only one batch is supplied.
 This will be ignored if two or more batches are supplied.}
+
+\item{restrict}{A list of length equal to the number of objects in \code{...}.
+Each entry of the list corresponds to one batch and specifies the cells to use when computing the correction.}
 
 \item{subset.row}{A vector specifying the subset of genes to use for correction.
 Defaults to \code{NULL}, in which case all genes are used.}
