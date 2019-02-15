@@ -392,7 +392,7 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
         curdata <- .tricube_weighted_correction(curdata, re.ave.out$averaged, re.ave.out$second, k=k, ndist=ndist, BNPARAM=BNPARAM, BPPARAM=BPPARAM)
 
         mnn.pairings[[bdx-1L]] <- DataFrame(first=mnn.sets$first, second=mnn.sets$second + nrow(refdata))
-        mnn.store <- .compile(mnn.store, curdata)
+        mnn.store <- .compile(mnn.store, new.reference=refdata, curdata)
     }
 
     refdata <- .get_reference(mnn.store)

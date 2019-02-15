@@ -221,6 +221,15 @@ test_that("variance loss calculations work as expected", {
     expect_identical(metadata(mnn.out)$lost.var, rev(metadata(mnn.out2)$lost.var)) # variance loss at first step should be symmetric.
 })
 
+set.seed(12000043)
+test_that("fastMNN changes the reference batch upon orthogonalization", {
+    PC1 <- matrix(rnorm(10000), ncol=10) # Batch 1 
+    PC2 <- matrix(rnorm(20000), ncol=10) # Batch 2
+    mnn.out <- fastMNN(PC1, PC2, pc.input=TRUE)
+    expect_false(isTRUE(all.equal(PC1, mnn.out$corrected[mnn.out$batch==1,])))
+    expect_false(isTRUE(all.equal(PC2, mnn.out$corrected[mnn.out$batch==2,])))
+})
+
 set.seed(1200005)
 test_that("fastMNN works as expected for three batches with re-ordering", {
     B1 <- matrix(rnorm(10000), nrow=100) # Batch 1 
@@ -251,7 +260,7 @@ test_that("fastMNN works as expected for three batches with re-ordering", {
     expect_equal(metadata(out)$rotation, metadata(out.re)$rotation)
 })
 
-set.seed(1200006)
+set.seed(12000050)
 test_that("fastMNN works as expected for three batches with auto ordering", {
     B1 <- matrix(rnorm(10000), nrow=100) # Batch 1 
     B2 <- matrix(rnorm(20000), nrow=100) # Batch 2
