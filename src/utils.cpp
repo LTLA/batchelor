@@ -1,5 +1,8 @@
 #include "utils.h"
 
+#include <stdexcept>
+#include <sstream>
+
 Rcpp::IntegerVector check_subset_vector(SEXP subvec, size_t len) {
     Rcpp::IntegerVector sout(subvec);
     for (const auto& s : sout) {

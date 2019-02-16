@@ -1,5 +1,11 @@
 #include "batchelor.h"
+
 #include "utils.h"
+#include "beachmat/integer_matrix.h"
+#include "beachmat/numeric_matrix.h"
+
+#include <algorithm>
+#include <cmath>
 
 /* Performs the cosine normalization in a fairly efficient manner. */
 
@@ -12,11 +18,10 @@ SEXP cosine_norm_internal (M mat, SEXP original, SEXP return_mat) {
     bool mat_return=check_logical_scalar(return_mat, "return matrix specification");
     
     beachmat::numeric_output* optr=NULL;
-    std::vector<std::unique_ptr<beachmat::numeric_output> > holder;
+    std::unique_ptr<beachmat::numeric_output> holder;
     if (mat_return) { 
-        holder.push_back(beachmat::create_numeric_output(nrow, ncol, 
-                         beachmat::output_param(original, false, true)));
-        optr=holder.front().get();
+        holder=beachmat::create_numeric_output(nrow, ncol, beachmat::output_param(original, false, true));
+        optr=holder.get();
     }
    
     // Calculating the L2 norm of each vector and applying it. 

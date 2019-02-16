@@ -1,5 +1,7 @@
 #include "batchelor.h"
+
 #include "utils.h"
+#include "beachmat/numeric_matrix.h"
 
 #include <algorithm>
 #include <vector>

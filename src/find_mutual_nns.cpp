@@ -1,5 +1,8 @@
 #include "batchelor.h"
+
 #include "utils.h"
+
+#include <algorithm>
 
 SEXP find_mutual_nns (SEXP left, SEXP right) {
     BEGIN_RCPP

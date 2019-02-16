@@ -1,8 +1,12 @@
 #include "batchelor.h"
+
 #include "utils.h"
+#include "beachmat/numeric_matrix.h"
 
 #include <vector>
 #include <set>
+#include <stdexcept>
+#include <cmath>
 
 /* Perform smoothing with the Gaussian kernel */
 

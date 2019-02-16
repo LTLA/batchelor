@@ -1,5 +1,11 @@
 #include "batchelor.h"
+
 #include "utils.h"
+#include "beachmat/numeric_matrix.h"
+
+#include <cmath>
+#include <algorithm>
+#include <stdexcept>
 
 SEXP unlog_exprs_mean (SEXP mat, SEXP base, SEXP pseudo, SEXP subset) {
     BEGIN_RCPP

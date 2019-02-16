@@ -1,15 +1,7 @@
 #ifndef BATCHELOR_H
 #define BATCHELOR_H
 
-#include "beachmat/integer_matrix.h"
-#include "beachmat/numeric_matrix.h"
 #include "Rcpp.h"
-
-#include <stdexcept>
-#include <algorithm>
-#include <deque>
-#include <vector>
-#include <cmath>
 
 extern "C" {
 
