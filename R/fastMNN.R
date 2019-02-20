@@ -103,8 +103,8 @@
 #' However, if possible, we recommend using the output of \code{\link{multiBatchNorm}} as input to \code{fastMNN}.
 #' This will equalize coverage on the count level before the log-transformation, which is a more accurate rescaling than cosine normalization on the log-values.
 #' 
-#' If \code{compute.variances=TRUE}, the function will compute the percentage of variance that is parallel to the average correction vectors at each merge step.
-#' This represents the variance that is not orthogonal to the batch effect and subsequently lost upon correction.
+#' If \code{compute.variances=TRUE}, the function will compute the percentage of variance that is lost from each batch during orthogonalization.
+#' This represents the variance in each batch that is parallel to the average correction vectors (and hence removed during orthogonalization) at each merge step.
 #' Large proportions suggest that there is biological structure that is parallel to the batch effect, 
 #' corresponding to violations of the assumption that the batch effect is orthogonal to the biological subspace.
 #'
