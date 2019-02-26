@@ -97,25 +97,16 @@ CHECK_PAIRINGS <- function(mnn.out)
     pairings <- metadata(mnn.out)$pairs
     order <- metadata(mnn.out)$order
 
-    sofar <- unique(origin[pairings[[1]]$first])
-    expect_identical(sofar, order[1L])
-    counter <- 1L
+    expect_identical(length(order), length(order))
+    expect_true(all(order[1]==origin[pairings[[1]]$first]))
 
-    for (p in pairings) {
+    for (counter in seq_along(pairings)) {
+        p <- pairings[[counter]]
         sbatch <- origin[p$second]
-        usecond <- unique(sbatch)
-        expect_identical(length(usecond), 1L)
+        expect_true(all(sbatch == order[counter+1L]))
 
         fbatch <- origin[p$first]
-        expect_true(!any(fbatch == usecond))
-   
-        ufirst <- unique(fbatch) 
-        expect_identical(sofar, sort(ufirst))
-        sofar <- sort(c(ufirst, usecond))
-        expect_identical(sofar, sort(order[seq_along(sofar)]))
-
-        expect_identical(length(sofar), counter + 1L)
-        counter <- counter + 1L
+        expect_true(all(fbatch %in% order[seq_len(counter)]))
     }
 
     return(NULL)
@@ -123,8 +114,10 @@ CHECK_PAIRINGS <- function(mnn.out)
 
 set.seed(1200004)
 test_that("fastMNN works as expected for two batches", {
-    B1 <- matrix(rnorm(10000), nrow=100) # Batch 1 
-    B2 <- matrix(rnorm(20000), nrow=100) # Batch 2
+    # Note that all fastMNN checks will have batches that are offset 
+    # to ensure that the correction is not skipped via min.batch.effect.
+    B1 <- matrix(rnorm(10000, 0), nrow=100) # Batch 1 
+    B2 <- matrix(rnorm(20000, 1), nrow=100) # Batch 2
 
     out <- fastMNN(B1, B2, d=50) 
     expect_identical(dim(reducedDim(out)), c(ncol(B1) + ncol(B2), 50L))
@@ -162,8 +155,8 @@ test_that("fastMNN works as expected for two batches", {
 
 set.seed(12000041)
 test_that("fastMNN handles names correctly", {
-    B1 <- matrix(rnorm(10000), nrow=100) # Batch 1 
-    B2 <- matrix(rnorm(20000), nrow=100) # Batch 2
+    B1 <- matrix(rnorm(10000, 0), nrow=100) # Batch 1 
+    B2 <- matrix(rnorm(20000, 1), nrow=100) # Batch 2
 
     out <- fastMNN(X=B1, Y=B2, d=50) 
     expect_identical(out$batch, rep(c("X", "Y"), c(ncol(B1), ncol(B2))))
@@ -199,42 +192,85 @@ test_that("fastMNN handles names correctly", {
 
 set.seed(12000042)
 test_that("variance loss calculations work as expected", {
-    PC1 <- matrix(rnorm(10000), ncol=10) # Batch 1 
-    PC2 <- matrix(rnorm(20000), ncol=10) # Batch 2
+    PC1 <- matrix(rnorm(10000, 0), ncol=10) # Batch 1 
+    PC2 <- matrix(rnorm(20000, 1), ncol=10) # Batch 2
 
-    out <- batchelor:::.compute_intra_var(PC1, PC2, list(PC1, PC2), c(1L, 2L))
+    store <- batchelor:::MNN_supplied_order(list(PC1, PC2))
+    store <- batchelor:::.advance(store, k=20)
+    out <- batchelor:::.compute_intra_var(PC1, PC2, store)
     expect_identical(out[1], sum(DelayedMatrixStats::colVars(DelayedArray(PC1))))
     expect_identical(out[2], sum(DelayedMatrixStats::colVars(DelayedArray(PC2))))
 
     # Alternative ordering. 
-    out2 <- batchelor:::.compute_intra_var(PC2, PC1, list(PC1, PC2), c(2L, 1L))
+    store <- batchelor:::MNN_supplied_order(list(PC1, PC2), ordering=2:1)
+    store <- batchelor:::.advance(store, k=20)
+    out2 <- batchelor:::.compute_intra_var(PC2, PC1, store)
     expect_identical(out, rev(out2))
 
     # Multiple lengths.
-    out3 <- batchelor:::.compute_intra_var(rbind(PC1, PC1), PC2, list(PC1, PC2), c(1L, 1L, 2L))
-    expect_identical(out3, out[c(1,1,2)])
+    PC3 <- matrix(rnorm(5000, 2), ncol=10) # Batch 3
+
+    store <- batchelor:::MNN_supplied_order(list(PC1, PC2, PC3))
+    store <- batchelor:::.advance(store, k=20)
+    out3a <- batchelor:::.compute_intra_var(PC1, PC2, store)
+    expect_identical(out3a, out[c(1,2)])
+
+    store <- batchelor:::.compile(store, corrected=PC2)
+    store <- batchelor:::.advance(store, k=20)
+    out3b <- batchelor:::.compute_intra_var(rbind(PC1, PC2), PC3, store)
+    expect_identical(out3b[1:2], out)
+    expect_identical(out3b[3], sum(DelayedMatrixStats::colVars(DelayedArray(PC3))))
+
+    # Multiple lengths and a different order.
+    store <- batchelor:::MNN_supplied_order(list(PC1, PC2, PC3), ordering=c(2L,3L,1L))
+    store <- batchelor:::.advance(store, k=20)
+    store <- batchelor:::.compile(store, corrected=PC3)
+    store <- batchelor:::.advance(store, k=20)
+    out3c <- batchelor:::.compute_intra_var(rbind(PC2, PC3), PC1, store)
+    expect_identical(out3c, out3b[c(2,3,1)])
 
     # Checking that we compute something.
     mnn.out <- fastMNN(PC1, PC2, pc.input=TRUE, compute.variances=TRUE)
     expect_identical(length(metadata(mnn.out)$lost.var), 2L)
+    expect_identical(length(unique(metadata(mnn.out)$lost.var)), 2L)
+
     mnn.out2 <- fastMNN(PC2, PC1, auto.order=2:1, pc.input=TRUE, compute.variances=TRUE)
     expect_identical(metadata(mnn.out)$lost.var, rev(metadata(mnn.out2)$lost.var)) # variance loss at first step should be symmetric.
+
+    # Variance loss should be zero without a batch effect.
+    PC1x <- matrix(rnorm(20000, 0), ncol=10)
+    mnn.outx <- fastMNN(PC1, PC1x, pc.input=TRUE, compute.variances=TRUE)
+    expect_identical(metadata(mnn.outx)$lost.var, numeric(2))
 })
 
 set.seed(12000043)
 test_that("fastMNN changes the reference batch upon orthogonalization", {
-    PC1 <- matrix(rnorm(10000), ncol=10) # Batch 1 
-    PC2 <- matrix(rnorm(20000), ncol=10) # Batch 2
+    PC1 <- matrix(rnorm(10000, 0), ncol=10) # Batch 1 
+    PC2 <- matrix(rnorm(20000, 1), ncol=10) # Batch 2
+
     mnn.out <- fastMNN(PC1, PC2, pc.input=TRUE)
+    expect_false(isTRUE(all.equal(PC1, mnn.out$corrected[mnn.out$batch==1,])))
+    expect_false(isTRUE(all.equal(PC2, mnn.out$corrected[mnn.out$batch==2,])))
+
+    # ... except when there is no batch effect!
+    PC1 <- matrix(rnorm(10000, 0), ncol=10)
+    PC2 <- matrix(rnorm(20000, 0), ncol=10)
+
+    mnn.out <- fastMNN(PC1, PC2, pc.input=TRUE)
+    expect_true(isTRUE(all.equal(PC1, mnn.out$corrected[mnn.out$batch==1,])))
+    expect_true(isTRUE(all.equal(PC2, mnn.out$corrected[mnn.out$batch==2,])))
+
+    # ... unless we force it:
+    mnn.out <- fastMNN(PC1, PC2, pc.input=TRUE, min.batch.effect=0)
     expect_false(isTRUE(all.equal(PC1, mnn.out$corrected[mnn.out$batch==1,])))
     expect_false(isTRUE(all.equal(PC2, mnn.out$corrected[mnn.out$batch==2,])))
 })
 
 set.seed(1200005)
 test_that("fastMNN works as expected for three batches with re-ordering", {
-    B1 <- matrix(rnorm(10000), nrow=100) # Batch 1 
-    B2 <- matrix(rnorm(20000), nrow=100) # Batch 2
-    B3 <- matrix(rnorm(5000), nrow=100) # Batch 2
+    B1 <- matrix(rnorm(10000, 0), nrow=100) # Batch 1 
+    B2 <- matrix(rnorm(20000, 1), nrow=100) # Batch 2
+    B3 <- matrix(rnorm(5000, 2), nrow=100) # Batch 3
 
     out <- fastMNN(B1, B2, B3, d=50) 
     expect_identical(dim(reducedDim(out)), c(ncol(B1) + ncol(B2) + ncol(B3), 50L))
@@ -262,9 +298,9 @@ test_that("fastMNN works as expected for three batches with re-ordering", {
 
 set.seed(12000050)
 test_that("fastMNN works as expected for three batches with auto ordering", {
-    B1 <- matrix(rnorm(10000), nrow=100) # Batch 1 
-    B2 <- matrix(rnorm(20000), nrow=100) # Batch 2
-    B3 <- matrix(rnorm(5000), nrow=100) # Batch 3
+    B1 <- matrix(rnorm(10000, 0), nrow=100) # Batch 1 
+    B2 <- matrix(rnorm(20000, 1), nrow=100) # Batch 2
+    B3 <- matrix(rnorm(5000, 2), nrow=100) # Batch 3
     ref <- fastMNN(B1, B2, B3, d=50) 
 
     # Testing the auto-ordering algorithms. 
@@ -282,10 +318,38 @@ test_that("fastMNN works as expected for three batches with auto ordering", {
     expect_identical(metadata(out.approx)$order, metadata(out.auto)$order)
 })
 
+set.seed(120000500)
+test_that("fastMNN with two or three batches behaves in the absence of a batch effect", {
+    # Just checking that min.batch.effect doesn't do weird things with auto.order.
+    B1x <- matrix(rnorm(10000), nrow=100) # Batch 1 
+    B2x <- matrix(rnorm(20000), nrow=100) # Batch 2
+    B3x <- matrix(rnorm(5000), nrow=100) # Batch 3
+
+    out2 <- fastMNN(B1x, B2x, d=50) 
+    expect_identical(metadata(out2)$order, 1:2)
+    expect_identical(metadata(out2)$lost.var, numeric(2))
+    CHECK_PAIRINGS(out2)
+
+    out3 <- fastMNN(B1x, B2x, B3x, d=50) 
+    expect_identical(metadata(out3)$order, 1:3)
+    expect_identical(metadata(out3)$lost.var, numeric(3))
+    CHECK_PAIRINGS(out3)
+
+    out3r <- fastMNN(B1x, B2x, B3x, d=50, auto.order=3:1) 
+    expect_identical(metadata(out3r)$order, 3:1)
+    expect_identical(metadata(out3r)$lost.var, numeric(3))
+    CHECK_PAIRINGS(out3r)
+
+    out3a <- fastMNN(B1x, B2x, B3x, d=50, auto.order=TRUE) 
+    expect_identical(metadata(out3a)$lost.var, numeric(3))
+    expect_identical(metadata(out3a)$order, c(2L, 1L, 3L)) 
+    CHECK_PAIRINGS(out3a)
+})
+
 set.seed(12000051)
 test_that("fastMNN works on SingleCellExperiment inputs", {
-    B1 <- matrix(rnorm(10000), nrow=100) # Batch 1 
-    B2 <- matrix(rnorm(20000), nrow=100) # Batch 2
+    B1 <- matrix(rnorm(10000, 0), nrow=100) # Batch 1 
+    B2 <- matrix(rnorm(20000, 1), nrow=100) # Batch 2
 
     sce1 <- SingleCellExperiment(list(logcounts=B1))
     sce2 <- SingleCellExperiment(list(logcounts=B2))
@@ -323,9 +387,9 @@ test_that("fastMNN works on SingleCellExperiment inputs", {
 
 set.seed(12000052)
 test_that("fastMNN works with within-object batches", {
-    B1 <- matrix(rnorm(10000), nrow=100) # Batch 1 
-    B2 <- matrix(rnorm(20000), nrow=100) # Batch 2
-    B3 <- matrix(rnorm(15000), nrow=100) # Batch 2
+    B1 <- matrix(rnorm(10000, 0), nrow=100) # Batch 1 
+    B2 <- matrix(rnorm(20000, 1), nrow=100) # Batch 2
+    B3 <- matrix(rnorm(15000, 2), nrow=100) # Batch 2
 
     sce1 <- SingleCellExperiment(list(logcounts=B1))
     sce2 <- SingleCellExperiment(list(logcounts=B2))
@@ -361,9 +425,9 @@ test_that("fastMNN works with within-object batches", {
 set.seed(120000521)
 test_that("fastMNN works with within-object batches for PCs", {
     pcd <- list(
-        matrix(rnorm(10000), ncol=50), # Batch 1 
-        matrix(rnorm(20000), ncol=50), # Batch 2
-        matrix(rnorm(15000), ncol=50) # Batch 2
+        matrix(rnorm(10000, 0), ncol=50), # Batch 1 
+        matrix(rnorm(20000, 1), ncol=50), # Batch 2
+        matrix(rnorm(15000, 2), ncol=50) # Batch 2
     )
     com.pcd <- do.call(rbind, pcd)
     batches <- rep(1:3, vapply(pcd, nrow, FUN.VALUE=0L))
@@ -392,9 +456,9 @@ test_that("fastMNN works with within-object batches for PCs", {
 
 set.seed(120000522)
 test_that("fastMNN renames within-object batches correctly", {
-    B1 <- matrix(rnorm(10000), nrow=100) # Batch 1 
-    B2 <- matrix(rnorm(20000), nrow=100) # Batch 2
-    B3 <- matrix(rnorm(15000), nrow=100) # Batch 2
+    B1 <- matrix(rnorm(10000, 0), nrow=100) # Batch 1 
+    B2 <- matrix(rnorm(20000, 1), nrow=100) # Batch 2
+    B3 <- matrix(rnorm(15000, 2), nrow=100) # Batch 2
 
     rownames(B1) <- rownames(B2) <- rownames(B3) <- sprintf("GENE_%i", sample(nrow(B1)))
     colnames(B1) <- sprintf("CELL_1_%i", seq_len(ncol(B1)))
@@ -415,8 +479,8 @@ test_that("fastMNN renames within-object batches correctly", {
 
 set.seed(12000053)
 test_that("fastMNN works correctly with restriction", {
-    B1 <- matrix(rnorm(10000), ncol=10) # Batch 1 
-    B2 <- matrix(rnorm(20000), ncol=10) # Batch 2
+    B1 <- matrix(rnorm(10000, 0), ncol=10) # Batch 1 
+    B2 <- matrix(rnorm(20000, 1), ncol=10) # Batch 2
     B3 <- matrix(rnorm(5000), ncol=10) # Batch 3
 
     # Restricted results are only directly comparable if we're not doing a PCA internally.
