@@ -385,7 +385,7 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
         ave.out <- .average_correction(refdata, mnn.sets$first, curdata, mnn.sets$second)
         overall.batch <- colMeans(ave.out$averaged)
 
-        if (min.batch.effect <= 0 && .get_batch_magnitude(ave.out$averaged, overall.batch) < min.batch.effect) {
+        if (min.batch.effect <= 0 || .get_batch_magnitude(ave.out$averaged, overall.batch) > min.batch.effect) {
             # Remove variation along the batch vector, which responds to 'restrict'.
             # Also recording the lost variation if desired, which does not respond to 'restrict'.
             if (compute.variances) {
