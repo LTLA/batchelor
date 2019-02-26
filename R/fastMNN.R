@@ -389,14 +389,14 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
             # Remove variation along the batch vector, which responds to 'restrict'.
             # Also recording the lost variation if desired, which does not respond to 'restrict'.
             if (compute.variances) {
-                var.before <- .compute_intra_var(refdata, curdata, batches, .get_reference_indices(mnn.store))
+                var.before <- .compute_intra_var(refdata, curdata, mnn.store)
             }
 
             refdata <- .center_along_batch_vector(refdata, overall.batch, restrict=.get_reference_restrict(mnn.store))
             curdata <- .center_along_batch_vector(curdata, overall.batch, restrict=.get_current_restrict(mnn.store))
 
             if (compute.variances) {
-                var.after <- .compute_intra_var(refdata, curdata, batches, .get_reference_indices(mnn.store))
+                var.after <- .compute_intra_var(refdata, curdata, mnn.store)
                 var.kept[seq_len(bdx)] <- var.kept[seq_len(bdx)] * var.after/var.before
             }
 
@@ -502,20 +502,22 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
 
 #' @importFrom DelayedArray DelayedArray
 #' @importFrom DelayedMatrixStats colVars
-.compute_intra_var <- function(reference, current, all.pcs, order) {
-    all.var <- numeric(length(order))
+.compute_intra_var <- function(reference, current, store) {
+    ri <- .get_reference_indices(store)
+    batches <- .get_batches(store)
+    all.var <- numeric(length(ri)+1L)
 
     last <- 0L
     dm <- DelayedArray(reference)
-    for (i in seq_len(length(order)-1L)) {
-        cur.ncells <- nrow(all.pcs[[order[i]]])
+    for (i in seq_along(ri)) {
+        cur.ncells <- nrow(batches[[ri[i]]])
         chosen <- last + seq_len(cur.ncells)
         all.var[i] <- sum(colVars(dm, rows=chosen))
         last <- last + cur.ncells
     }
 
-    all.var[length(order)] <- sum(colVars(DelayedArray(current)))
-    return(all.var)
+    all.var[length(all.var)] <- sum(colVars(DelayedArray(current)))
+    all.var
 }
 
 ############################################
