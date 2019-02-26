@@ -28,6 +28,8 @@
 #' 
 #' Alternatively, an integer vector containing a permutation of \code{1:N} where \code{N} is the number of batches.
 #' @param compute.variances Logical scalar indicating whether the percentage of variance lost due to non-orthogonality should be computed.
+#' @param min.batch.effect Numeric scalar specifying the minimum magnitude of the (standardized) batch effect, 
+#' below which no correction will be performed at a given merge step.
 #' @param subset.row A vector specifying which features to use for correction. 
 #' Only relevant for gene expression inputs (i.e., \code{pc.input=FALSE} and \code{use.dimred=NULL}).
 #' @param correct.all Logical scalar indicating whether a rotation matrix should be computed for genes not in \code{subset.row}.
@@ -103,11 +105,6 @@
 #' However, if possible, we recommend using the output of \code{\link{multiBatchNorm}} as input to \code{fastMNN}.
 #' This will equalize coverage on the count level before the log-transformation, which is a more accurate rescaling than cosine normalization on the log-values.
 #' 
-#' If \code{compute.variances=TRUE}, the function will compute the percentage of variance that is lost from each batch during orthogonalization.
-#' This represents the variance in each batch that is parallel to the average correction vectors (and hence removed during orthogonalization) at each merge step.
-#' Large proportions suggest that there is biological structure that is parallel to the batch effect, 
-#' corresponding to violations of the assumption that the batch effect is orthogonal to the biological subspace.
-#'
 #' The \code{batch} argument allows users to easily perform batch correction when all cells have already been combined into a single object.
 #' This avoids the need to manually split the matrix or SingleCellExperiment object into separate objects for input into \code{fastMNN}.
 #' In this situation, the order of input batches is defined by the order of levels in \code{batch}.
@@ -177,6 +174,19 @@
 #' Constructing the projection vectors with only control cells will not guarantee resolution of unique non-control populations in each batch.
 #' The function will only completely ignore cells that are not in \code{restrict} if \code{pc.input=TRUE} or, for SingleCellExperiment inputs, \code{use.dimred} is set.
 #'
+#' @section Orthogonalization details:
+#' If \code{compute.variances=TRUE}, the function will compute the percentage of variance that is lost from each batch during orthogonalization.
+#' This represents the variance in each batch that is parallel to the average correction vectors (and hence removed during orthogonalization) at each merge step.
+#' Large proportions suggest that there is biological structure that is parallel to the batch effect, 
+#' corresponding to violations of the assumption that the batch effect is orthogonal to the biological subspace.
+#' This calculation can be turned off for greater efficiency if diagnostics are not required. 
+#'
+#' Orthogonalization may cause problems if there is actually no batch effect.
+#' To avoid this, \code{fastMNN} will not perform any correction if the magnitude of the standardized batch effect is less than \code{min.batch.effect}.
+#' The magnitude is defined as the L2 norm of the average correction vector divided by the standard deviation of the per-MNN pair correction vectors around the average vector.
+#' This is useful for large-scale applications where it is difficult to manually determine which batches have no batch effect.
+#' Nonetheless, users can force correction to always be performed by setting \code{min.batch.effect=0}.
+#'
 #' @author Aaron Lun
 #'
 #' @seealso
@@ -216,7 +226,8 @@
 #' @importFrom SummarizedExperiment assay
 #' @importFrom BiocNeighbors KmknnParam
 #' @importFrom BiocSingular ExactParam
-fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3, d=50, auto.order=FALSE, compute.variances=FALSE, 
+fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3, d=50, 
+        auto.order=FALSE, compute.variances=TRUE, min.batch.effect=5, 
         subset.row=NULL, correct.all=FALSE, pc.input=FALSE, assay.type="logcounts", get.spikes=FALSE, use.dimred=NULL, 
         BSPARAM=ExactParam(), BNPARAM=KmknnParam(), BPPARAM=SerialParam()) 
 {
@@ -244,7 +255,8 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
     # Subsetting by 'batch'.
     common.args <-list(k=k, cos.norm=cos.norm, ndist=ndist, d=d, subset.row=subset.row, 
         correct.all=correct.all, auto.order=auto.order, pc.input=pc.input, 
-        compute.variances=compute.variances, BSPARAM=BSPARAM, BNPARAM=BNPARAM, BPPARAM=BPPARAM)
+        compute.variances=compute.variances, min.batch.effect=min.batch.effect,
+        BSPARAM=BSPARAM, BNPARAM=BNPARAM, BPPARAM=BPPARAM)
 
     if (length(batches)==1L) {
         if (is.null(batch)) { 
@@ -344,7 +356,7 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
 #' @importFrom BiocParallel SerialParam
 #' @importFrom S4Vectors DataFrame metadata<- 
 #' @importFrom BiocNeighbors KmknnParam
-.fast_mnn <- function(batches, k=20, restrict=NULL, ndist=3, auto.order=FALSE, compute.variances=FALSE, BNPARAM=KmknnParam(), BPPARAM=SerialParam()) 
+.fast_mnn <- function(batches, k=20, restrict=NULL, ndist=3, auto.order=FALSE, compute.variances=TRUE, min.batch.effect=5, BNPARAM=KmknnParam(), BPPARAM=SerialParam()) 
 {
     nbatches <- length(batches)
     var.kept <- rep(1, nbatches)
@@ -373,23 +385,25 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
         ave.out <- .average_correction(refdata, mnn.sets$first, curdata, mnn.sets$second)
         overall.batch <- colMeans(ave.out$averaged)
 
-        # Remove variation along the batch vector, which responds to 'restrict'.
-        # Also recording the lost variation if desired, which does not respond to 'restrict'.
-        if (compute.variances) {
-            var.before <- .compute_intra_var(refdata, curdata, batches, .get_reference_indices(mnn.store))
+        if (min.batch.effect <= 0 && .get_batch_magnitude(ave.out$averaged, overall.batch) < min.batch.effect) {
+            # Remove variation along the batch vector, which responds to 'restrict'.
+            # Also recording the lost variation if desired, which does not respond to 'restrict'.
+            if (compute.variances) {
+                var.before <- .compute_intra_var(refdata, curdata, batches, .get_reference_indices(mnn.store))
+            }
+
+            refdata <- .center_along_batch_vector(refdata, overall.batch, restrict=.get_reference_restrict(mnn.store))
+            curdata <- .center_along_batch_vector(curdata, overall.batch, restrict=.get_current_restrict(mnn.store))
+
+            if (compute.variances) {
+                var.after <- .compute_intra_var(refdata, curdata, batches, .get_reference_indices(mnn.store))
+                var.kept[seq_len(bdx)] <- var.kept[seq_len(bdx)] * var.after/var.before
+            }
+
+            # Recompute correction vectors and apply them to all cells (hence, no restriction).
+            re.ave.out <- .average_correction(refdata, mnn.sets$first, curdata, mnn.sets$second)
+            curdata <- .tricube_weighted_correction(curdata, re.ave.out$averaged, re.ave.out$second, k=k, ndist=ndist, BNPARAM=BNPARAM, BPPARAM=BPPARAM)
         }
-
-        refdata <- .center_along_batch_vector(refdata, overall.batch, restrict=.get_reference_restrict(mnn.store))
-        curdata <- .center_along_batch_vector(curdata, overall.batch, restrict=.get_current_restrict(mnn.store))
-
-        if (compute.variances) {
-            var.after <- .compute_intra_var(refdata, curdata, batches, .get_reference_indices(mnn.store))
-            var.kept[seq_len(bdx)] <- var.kept[seq_len(bdx)] * var.after/var.before
-        }
-
-        # Recompute correction vectors and apply them to all cells (hence, no restriction).
-        re.ave.out <- .average_correction(refdata, mnn.sets$first, curdata, mnn.sets$second)
-        curdata <- .tricube_weighted_correction(curdata, re.ave.out$averaged, re.ave.out$second, k=k, ndist=ndist, BNPARAM=BNPARAM, BPPARAM=BPPARAM)
 
         mnn.pairings[[bdx-1L]] <- DataFrame(first=mnn.sets$first, second=mnn.sets$second + nrow(refdata))
         mnn.store <- .compile(mnn.store, new.reference=refdata, curdata)
@@ -436,6 +450,21 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
 
     corvec <- unname(corvec)/as.vector(npairs)
     list(averaged=corvec, second=as.integer(second.names))
+}
+
+.get_batch_magnitude <- function(correction, ave=colMeans(correction)) 
+# Standardizes the magnitude of the average batch vector by the variability
+# of the per-pair batch vectors making it up. This should have an 
+# expected value of 1 under the "null" of no batch effect.
+{
+    resid.alt <- sweep(correction, 2, ave, "-", check.margin=FALSE)
+    rss <- sum(resid.alt^2)
+    resid.var <- rss/ ( length(correction) - ncol(correction) )
+
+    dim.mean.var <- resid.var / nrow(correction)
+    sum.var <- dim.mean.var * ncol(correction)
+    l2 <- sqrt(sum(ave^2))
+    l2 / sqrt(sum.var)
 }
 
 .center_along_batch_vector <- function(mat, batch.vec, restrict=NULL) 
