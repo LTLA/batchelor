@@ -230,16 +230,16 @@ test_that("variance loss calculations work as expected", {
     expect_identical(out3c, out3b[c(2,3,1)])
 
     # Checking that we compute something.
-    mnn.out <- fastMNN(PC1, PC2, pc.input=TRUE, compute.variances=TRUE)
+    mnn.out <- fastMNN(PC1, PC2, pc.input=TRUE)
     expect_identical(length(metadata(mnn.out)$lost.var), 2L)
     expect_identical(length(unique(metadata(mnn.out)$lost.var)), 2L)
 
-    mnn.out2 <- fastMNN(PC2, PC1, auto.order=2:1, pc.input=TRUE, compute.variances=TRUE)
+    mnn.out2 <- fastMNN(PC2, PC1, auto.order=2:1, pc.input=TRUE)
     expect_identical(metadata(mnn.out)$lost.var, rev(metadata(mnn.out2)$lost.var)) # variance loss at first step should be symmetric.
 
     # Variance loss should be zero without a batch effect.
     PC1x <- matrix(rnorm(20000, 0), ncol=10)
-    mnn.outx <- fastMNN(PC1, PC1x, pc.input=TRUE, compute.variances=TRUE)
+    mnn.outx <- fastMNN(PC1, PC1x, pc.input=TRUE, min.batch.skip=TRUE)
     expect_identical(metadata(mnn.outx)$lost.var, numeric(2))
 })
 
@@ -256,7 +256,7 @@ test_that("fastMNN changes the reference batch upon orthogonalization", {
     PC1 <- matrix(rnorm(10000, 0), ncol=10)
     PC2 <- matrix(rnorm(20000, 0), ncol=10)
 
-    mnn.out <- fastMNN(PC1, PC2, pc.input=TRUE)
+    mnn.out <- fastMNN(PC1, PC2, pc.input=TRUE, min.batch.skip=TRUE)
     expect_true(isTRUE(all.equal(PC1, mnn.out$corrected[mnn.out$batch==1,])))
     expect_true(isTRUE(all.equal(PC2, mnn.out$corrected[mnn.out$batch==2,])))
 
@@ -325,22 +325,26 @@ test_that("fastMNN with two or three batches behaves in the absence of a batch e
     B2x <- matrix(rnorm(20000), nrow=100) # Batch 2
     B3x <- matrix(rnorm(5000), nrow=100) # Batch 3
 
-    out2 <- fastMNN(B1x, B2x, d=50) 
+    expect_warning(out2w <- fastMNN(B1x, B2x, d=50), "detected near-zero")
+    expect_warning(out2n <- fastMNN(B1x, B2x, d=50, min.batch.effect=0), NA)
+    expect_equal(out2w, out2n)
+
+    expect_warning(out2 <- fastMNN(B1x, B2x, d=50, min.batch.skip=TRUE), NA) 
     expect_identical(metadata(out2)$order, 1:2)
     expect_identical(metadata(out2)$lost.var, numeric(2))
     CHECK_PAIRINGS(out2)
 
-    out3 <- fastMNN(B1x, B2x, B3x, d=50) 
+    expect_warning(out3 <- fastMNN(B1x, B2x, B3x, d=50, min.batch.skip=TRUE), NA)
     expect_identical(metadata(out3)$order, 1:3)
     expect_identical(metadata(out3)$lost.var, numeric(3))
     CHECK_PAIRINGS(out3)
 
-    out3r <- fastMNN(B1x, B2x, B3x, d=50, auto.order=3:1) 
+    expect_warning(out3r <- fastMNN(B1x, B2x, B3x, d=50, auto.order=3:1, min.batch.skip=TRUE), NA)
     expect_identical(metadata(out3r)$order, 3:1)
     expect_identical(metadata(out3r)$lost.var, numeric(3))
     CHECK_PAIRINGS(out3r)
 
-    out3a <- fastMNN(B1x, B2x, B3x, d=50, auto.order=TRUE) 
+    expect_warning(out3a <- fastMNN(B1x, B2x, B3x, d=50, auto.order=TRUE, min.batch.skip=TRUE), NA)
     expect_identical(metadata(out3a)$lost.var, numeric(3))
     expect_identical(metadata(out3a)$order, c(2L, 1L, 3L)) 
     CHECK_PAIRINGS(out3a)
