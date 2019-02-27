@@ -28,8 +28,10 @@
 #' 
 #' Alternatively, an integer vector containing a permutation of \code{1:N} where \code{N} is the number of batches.
 #' @param compute.variances Logical scalar indicating whether the percentage of variance lost due to non-orthogonality should be computed.
-#' @param min.batch.effect Numeric scalar specifying the minimum magnitude of the (standardized) batch effect, 
-#' below which no correction will be performed at a given merge step.
+#' @param min.batch.effect Numeric scalar specifying the minimum relative magnitude of the batch effect, 
+#' below which no correction will be performed at a given merge step if \code{min.batch.skip=TRUE}.
+#' @param min.batch.skip Logical scalar specifying whether correction should be skipped if the magnitude of the batch effect falls below \code{min.batch.effect}.
+#' Default is to raise a warning.
 #' @param subset.row A vector specifying which features to use for correction. 
 #' Only relevant for gene expression inputs (i.e., \code{pc.input=FALSE} and \code{use.dimred=NULL}).
 #' @param correct.all Logical scalar indicating whether a rotation matrix should be computed for genes not in \code{subset.row}.
@@ -182,10 +184,15 @@
 #' This calculation can be turned off for greater efficiency if diagnostics are not required. 
 #'
 #' Orthogonalization may cause problems if there is actually no batch effect.
-#' To avoid this, \code{fastMNN} will not perform any correction if the magnitude of the standardized batch effect is less than \code{min.batch.effect}.
-#' The magnitude is defined as the L2 norm of the average correction vector divided by the standard deviation of the per-MNN pair correction vectors around the average vector.
-#' This is useful for large-scale applications where it is difficult to manually determine which batches have no batch effect.
-#' Nonetheless, users can force correction to always be performed by setting \code{min.batch.effect=0}.
+#' To avoid this, \code{fastMNN} will not perform any correction if the relative magnitude of the batch effect is less than \code{min.batch.effect} and \code{min.batch.skip=TRUE}.
+#' The relative magnitude is defined as the L2 norm of the average correction vector divided by the root-mean-square of the L2 norms of the per-MNN pair correction vectors.
+#' This will be large when the per-pair vectors are all pointing in the same direction, 
+#' and small when the per-pair vectors point in random directions due to the absence of a consistent batch effect.
+#' 
+#' By default, \code{min.batch.skip=FALSE} to ensure that correction is always performed.
+#' A warning is issued instead if near-zero batch effects are detected.
+#' This is motivated by the fact that the complete absence of batch effects is unusual and warrants further investigation.
+#' Nonetheless, setting \code{min.batch.skip=TRUE} is useful for large-scale applications where it is difficult to manually determine which batches have no batch effect.
 #'
 #' @author Aaron Lun
 #'
@@ -227,7 +234,7 @@
 #' @importFrom BiocNeighbors KmknnParam
 #' @importFrom BiocSingular ExactParam
 fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3, d=50, 
-        auto.order=FALSE, compute.variances=TRUE, min.batch.effect=5, 
+        auto.order=FALSE, compute.variances=TRUE, min.batch.effect=0.2, min.batch.skip=FALSE,
         subset.row=NULL, correct.all=FALSE, pc.input=FALSE, assay.type="logcounts", get.spikes=FALSE, use.dimred=NULL, 
         BSPARAM=ExactParam(), BNPARAM=KmknnParam(), BPPARAM=SerialParam()) 
 {
@@ -255,7 +262,7 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
     # Subsetting by 'batch'.
     common.args <-list(k=k, cos.norm=cos.norm, ndist=ndist, d=d, subset.row=subset.row, 
         correct.all=correct.all, auto.order=auto.order, pc.input=pc.input, 
-        compute.variances=compute.variances, min.batch.effect=min.batch.effect,
+        compute.variances=compute.variances, min.batch.effect=min.batch.effect, min.batch.skip=min.batch.skip,
         BSPARAM=BSPARAM, BNPARAM=BNPARAM, BPPARAM=BPPARAM)
 
     if (length(batches)==1L) {
@@ -356,7 +363,8 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
 #' @importFrom BiocParallel SerialParam
 #' @importFrom S4Vectors DataFrame metadata<- 
 #' @importFrom BiocNeighbors KmknnParam
-.fast_mnn <- function(batches, k=20, restrict=NULL, ndist=3, auto.order=FALSE, compute.variances=TRUE, min.batch.effect=5, BNPARAM=KmknnParam(), BPPARAM=SerialParam()) 
+.fast_mnn <- function(batches, k=20, restrict=NULL, ndist=3, auto.order=FALSE, compute.variances=TRUE, 
+    min.batch.effect=0.2, min.batch.skip=FALSE, BNPARAM=KmknnParam(), BPPARAM=SerialParam()) 
 {
     nbatches <- length(batches)
     var.kept <- rep(1, nbatches)
@@ -385,7 +393,18 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
         ave.out <- .average_correction(refdata, mnn.sets$first, curdata, mnn.sets$second)
         overall.batch <- colMeans(ave.out$averaged)
 
-        if (min.batch.effect <= 0 || .get_batch_magnitude(ave.out$averaged, overall.batch) > min.batch.effect) {
+        do.correct <- TRUE 
+        if (min.batch.effect > 0) { 
+            if (.get_batch_magnitude(ave.out$averaged, overall.batch) < min.batch.effect) {
+                if (!min.batch.skip) {
+                    warning("detected near-zero batch effect, see ?fastMNN")
+                } else {
+                    do.correct <- FALSE
+                }
+            }
+        }
+
+        if (do.correct) {
             # Remove variation along the batch vector, which responds to 'restrict'.
             # Also recording the lost variation if desired, which does not respond to 'restrict'.
             if (compute.variances) {
@@ -453,18 +472,18 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
 }
 
 .get_batch_magnitude <- function(correction, ave=colMeans(correction)) 
-# Standardizes the magnitude of the average batch vector by the variability
-# of the per-pair batch vectors making it up. This should have an 
-# expected value of 1 under the "null" of no batch effect.
+# Standardizes the magnitude of the average batch vector by the
+# magnitude of the per-pair batch vectors making it up. Consistent
+# per-pair directions and magnitudes should give a standardized
+# magnitude of 1, inconsistencies will result in a magnitude of zero.
 {
-    resid.alt <- sweep(correction, 2, ave, "-", check.margin=FALSE)
-    rss <- sum(resid.alt^2)
-    resid.var <- rss/ ( length(correction) - ncol(correction) )
-
-    dim.mean.var <- resid.var / nrow(correction)
-    sum.var <- dim.mean.var * ncol(correction)
-    l2 <- sqrt(sum(ave^2))
-    l2 / sqrt(sum.var)
+    ave.l2sq <- sum(colMeans(correction^2))
+    if (ave.l2sq == 0) {
+        0
+    } else {
+        l2sq <- sum(ave^2)
+        sqrt(l2sq / ave.l2sq)
+    }
 }
 
 .center_along_batch_vector <- function(mat, batch.vec, restrict=NULL) 
