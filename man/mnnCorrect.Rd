@@ -68,8 +68,9 @@ i.e., all cells from the first object (in their provided order), then all cells 
 
 The metadata of the SingleCellExperiment contains:
 \itemize{
-\item{\code{pairs}: a list of DataFrames specifying which pairs of cells in \code{corrected} were identified as MNNs at each step.} 
-\item{\code{order}: a vector of batch names or indices, specifying the order in which batches were merged.}
+\item{\code{merge.order}: a vector of batch names or indices, specifying the order in which batches were merged.}
+\item \code{merge.info}, a DataFrame of information about each merge step (corresponding to each row).
+This contains \code{pairs}, a \linkS4class{List} of DataFrames specifying which pairs of cells in \code{corrected} were identified as MNNs at each step. 
 }
 }
 \description{
