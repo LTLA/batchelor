@@ -246,8 +246,8 @@ test_that("mnnCorrect behaves correctly with an alternative order", {
     expect_equal(ref$batch[re.order], as.integer(out$batch))
 
     # Checking the pairings in closer detail.
-    pairings <- metadata(out)$pairs
-    ref.pairings <- metadata(ref)$pairs
+    pairings <- metadata(out)$merge.info$pairs
+    ref.pairings <- metadata(ref)$merge.info$pairs
     for (x in seq_along(pairings)) {
         curref <- ref.pairings[[x]]
         curref[,1] <- match(curref[,1], re.order)
@@ -262,7 +262,7 @@ test_that("mnnCorrect behaves correctly with an alternative order", {
     # Works with automatic ordering.
     auto <- mnnCorrect(A=alpha, B=bravo, C=charlie, auto.order=TRUE)
     expect_identical(auto$batch, LETTERS[out$batch])
-    expect_identical(metadata(auto)$order, c("C","B","A")) # charlie and bravo would have most MNNs.
+    expect_identical(metadata(auto)$merge.order, c("C","B","A")) # charlie and bravo would have most MNNs.
 })
 
 set.seed(100043)
@@ -314,8 +314,8 @@ test_that("mnnCorrect behaves with within-object batches", {
     expect_equal(as.character(ref$batch)[shuffle], as.character(out$batch))
 
     # Checking the pairings in closer detail.
-    pairings <- metadata(out)$pairs
-    ref.pairings <- metadata(ref)$pairs
+    pairings <- metadata(out)$merge.info$pairs
+    ref.pairings <- metadata(ref)$merge.info$pairs
     for (x in seq_along(pairings)) {
         curref <- ref.pairings[[x]]
         curref[,1] <- match(curref[,1], shuffle)
