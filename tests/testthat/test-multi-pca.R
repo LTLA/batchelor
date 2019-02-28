@@ -255,7 +255,12 @@ test_that("multi-sample PCA works with deferred operations", {
     ref <- batchelor:::.process_listed_matrices_for_pca(everything, NULL, deferred=FALSE)
     out <- batchelor:::.process_listed_matrices_for_pca(everything, NULL, deferred=TRUE)
     expect_equal(as.matrix(ref$scaled), as.matrix(out$scaled))
-    expect_equal(ref$centered, out$centered)
+    expect_equal(lapply(ref$centered, as.matrix), lapply(out$centered, as.matrix))
+
+    expect_s4_class(ref$scaled, "DelayedMatrix")
+    expect_s4_class(out$scaled, "DeferredMatrix")
+    expect_s4_class(ref$centered[[1]], "DelayedMatrix")
+    expect_s4_class(out$centered[[1]], "DeferredMatrix")
 
     # Comparing the output.
     ref <- multiBatchPCA(test1, test2, test3, d=20)
