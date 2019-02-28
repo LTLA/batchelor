@@ -94,8 +94,8 @@ CHECK_PAIRINGS <- function(mnn.out)
 # and are consistent with the reported merge order.
 {
     origin <- as.vector(mnn.out$batch)
-    pairings <- metadata(mnn.out)$pairs
-    order <- metadata(mnn.out)$order
+    pairings <- metadata(mnn.out)$merge.info$pairs
+    order <- metadata(mnn.out)$merge.order
 
     expect_identical(length(order), length(order))
     expect_true(all(order[1]==origin[pairings[[1]]$first]))
@@ -122,7 +122,7 @@ test_that("fastMNN works as expected for two batches", {
     out <- fastMNN(B1, B2, d=50) 
     expect_identical(dim(reducedDim(out)), c(ncol(B1) + ncol(B2), 50L))
     expect_identical(as.integer(out$batch), rep(1:2, c(ncol(B1), ncol(B2))))
-    expect_identical(metadata(out)$order, 1:2)
+    expect_identical(metadata(out)$merge.order, 1:2)
     CHECK_PAIRINGS(out)
     
     # Dimension choice behaves correctly.
@@ -198,14 +198,15 @@ test_that("variance loss calculations work as expected", {
     store <- batchelor:::MNN_supplied_order(list(PC1, PC2))
     store <- batchelor:::.advance(store, k=20)
     out <- batchelor:::.compute_intra_var(PC1, PC2, store)
-    expect_identical(out[1], sum(DelayedMatrixStats::colVars(DelayedArray(PC1))))
-    expect_identical(out[2], sum(DelayedMatrixStats::colVars(DelayedArray(PC2))))
+    expect_identical(out$reference, sum(DelayedMatrixStats::colVars(DelayedArray(PC1))))
+    expect_identical(out$current, sum(DelayedMatrixStats::colVars(DelayedArray(PC2))))
 
     # Alternative ordering. 
     store <- batchelor:::MNN_supplied_order(list(PC1, PC2), ordering=2:1)
     store <- batchelor:::.advance(store, k=20)
     out2 <- batchelor:::.compute_intra_var(PC2, PC1, store)
-    expect_identical(out, rev(out2))
+    expect_identical(out$reference, out2$current)
+    expect_identical(out$current, out2$reference)
 
     # Multiple lengths.
     PC3 <- matrix(rnorm(5000, 2), ncol=10) # Batch 3
@@ -213,13 +214,13 @@ test_that("variance loss calculations work as expected", {
     store <- batchelor:::MNN_supplied_order(list(PC1, PC2, PC3))
     store <- batchelor:::.advance(store, k=20)
     out3a <- batchelor:::.compute_intra_var(PC1, PC2, store)
-    expect_identical(out3a, out[c(1,2)])
+    expect_identical(out3a, out)
 
     store <- batchelor:::.compile(store, corrected=PC2)
     store <- batchelor:::.advance(store, k=20)
     out3b <- batchelor:::.compute_intra_var(rbind(PC1, PC2), PC3, store)
-    expect_identical(out3b[1:2], out)
-    expect_identical(out3b[3], sum(DelayedMatrixStats::colVars(DelayedArray(PC3))))
+    expect_identical(out3b$reference, c(out$reference, out$current))
+    expect_identical(out3b$current, sum(DelayedMatrixStats::colVars(DelayedArray(PC3))))
 
     # Multiple lengths and a different order.
     store <- batchelor:::MNN_supplied_order(list(PC1, PC2, PC3), ordering=c(2L,3L,1L))
@@ -227,7 +228,8 @@ test_that("variance loss calculations work as expected", {
     store <- batchelor:::.compile(store, corrected=PC3)
     store <- batchelor:::.advance(store, k=20)
     out3c <- batchelor:::.compute_intra_var(rbind(PC2, PC3), PC1, store)
-    expect_identical(out3c, out3b[c(2,3,1)])
+    expect_identical(out3c$reference, c(out3b$reference[2], out3b$current))
+    expect_identical(out3c$current, out3b$reference[1])
 
     # Checking that we compute something.
     mnn.out <- fastMNN(PC1, PC2, pc.input=TRUE)
@@ -256,14 +258,9 @@ test_that("fastMNN changes the reference batch upon orthogonalization", {
     PC1 <- matrix(rnorm(10000, 0), ncol=10)
     PC2 <- matrix(rnorm(20000, 0), ncol=10)
 
-    mnn.out <- fastMNN(PC1, PC2, pc.input=TRUE, min.batch.skip=TRUE)
+    mnn.out <- fastMNN(PC1, PC2, pc.input=TRUE, min.batch.skip=0.1)
     expect_true(isTRUE(all.equal(PC1, mnn.out$corrected[mnn.out$batch==1,])))
     expect_true(isTRUE(all.equal(PC2, mnn.out$corrected[mnn.out$batch==2,])))
-
-    # ... unless we force it:
-    mnn.out <- fastMNN(PC1, PC2, pc.input=TRUE, min.batch.effect=0)
-    expect_false(isTRUE(all.equal(PC1, mnn.out$corrected[mnn.out$batch==1,])))
-    expect_false(isTRUE(all.equal(PC2, mnn.out$corrected[mnn.out$batch==2,])))
 })
 
 set.seed(1200005)
@@ -275,7 +272,7 @@ test_that("fastMNN works as expected for three batches with re-ordering", {
     out <- fastMNN(B1, B2, B3, d=50) 
     expect_identical(dim(reducedDim(out)), c(ncol(B1) + ncol(B2) + ncol(B3), 50L))
     expect_identical(as.integer(out$batch), rep(1:3, c(ncol(B1), ncol(B2), ncol(B3))))
-    expect_identical(metadata(out)$order, 1:3)
+    expect_identical(metadata(out)$merge.order, 1:3)
     CHECK_PAIRINGS(out)
 
     # Testing the re-ordering algorithms.
@@ -284,10 +281,10 @@ test_that("fastMNN works as expected for three batches with re-ordering", {
 
     back.to.original <- order(out.re$batch)
     expect_equal(reducedDim(out), reducedDim(out.re)[back.to.original,])
-    expect_identical(metadata(out.re)$order, c("B1", "B2", "B3"))
+    expect_identical(metadata(out.re)$merge.order, c("B1", "B2", "B3"))
 
-    old.pairs <- metadata(out)$pairs
-    new.pairs <- metadata(out.re)$pairs
+    old.pairs <- metadata(out)$merge.info$pairs
+    new.pairs <- metadata(out.re)$merge.info$pairs
     for (i in seq_along(old.pairs)) {
         expect_identical(old.pairs[[i]]$first, match(new.pairs[[i]]$first, back.to.original))
         expect_identical(old.pairs[[i]]$second, match(new.pairs[[i]]$second, back.to.original))
@@ -307,46 +304,42 @@ test_that("fastMNN works as expected for three batches with auto ordering", {
     out.auto <- fastMNN(B1, B2, B3, d=50, auto.order=TRUE) 
     expect_identical(dim(reducedDim(ref)), dim(reducedDim(out.auto)))
     expect_identical(out.auto$batch, ref$batch)
-    expect_identical(metadata(out.auto)$order, c(2L, 1L, 3L)) # 3 should be last, with the fewest cells => fewest MNNs.
+    expect_identical(metadata(out.auto)$merge.order, c(2L, 1L, 3L)) # 3 should be last, with the fewest cells => fewest MNNs.
     CHECK_PAIRINGS(out.auto)
 
-    out.re.auto <- fastMNN(B1, B2, B3, auto.order=metadata(out.auto)$order)
+    out.re.auto <- fastMNN(B1, B2, B3, auto.order=metadata(out.auto)$merge.order)
     expect_equal(out.auto, out.re.auto)
 
     # Auto-ordering consistently handles the BiocNeighborIndex class.
     expect_error(out.approx <- fastMNN(B1, B2, B3, auto.order=TRUE, BNPARAM=BiocNeighbors::AnnoyParam()), NA)
-    expect_identical(metadata(out.approx)$order, metadata(out.auto)$order)
+    expect_identical(metadata(out.approx)$merge.order, metadata(out.auto)$merge.order)
 })
 
 set.seed(120000500)
 test_that("fastMNN with two or three batches behaves in the absence of a batch effect", {
     # Just checking that min.batch.effect doesn't do weird things with auto.order.
-    B1x <- matrix(rnorm(10000), nrow=100) # Batch 1 
-    B2x <- matrix(rnorm(20000), nrow=100) # Batch 2
-    B3x <- matrix(rnorm(5000), nrow=100) # Batch 3
+    B1x <- matrix(rnorm(100000), nrow=100) # Batch 1 
+    B2x <- matrix(rnorm(200000), nrow=100) # Batch 2
+    B3x <- matrix(rnorm(50000), nrow=100) # Batch 3
 
-    expect_warning(out2w <- fastMNN(B1x, B2x, d=50), "detected near-zero")
-    expect_warning(out2n <- fastMNN(B1x, B2x, d=50, min.batch.effect=0), NA)
-    expect_equal(out2w, out2n)
-
-    expect_warning(out2 <- fastMNN(B1x, B2x, d=50, min.batch.skip=TRUE), NA) 
-    expect_identical(metadata(out2)$order, 1:2)
+    out2 <- fastMNN(B1x, B2x, d=50, min.batch.skip=0.1)
+    expect_identical(metadata(out2)$merge.order, 1:2)
     expect_identical(metadata(out2)$lost.var, numeric(2))
     CHECK_PAIRINGS(out2)
 
-    expect_warning(out3 <- fastMNN(B1x, B2x, B3x, d=50, min.batch.skip=TRUE), NA)
-    expect_identical(metadata(out3)$order, 1:3)
+    out3 <- fastMNN(B1x, B2x, B3x, d=50, min.batch.skip=0.1)
+    expect_identical(metadata(out3)$merge.order, 1:3)
     expect_identical(metadata(out3)$lost.var, numeric(3))
     CHECK_PAIRINGS(out3)
 
-    expect_warning(out3r <- fastMNN(B1x, B2x, B3x, d=50, auto.order=3:1, min.batch.skip=TRUE), NA)
-    expect_identical(metadata(out3r)$order, 3:1)
+    out3r <- fastMNN(B1x, B2x, B3x, d=50, auto.order=3:1, min.batch.skip=0.1)
+    expect_identical(metadata(out3r)$merge.order, 3:1)
     expect_identical(metadata(out3r)$lost.var, numeric(3))
     CHECK_PAIRINGS(out3r)
 
-    expect_warning(out3a <- fastMNN(B1x, B2x, B3x, d=50, auto.order=TRUE, min.batch.skip=TRUE), NA)
+    out3a <- fastMNN(B1x, B2x, B3x, d=50, auto.order=TRUE, min.batch.skip=0.1)
     expect_identical(metadata(out3a)$lost.var, numeric(3))
-    expect_identical(metadata(out3a)$order, c(2L, 1L, 3L)) 
+    expect_identical(metadata(out3a)$merge.order, c(2L, 1L, 3L)) 
     CHECK_PAIRINGS(out3a)
 })
 
