@@ -28,10 +28,8 @@
 #' 
 #' Alternatively, an integer vector containing a permutation of \code{1:N} where \code{N} is the number of batches.
 #' @param compute.variances Logical scalar indicating whether the percentage of variance lost due to non-orthogonality should be computed.
-#' @param min.batch.effect Numeric scalar specifying the minimum relative magnitude of the batch effect, 
-#' below which no correction will be performed at a given merge step if \code{min.batch.skip=TRUE}.
-#' @param min.batch.skip Logical scalar specifying whether correction should be skipped if the magnitude of the batch effect falls below \code{min.batch.effect}.
-#' Default is to raise a warning.
+#' @param min.batch.skip Numeric scalar specifying the minimum relative magnitude of the batch effect, 
+#' below which no correction will be performed at a given merge step.
 #' @param subset.row A vector specifying which features to use for correction. 
 #' Only relevant for gene expression inputs (i.e., \code{pc.input=FALSE} and \code{use.dimred=NULL}).
 #' @param correct.all Logical scalar indicating whether a rotation matrix should be computed for genes not in \code{subset.row}.
@@ -79,9 +77,19 @@
 #' 
 #' The metadata of the output object contains:
 #' \itemize{
-#' \item \code{pairs}, a list of DataFrames specifying which pairs of cells in \code{corrected} were identified as MNNs at each step. 
-#' \item \code{order}, a vector of batch names or indices, specifying the order in which batches were merged.
-#' \item \code{lost.var}, a numeric vector containing the proportion of lost variance from each batch supplied in \code{...}.
+#' \item \code{merge.order}, a vector of batch names or indices, specifying the order in which batches were merged.
+#' \item \code{merge.info}, a DataFrame of information about each merge step (corresponding to each row).
+#' This contains the following fields:
+#' \itemize{
+#' \item \code{pairs}, a \linkS4class{List} of DataFrames specifying which pairs of cells in \code{corrected} were identified as MNNs at each step. 
+#' \item \code{batch.size} and \code{skipped}, if \code{min.batch.skip} is not \code{NA}.
+#' The former is a numeric vector specifying the relative magnitude of the batch effect at each merge, 
+#' and the latter indicates whether the correction was skipped if the magnitude was below \code{min.batch.skip}.
+#' \item \code{lost.var}, a numeric matrix specifying the percentage of variance lost due to orthogonalization at each merge step.
+#' This is reported separately for each batch (columns, ordered according to the input order, \emph{not} the merge order).
+#' It is only reported if \code{compute.variances=TRUE}.
+#' }
+#' \item \code{lost.var}, a numeric vector containing the proportion of lost variance from each batch supplied in \code{...} (following the input order).
 #' Only returned when \code{compute.variances=TRUE}.
 #' }
 #' 
@@ -183,16 +191,12 @@
 #' corresponding to violations of the assumption that the batch effect is orthogonal to the biological subspace.
 #' This calculation can be turned off for greater efficiency if diagnostics are not required. 
 #'
-#' Orthogonalization may cause problems if there is actually no batch effect.
-#' To avoid this, \code{fastMNN} will not perform any correction if the relative magnitude of the batch effect is less than \code{min.batch.effect} and \code{min.batch.skip=TRUE}.
+#' Orthogonalization may cause problems if there is actually no batch effect, resulting in large losses of variance.
+#' To avoid this, \code{fastMNN} will not perform any correction if the relative magnitude of the batch effect is less than \code{min.batch.skip}.
 #' The relative magnitude is defined as the L2 norm of the average correction vector divided by the root-mean-square of the L2 norms of the per-MNN pair correction vectors.
 #' This will be large when the per-pair vectors are all pointing in the same direction, 
 #' and small when the per-pair vectors point in random directions due to the absence of a consistent batch effect.
-#' 
-#' By default, \code{min.batch.skip=FALSE} to ensure that correction is always performed.
-#' A warning is issued instead if near-zero batch effects are detected.
-#' This is motivated by the fact that the complete absence of batch effects is unusual and warrants further investigation.
-#' Nonetheless, setting \code{min.batch.skip=TRUE} is useful for large-scale applications where it is difficult to manually determine which batches have no batch effect.
+#' If a large loss of variance is observed along with a small batch effect in a given merge step, users can set \code{min.batch.skip} to simply skip correction in that step.
 #'
 #' @author Aaron Lun
 #'
@@ -213,7 +217,7 @@
 #' pcs <- multiBatchPCA(cB1, cB2)
 #' out2 <- fastMNN(pcs[[1]], pcs[[2]], pc.input=TRUE)
 #'
-#' all.equal(out, out2) # should be TRUE
+#' all.equal(reducedDim(out), out2$corrected) # should be TRUE
 #' 
 #' # Extracting corrected expression values for gene 10.
 #' summary(assay(out)[10,])
@@ -234,7 +238,7 @@
 #' @importFrom BiocNeighbors KmknnParam
 #' @importFrom BiocSingular ExactParam
 fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3, d=50, 
-        auto.order=FALSE, compute.variances=TRUE, min.batch.effect=0.2, min.batch.skip=FALSE,
+        auto.order=FALSE, compute.variances=TRUE, min.batch.skip=0,
         subset.row=NULL, correct.all=FALSE, pc.input=FALSE, assay.type="logcounts", get.spikes=FALSE, use.dimred=NULL, 
         BSPARAM=ExactParam(), BNPARAM=KmknnParam(), BPPARAM=SerialParam()) 
 {
@@ -262,7 +266,7 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
     # Subsetting by 'batch'.
     common.args <-list(k=k, cos.norm=cos.norm, ndist=ndist, d=d, subset.row=subset.row, 
         correct.all=correct.all, auto.order=auto.order, pc.input=pc.input, 
-        compute.variances=compute.variances, min.batch.effect=min.batch.effect, min.batch.skip=min.batch.skip,
+        compute.variances=compute.variances, min.batch.skip=min.batch.skip,
         BSPARAM=BSPARAM, BNPARAM=BNPARAM, BPPARAM=BPPARAM)
 
     if (length(batches)==1L) {
@@ -347,12 +351,12 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
 
     rev.order <- integer(length(d.reo))
     rev.order[d.reo] <- seq_along(d.reo)
-    pairings <- metadata(output)$pairs
+    pairings <- metadata(output)$merge.info$pairs
     for (x in seq_along(pairings)) {
         pairings[[x]][,1] <- rev.order[pairings[[x]][,1]]
         pairings[[x]][,2] <- rev.order[pairings[[x]][,2]]
     }
-    metadata(output)$pairs <- pairings
+    metadata(output)$merge.info$pairs <- pairings
 
     if (!pc.input) {
         output <- .convert_to_SCE(output, mat)
@@ -363,11 +367,11 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
 #' @importFrom BiocParallel SerialParam
 #' @importFrom S4Vectors DataFrame metadata<- 
 #' @importFrom BiocNeighbors KmknnParam
-.fast_mnn <- function(batches, k=20, restrict=NULL, ndist=3, auto.order=FALSE, compute.variances=TRUE, 
-    min.batch.effect=0.2, min.batch.skip=FALSE, BNPARAM=KmknnParam(), BPPARAM=SerialParam()) 
+#' @importClassesFrom S4Vectors List
+#' @importFrom methods as
+.fast_mnn <- function(batches, k=20, restrict=NULL, ndist=3, auto.order=FALSE, compute.variances=TRUE, min.batch.skip=0, BNPARAM=KmknnParam(), BPPARAM=SerialParam()) 
 {
     nbatches <- length(batches)
-    var.kept <- rep(1, nbatches)
 
     # Defining ordering vectors.
     if (!is.logical(auto.order)) {
@@ -382,8 +386,13 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
         mnn.store <- MNN_supplied_order(batches, restrict)
     }
 
-    mnn.pairings <- vector("list", nbatches-1L)
-    for (bdx in 2:nbatches) {
+    nmerges <- nbatches - 1L
+    mnn.pairings <- vector("list", nmerges)
+    batch.size <- rep(NA_real_, nmerges)
+    skipped <- logical(nmerges)
+    var.kept <- matrix(1, nmerges, nbatches) 
+
+    for (mdx in seq_len(nmerges)) {
         mnn.store <- .advance(mnn.store, k=k, BNPARAM=BNPARAM, BPPARAM=BPPARAM)
         refdata <- .get_reference(mnn.store)
         curdata <- .get_current(mnn.store)
@@ -394,13 +403,13 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
         overall.batch <- colMeans(ave.out$averaged)
 
         do.correct <- TRUE 
-        if (min.batch.effect > 0) { 
-            if (.get_batch_magnitude(ave.out$averaged, overall.batch) < min.batch.effect) {
-                if (!min.batch.skip) {
-                    warning("detected near-zero batch effect, see ?fastMNN")
-                } else {
-                    do.correct <- FALSE
-                }
+        if (!is.na(min.batch.skip)) {
+            batch.magnitude <- .get_batch_magnitude(ave.out$averaged, overall.batch)
+            batch.size[mdx] <- batch.magnitude
+
+            if (batch.magnitude < min.batch.skip) {
+                do.correct <- FALSE
+                skipped[mdx] <- TRUE
             }
         }
 
@@ -416,7 +425,8 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
 
             if (compute.variances) {
                 var.after <- .compute_intra_var(refdata, curdata, mnn.store)
-                var.kept[seq_len(bdx)] <- var.kept[seq_len(bdx)] * var.after/var.before
+                var.kept[mdx,.get_reference_indices(mnn.store)] <- var.after$reference/var.before$reference
+                var.kept[mdx,.get_current_index(mnn.store)] <- var.after$current/var.before$current
             }
 
             # Recompute correction vectors and apply them to all cells (hence, no restriction).
@@ -424,7 +434,7 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
             curdata <- .tricube_weighted_correction(curdata, re.ave.out$averaged, re.ave.out$second, k=k, ndist=ndist, BNPARAM=BNPARAM, BPPARAM=BPPARAM)
         }
 
-        mnn.pairings[[bdx-1L]] <- DataFrame(first=mnn.sets$first, second=mnn.sets$second + nrow(refdata))
+        mnn.pairings[[mdx]] <- DataFrame(first=mnn.sets$first, second=mnn.sets$second + nrow(refdata))
         mnn.store <- .compile(mnn.store, new.reference=refdata, curdata)
     }
 
@@ -440,17 +450,26 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
         ordering <- .restore_original_order(merge.order, ncells.per.batch)
         refdata <- refdata[ordering,,drop=FALSE]
         mnn.pairings <- .reindex_pairings(mnn.pairings, ordering)
-        var.kept[merge.order] <- var.kept
     }
     
     # Formatting the output.
     output <- DataFrame(corrected=I(refdata), batch=batch.names$ids)
-    m.out <- list(pairs=mnn.pairings, order=batch.names$labels[merge.order])
-    if (compute.variances) {
-        m.out$lost.var <- 1 - var.kept
+    mdf <- DataFrame(pairs=I(as(mnn.pairings, "List")))
+    m.out <- list(merge.order=batch.names$labels[merge.order])
+
+    if (!is.na(min.batch.skip)) {
+        mdf$batch.size <- batch.size
+        mdf$skipped <- skipped
     }
+    if (compute.variances) {
+        lost.var <- 1 - var.kept
+        mdf$lost.var <- lost.var
+        m.out$lost.var <- 1 - apply(var.kept, 2, prod)
+    }
+
+    m.out$merge.info <- mdf
     metadata(output) <- m.out
-    return(output)
+    output
 }
 
 ############################################
@@ -524,19 +543,18 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
 .compute_intra_var <- function(reference, current, store) {
     ri <- .get_reference_indices(store)
     batches <- .get_batches(store)
-    all.var <- numeric(length(ri)+1L)
+    ref.var <- numeric(length(ri))
 
     last <- 0L
     dm <- DelayedArray(reference)
     for (i in seq_along(ri)) {
         cur.ncells <- nrow(batches[[ri[i]]])
         chosen <- last + seq_len(cur.ncells)
-        all.var[i] <- sum(colVars(dm, rows=chosen))
+        ref.var[i] <- sum(colVars(dm, rows=chosen))
         last <- last + cur.ncells
     }
 
-    all.var[length(all.var)] <- sum(colVars(DelayedArray(current)))
-    all.var
+    list(reference=ref.var, current=sum(colVars(DelayedArray(current))))
 }
 
 ############################################
