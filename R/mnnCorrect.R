@@ -42,8 +42,9 @@
 #'
 #' The metadata of the SingleCellExperiment contains:
 #' \itemize{
-#' \item{\code{pairs}: a list of DataFrames specifying which pairs of cells in \code{corrected} were identified as MNNs at each step.} 
-#' \item{\code{order}: a vector of batch names or indices, specifying the order in which batches were merged.}
+#' \item{\code{merge.order}: a vector of batch names or indices, specifying the order in which batches were merged.}
+#' \item \code{merge.info}, a DataFrame of information about each merge step (corresponding to each row).
+#' This contains \code{pairs}, a \linkS4class{List} of DataFrames specifying which pairs of cells in \code{corrected} were identified as MNNs at each step. 
 #' }
 #' 
 #' @details
@@ -186,7 +187,7 @@ mnnCorrect <- function(..., batch=NULL, restrict=NULL, k=20, sigma=0.1, cos.norm
     if (do.split) {
         d.reo <- divided$reorder
         output <- output[,d.reo,drop=FALSE]
-        metadata(output)$pairs <- .reindex_pairings(metadata(output)$pairs, d.reo)
+        metadata(output)$merge.info$pairs <- .reindex_pairings(metadata(output)$merge.info$pairs, d.reo)
     }
 
     .rename_output(output, original, subset.row=subset.row)
@@ -202,6 +203,8 @@ mnnCorrect <- function(..., batch=NULL, restrict=NULL, k=20, sigma=0.1, cos.norm
 #' @importFrom SingleCellExperiment SingleCellExperiment
 #' @importFrom BiocSingular ExactParam
 #' @importFrom BiocNeighbors KmknnParam
+#' @importFrom methods as
+#' @importClassesFrom S4Vectors List
 .mnn_correct <- function(..., k=20, sigma=0.1, cos.norm.in=TRUE, cos.norm.out=TRUE, svd.dim=0L, var.adj=TRUE, 
     subset.row=NULL, correct.all=FALSE, restrict=NULL, auto.order=FALSE, BSPARAM=ExactParam(), BNPARAM=KmknnParam(), BPPARAM=SerialParam())
 {
@@ -319,8 +322,13 @@ mnnCorrect <- function(..., batch=NULL, restrict=NULL, k=20, sigma=0.1, cos.norm
         mnn.pairings <- .reindex_pairings(mnn.pairings, ordering)
     }
    
-	SingleCellExperiment(list(corrected=t(ref.batch.out)), colData=DataFrame(batch=batch.names$ids),
-        metadata=list(pairs=mnn.pairings, order=batch.names$labels[merge.order]))
+	SingleCellExperiment(list(corrected=t(ref.batch.out)), 
+        colData=DataFrame(batch=batch.names$ids),
+        metadata=list(
+            merge.order=batch.names$labels[merge.order],
+            merge.info=DataFrame(pairs=I(as(mnn.pairings, "List"))) 
+        )
+    )
 }
 
 ####################################
