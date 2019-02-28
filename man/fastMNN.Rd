@@ -6,10 +6,10 @@
 \usage{
 fastMNN(..., batch = NULL, k = 20, restrict = NULL,
   cos.norm = TRUE, ndist = 3, d = 50, auto.order = FALSE,
-  compute.variances = FALSE, subset.row = NULL, correct.all = FALSE,
-  pc.input = FALSE, assay.type = "logcounts", get.spikes = FALSE,
-  use.dimred = NULL, BSPARAM = ExactParam(), BNPARAM = KmknnParam(),
-  BPPARAM = SerialParam())
+  compute.variances = TRUE, min.batch.skip = 0, subset.row = NULL,
+  correct.all = FALSE, pc.input = FALSE, assay.type = "logcounts",
+  get.spikes = FALSE, use.dimred = NULL, BSPARAM = ExactParam(),
+  BNPARAM = KmknnParam(), BPPARAM = SerialParam())
 }
 \arguments{
 \item{...}{One or more log-expression matrix where genes correspond to rows and cells correspond to columns, if \code{pc.input=FALSE}.
@@ -46,6 +46,9 @@ Each threshold is defined as a multiple of the number of median distances.}
 Alternatively, an integer vector containing a permutation of \code{1:N} where \code{N} is the number of batches.}
 
 \item{compute.variances}{Logical scalar indicating whether the percentage of variance lost due to non-orthogonality should be computed.}
+
+\item{min.batch.skip}{Numeric scalar specifying the minimum relative magnitude of the batch effect, 
+below which no correction will be performed at a given merge step.}
 
 \item{subset.row}{A vector specifying which features to use for correction. 
 Only relevant for gene expression inputs (i.e., \code{pc.input=FALSE} and \code{use.dimred=NULL}).}
@@ -102,9 +105,19 @@ This is true regardless of the value of \code{auto.order}, which only affects th
 
 The metadata of the output object contains:
 \itemize{
-\item \code{pairs}, a list of DataFrames specifying which pairs of cells in \code{corrected} were identified as MNNs at each step. 
-\item \code{order}, a vector of batch names or indices, specifying the order in which batches were merged.
-\item \code{lost.var}, a numeric vector containing the proportion of lost variance from each batch supplied in \code{...}.
+\item \code{merge.order}, a vector of batch names or indices, specifying the order in which batches were merged.
+\item \code{merge.info}, a DataFrame of information about each merge step (corresponding to each row).
+This contains the following fields:
+\itemize{
+\item \code{pairs}, a \linkS4class{List} of DataFrames specifying which pairs of cells in \code{corrected} were identified as MNNs at each step. 
+\item \code{batch.size} and \code{skipped}, if \code{min.batch.skip} is not \code{NA}.
+The former is a numeric vector specifying the relative magnitude of the batch effect at each merge, 
+and the latter indicates whether the correction was skipped if the magnitude was below \code{min.batch.skip}.
+\item \code{lost.var}, a numeric matrix specifying the percentage of variance lost due to orthogonalization at each merge step.
+This is reported separately for each batch (columns, ordered according to the input order, \emph{not} the merge order).
+It is only reported if \code{compute.variances=TRUE}.
+}
+\item \code{lost.var}, a numeric vector containing the proportion of lost variance from each batch supplied in \code{...} (following the input order).
 Only returned when \code{compute.variances=TRUE}.
 }
 }
@@ -132,11 +145,6 @@ The default setting of \code{cos.norm=TRUE} provides some protection against dif
 (see \code{\link{cosineNorm}} for details).
 However, if possible, we recommend using the output of \code{\link{multiBatchNorm}} as input to \code{fastMNN}.
 This will equalize coverage on the count level before the log-transformation, which is a more accurate rescaling than cosine normalization on the log-values.
-
-If \code{compute.variances=TRUE}, the function will compute the percentage of variance that is lost from each batch during orthogonalization.
-This represents the variance in each batch that is parallel to the average correction vectors (and hence removed during orthogonalization) at each merge step.
-Large proportions suggest that there is biological structure that is parallel to the batch effect, 
-corresponding to violations of the assumption that the batch effect is orthogonal to the biological subspace.
 
 The \code{batch} argument allows users to easily perform batch correction when all cells have already been combined into a single object.
 This avoids the need to manually split the matrix or SingleCellExperiment object into separate objects for input into \code{fastMNN}.
@@ -215,6 +223,22 @@ Constructing the projection vectors with only control cells will not guarantee r
 The function will only completely ignore cells that are not in \code{restrict} if \code{pc.input=TRUE} or, for SingleCellExperiment inputs, \code{use.dimred} is set.
 }
 
+\section{Orthogonalization details}{
+
+If \code{compute.variances=TRUE}, the function will compute the percentage of variance that is lost from each batch during orthogonalization.
+This represents the variance in each batch that is parallel to the average correction vectors (and hence removed during orthogonalization) at each merge step.
+Large proportions suggest that there is biological structure that is parallel to the batch effect, 
+corresponding to violations of the assumption that the batch effect is orthogonal to the biological subspace.
+This calculation can be turned off for greater efficiency if diagnostics are not required. 
+
+Orthogonalization may cause problems if there is actually no batch effect, resulting in large losses of variance.
+To avoid this, \code{fastMNN} will not perform any correction if the relative magnitude of the batch effect is less than \code{min.batch.skip}.
+The relative magnitude is defined as the L2 norm of the average correction vector divided by the root-mean-square of the L2 norms of the per-MNN pair correction vectors.
+This will be large when the per-pair vectors are all pointing in the same direction, 
+and small when the per-pair vectors point in random directions due to the absence of a consistent batch effect.
+If a large loss of variance is observed along with a small batch effect in a given merge step, users can set \code{min.batch.skip} to simply skip correction in that step.
+}
+
 \examples{
 B1 <- matrix(rnorm(10000), ncol=50) # Batch 1 
 B2 <- matrix(rnorm(10000), ncol=50) # Batch 2
@@ -227,7 +251,7 @@ cB2 <- cosineNorm(B2)
 pcs <- multiBatchPCA(cB1, cB2)
 out2 <- fastMNN(pcs[[1]], pcs[[2]], pc.input=TRUE)
 
-all.equal(out, out2) # should be TRUE
+all.equal(reducedDim(out), out2$corrected) # should be TRUE
 
 # Extracting corrected expression values for gene 10.
 summary(assay(out)[10,])
