@@ -145,7 +145,7 @@ multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, rotate.all=FAL
 ###########################################
 
 #' @importFrom BiocSingular ExactParam bsdeferred
-#' @importFrom BiocParallel SerialParam
+#' @importFrom BiocParallel SerialParam bpparam register bpisup bpstart bpstop
 #' @importFrom methods as
 #' @importClassesFrom S4Vectors List
 #' @importFrom S4Vectors metadata<- 
@@ -158,9 +158,21 @@ multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, rotate.all=FAL
     centered <- processed$centered
     scaled <- processed$scaled
 
-    # Performing an SVD on the untransposed expression matrix,
-    # and projecting the _unscaled_ matrices back into this space.
+    # Setting up the parallelization environment (for crossprod,
+    # but runSVD might as well take advantage of it).
+    old <- bpparam()
+    register(BPPARAM)
+    on.exit(register(old))
+
+    if (!bpisup(BPPARAM)) {
+        bpstart(BPPARAM)
+        on.exit(bpstop(BPPARAM), add=TRUE)
+    }
+
+    # Performing an SVD on the untransposed _scaled_ expression matrix,
+    # then projecting the _unscaled_ matrices back into this space.
     svd.out <- .run_scaled_SVD(scaled, d=d, rotate.all=rotate.all, get.variance=get.variance, BSPARAM=BSPARAM, BPPARAM=BPPARAM)
+
     output <- centered
     for (idx in seq_along(centered)) {
         output[[idx]] <- as.matrix(crossprod(centered[[idx]], svd.out$u))
@@ -205,29 +217,37 @@ multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, rotate.all=FAL
         mat.list[[idx]] <- current
     }
 
-    # grand average of centers (not using batch-specific centers, which makes compositional assumptions).
+    # Computing the grand average of centers, and using that to center each batch.
+    # (Not using batch-specific centers, which makes compositional assumptions.)
     all.centers <- all.centers/length(mat.list) 
-        
     centered <- mat.list
-    for (idx in seq_along(mat.list)) {
-        current <- DelayedArray(mat.list[[idx]])
-        current <- current - all.centers # centering each batch by the grand average.
-        centered[[idx]] <- current
-    } 
 
     if (deferred) {
         transposed <- lapply(mat.list, t)
+        for (idx in seq_along(mat.list)) {
+            current <- transposed[[idx]]
+            current <- DeferredMatrix(current, center=all.centers)
+            centered[[idx]] <- t(current)
+        } 
+
         all.scale <- lapply(mat.list, function(x) rep(sqrt(ncol(x)), ncol(x)))
 
-        # Deferring the centering and scaling operations.
+        # (Deferred) scaling to implicitly downweight samples with many cells.
         tmp <- DeferredMatrix(do.call(rbind, transposed), center=all.centers)
         scaled <- DeferredMatrix(t(tmp), scale=unlist(all.scale))
 
     } else {
+        for (idx in seq_along(mat.list)) {
+            current <- DelayedArray(mat.list[[idx]])
+            current <- current - all.centers
+            centered[[idx]] <- current
+        }
+
+        # (Delayed) scaling to implicitly downweight samples with many cells.
         scaled <- centered 
         for (idx in seq_along(scaled)) {
             current <- centered[[idx]] 
-            current <- current/sqrt(ncol(current)) # downweighting samples with many cells.
+            current <- current/sqrt(ncol(current)) 
             scaled[[idx]] <- current
         }
         scaled <- do.call(cbind, scaled)
