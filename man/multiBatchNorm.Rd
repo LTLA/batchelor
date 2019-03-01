@@ -5,7 +5,7 @@
 \title{Per-batch scaling normalization}
 \usage{
 multiBatchNorm(..., assay.type = "counts", norm.args = list(),
-  min.mean = 1, subset.row = NULL)
+  min.mean = 1, subset.row = NULL, separate.spikes = FALSE)
 }
 \arguments{
 \item{...}{Two or more SingleCellExperiment objects containing counts and size factors.
@@ -18,6 +18,8 @@ Each object is assumed to represent one batch.}
 \item{min.mean}{A numeric scalar specifying the minimum (library size-adjusted) average count of genes to be used for normalization.}
 
 \item{subset.row}{A vector specifying which features to use for correction.}
+
+\item{separate.spikes}{Logical scalar indicating whether spike-in size factors should be rescaled separately from endogenous genes.}
 }
 \value{
 A list of SingleCellExperiment objects with normalized log-expression values in the \code{"logcounts"} assay (depending on values in \code{norm.args}).
@@ -41,15 +43,24 @@ In most cases, size factors will be computed within each batch;
 their direct application in \code{\link{normalize}} will not account for scaling differences between batches.
 In contrast, \code{multiBatchNorm} will rescale the size factors so that they are comparable across batches.
 
-If spike-in transcripts are present, these should be the same across all batches.
-Spike-in size factors are rescaled separately from those of the endogenous genes, to reflect differences in spike-in quantities across batches.
-Conversely, spike-in transcripts are not used to compute the rescaling factors for endogenous genes.
-
 Only genes with library size-adjusted average counts greater than \code{min.mean} will be used for computing the rescaling factors.
 This improves precision and avoids problems with discreteness.
 Users can also set \code{subset.row} to restrict the set of genes used for computing the rescaling factors.
 However, this only affects the rescaling of the size factors - normalized values for \emph{all} genes will still be returned.
 }
+\section{Handling spike-ins}{
+
+Spike-in transcripts should be either absent in all batches or, if present, they should be the same across all batches.
+Rows annotated as spike-in transcripts are not used to compute the rescaling factors for endogenous genes.
+
+By default, the spike-in size factors are rescaled using the same scaling factor for the endogenous genes in the same batch.
+This preserves the abundances of the spike-in transcripts relative to the endogenous genes, 
+which is important if the returned SingleCellExperiments are to be used to model technical noise.
+
+If \code{separate.spikes=TRUE}, spike-in size factors are rescaled separately from those of the endogenous genes.
+This will eliminate differences in spike-in quantities across batches at the cost of losing the ability to compare between endogenous and spike-in transcripts within each batch.
+}
+
 \examples{
 d1 <- matrix(rnbinom(50000, mu=10, size=1), ncol=100)
 sce1 <- SingleCellExperiment(list(counts=d1))

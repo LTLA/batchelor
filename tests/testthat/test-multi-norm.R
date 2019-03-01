@@ -36,7 +36,7 @@ test_that("multiBatchNorm works properly", {
     # Reverts to the library size correctly.
     Xtmp <- X
     sizeFactors(Xtmp) <- NULL
-    expect_warning(out <- multiBatchNorm(Xtmp, X2), "no size factors in batch 1") 
+    expect_warning(out <- multiBatchNorm(Xtmp, X2), "no endogenous size factors in batch 1") 
     expect_equal(sizeFactors(out[[1]]), scater::librarySizeFactors(Xtmp))
 })
 
@@ -114,40 +114,98 @@ test_that("multiBatchNorm behaves correctly with gene filtering", {
 })
 
 set.seed(200121)
-test_that("multiBatchNorm handles spike-ins correctly", {
+test_that("multiBatchNorm rescales spike-ins correctly", {
     isp <- rbinom(ngenes, 1, 0.1)==1
     isSpike(X, "ERCC") <- isp
     sizeFactors(X, "ERCC") <- runif(ncol(X))
 
+    X2 <- X
+    counts(X2) <- counts(X2) * 2L
+    X3 <- X
+    counts(X3) <- counts(X3) * 3L
+
+    out <- multiBatchNorm(X, X2, X3)
+
+    M <- mean(sizeFactors(X))
+    expect_equal(sizeFactors(out[[1]]), sizeFactors(X)/M)
+    expect_equal(sizeFactors(out[[1]]), sizeFactors(out[[2]]) / 2)
+    expect_equal(sizeFactors(out[[1]]), sizeFactors(out[[3]]) / 3)
+
+    expect_equal(sizeFactors(out[[1]], "ERCC"), sizeFactors(X, "ERCC")/M)
+    expect_equal(sizeFactors(out[[1]], "ERCC"), sizeFactors(out[[2]], "ERCC")/2)
+    expect_equal(sizeFactors(out[[1]], "ERCC"), sizeFactors(out[[3]], "ERCC")/3)
+    
+    # Missing spike-in size factors are handled correctly.
+    Xtmp <- X
+    sizeFactors(Xtmp, "ERCC") <- NULL
+    expect_warning(mout <- multiBatchNorm(Xtmp, X2), "no ERCC size factors")
+    expect_equal(sizeFactors(mout[[1]], "ERCC"), scater::librarySizeFactors(X, subset_row=isp)/M)
+    expect_equal(mout[[2]], out[[2]])
+
+    # Does nothing by default, when there are no endogenous genes.
+    nout <- multiBatchNorm(X[isp,], X2[isp,], X3[isp,])
+
+    expect_equal(sizeFactors(nout[[1]]), sizeFactors(X)/M)
+    expect_equal(sizeFactors(nout[[1]]), sizeFactors(nout[[2]]))
+    expect_equal(sizeFactors(nout[[1]]), sizeFactors(nout[[3]]))
+
+    expect_equal(sizeFactors(nout[[1]], "ERCC"), sizeFactors(X, "ERCC")/M)
+    expect_equal(sizeFactors(nout[[1]], "ERCC"), sizeFactors(nout[[2]], "ERCC"))
+    expect_equal(sizeFactors(nout[[1]], "ERCC"), sizeFactors(nout[[3]], "ERCC"))
+})
+
+set.seed(200121)
+test_that("multiBatchNorm handles separate rescaling of spike-ins correctly", {
     dummy2 <- matrix(rnbinom(ngenes*ncells, mu=means, size=5), ncol=ncells, nrow=ngenes)
     rownames(dummy2) <- rownames(dummy)
     X2 <- SingleCellExperiment(list(counts=dummy2))
     sizeFactors(X2) <- runif(ncol(X2))
-    isSpike(X2, "ERCC") <- isp
-    sizeFactors(X2, "ERCC") <- runif(ncol(X2))
 
-    ref <- multiBatchNorm(X, X2)
+    Y <- X
+    isp <- rbinom(ngenes, 1, 0.1)==1
+    isSpike(Y, "ERCC") <- isp
+    sizeFactors(Y, "ERCC") <- runif(ncol(X))
+
+    Y2 <- X2
+    isSpike(Y2, "ERCC") <- isp
+    sizeFactors(Y2, "ERCC") <- runif(ncol(X2))
+
+    ref <- multiBatchNorm(Y, Y2, separate.spikes=TRUE)
 
     # Non-spike-in counts are computed correctly.
     out <- multiBatchNorm(X[!isp,], X2[!isp,])
-    expect_equal(logcounts(ref[[1]])[!isp,], logcounts(out[[1]])) 
-    expect_equal(logcounts(ref[[2]])[!isp,], logcounts(out[[2]])) 
+    expect_equal(logcounts(ref[[1]])[!isp,], logcounts(out[[1]]))
+    expect_equal(logcounts(ref[[2]])[!isp,], logcounts(out[[2]]))
 
     # Spike-in counts are computed correctly.
-    out <- multiBatchNorm(X[isp,], X2[isp,])
-    expect_equal(logcounts(ref[[1]])[isp,], logcounts(out[[1]])) 
-    expect_equal(logcounts(ref[[2]])[isp,], logcounts(out[[2]])) 
+    alt <- X[isp,]
+    sizeFactors(alt) <- sizeFactors(Y, "ERCC")
+    alt2 <- X2[isp,]
+    sizeFactors(alt2) <- sizeFactors(Y2, "ERCC")
+
+    sout <- multiBatchNorm(alt, alt2)
+    expect_equal(sizeFactors(ref[[1]], "ERCC"), sizeFactors(sout[[1]])) 
+    expect_equal(sizeFactors(ref[[2]], "ERCC"), sizeFactors(sout[[2]])) 
+    expect_equal(logcounts(ref[[1]])[isp,], logcounts(sout[[1]])) 
+    expect_equal(logcounts(ref[[2]])[isp,], logcounts(sout[[2]])) 
 
     # Missing spike-in size factors are handled correctly.
-    Xtmp <- X
-    sizeFactors(Xtmp, "ERCC") <- NULL
-    expect_warning(out <- multiBatchNorm(Xtmp, X2), "no ERCC size factors")
-    expect_equal(sizeFactors(out[[1]], "ERCC"), scater::librarySizeFactors(X, subset_row=isp))
+    Ytmp <- Y
+    sizeFactors(Ytmp, "ERCC") <- NULL
+    expect_warning(nout <- multiBatchNorm(Ytmp, Y2, separate.spikes=TRUE), "no ERCC size factors")
+    expect_equal(sizeFactors(nout[[1]]), sizeFactors(out[[1]]))
+    expect_equal(sizeFactors(nout[[2]]), sizeFactors(out[[2]]))
+
+    alttmp <- X[isp,]
+    sizeFactors(alttmp) <- NULL
+    expect_warning(comp <- multiBatchNorm(alttmp, alt2), "no endogenous size factors")
+    expect_equal(sizeFactors(comp[[1]]), sizeFactors(nout[[1]], "ERCC"))
+    expect_equal(sizeFactors(comp[[2]]), sizeFactors(nout[[2]], "ERCC"))
 
     # Spike-in selection and subset.row interact correctly.
     randoms <- sample(ngenes, 500)
-    ref <- multiBatchNorm(X[randoms,], X2[randoms,])
-    out <- multiBatchNorm(X, X2, subset.row=randoms)
+    ref <- multiBatchNorm(Y[randoms,], Y2[randoms,])
+    out <- multiBatchNorm(Y, Y2, subset.row=randoms)
     expect_equal(logcounts(ref[[1]]), logcounts(out[[1]])[randoms,])
     expect_equal(logcounts(ref[[2]]), logcounts(out[[2]])[randoms,])
 })
