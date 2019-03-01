@@ -8,7 +8,7 @@
 #' @param norm.args A named list of further arguments to pass to \code{\link[scater]{normalize}}.
 #' @param min.mean A numeric scalar specifying the minimum (library size-adjusted) average count of genes to be used for normalization.
 #' @param subset.row A vector specifying which features to use for correction. 
-#' @param separate.spikes Logical scalar indicating whether spike-ins should be rescaled separately.
+#' @param separate.spikes Logical scalar indicating whether spike-in size factors should be rescaled separately from endogenous genes.
 #' 
 #' @details
 #' When performing integrative analyses of multiple batches, it is often the case that different batches have large differences in coverage.
