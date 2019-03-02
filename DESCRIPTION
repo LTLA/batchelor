@@ -4,10 +4,10 @@ Date: 2019-02-11
 Title: Single-Cell Batch Correction Methods
 Authors@R: c(person("Aaron", "Lun", role = c("aut", "cre"), 
         email = "infinite.monkeys.with.keyboards@gmail.com")) 
-Depends: BiocParallel, SingleCellExperiment
+Depends: SingleCellExperiment
 Imports: SummarizedExperiment, S4Vectors, BiocGenerics, Rcpp, 
         stats, methods, BiocNeighbors, BiocSingular, Matrix, 
-        DelayedArray, DelayedMatrixStats, scater 
+        DelayedArray, DelayedMatrixStats, scater, BiocParallel
 Suggests: testthat, BiocStyle, knitr, beachmat, scRNAseq
 biocViews: Sequencing, RNASeq, Software, GeneExpression, 
         Transcriptomics, SingleCell, BatchEffect, Normalization
