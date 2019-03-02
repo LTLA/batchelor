@@ -316,30 +316,55 @@ test_that("fastMNN works as expected for three batches with auto ordering", {
 })
 
 set.seed(120000500)
-test_that("fastMNN with two or three batches behaves in the absence of a batch effect", {
+test_that("fastMNN computes the batch size correctly and skips no-batch scenarios", {
+    B1 <- matrix(rnorm(50000), nrow=100) 
+    B2x <- matrix(rnorm(50000, 1), nrow=100) 
+    B2y <- matrix(rnorm(50000), nrow=100) 
+
+    out <- fastMNN(B1, B2x, d=50)
+    expect_true(all(metadata(out)$merge.info$batch.size > 0.5))
+    expect_false(metadata(out)$merge.info$skipped)
+    expect_true(all(metadata(out)$merge.info$lost.var > 0))
+
+    out <- fastMNN(B1, B2y, d=50)
+    expect_true(all(metadata(out)$merge.info$batch.size < 0.1))
+    expect_false(metadata(out)$merge.info$skipped)
+    expect_true(all(metadata(out)$merge.info$lost.var > 0))
+    CHECK_PAIRINGS(out)
+
+    out <- fastMNN(B1, B2y, d=50, min.batch.skip=0.1)
+    expect_true(all(metadata(out)$merge.info$batch.size < 0.1))
+    expect_true(metadata(out)$merge.info$skipped)
+    expect_true(all(metadata(out)$merge.info$lost.var == 0))
+
+    expect_identical(reducedDim(out), do.call(rbind, multiBatchPCA(cosineNorm(B1), cosineNorm(B2y)))) # No correction applied.
+    CHECK_PAIRINGS(out)
+})
+
+set.seed(120000501)
+test_that("fastMNN with three batches behaves in the absence of a batch effect", {
     # Just checking that min.batch.effect doesn't do weird things with auto.order.
     B1x <- matrix(rnorm(100000), nrow=100) # Batch 1 
     B2x <- matrix(rnorm(200000), nrow=100) # Batch 2
     B3x <- matrix(rnorm(50000), nrow=100) # Batch 3
 
-    out2 <- fastMNN(B1x, B2x, d=50, min.batch.skip=0.1)
-    expect_identical(metadata(out2)$merge.order, 1:2)
-    expect_identical(metadata(out2)$lost.var, numeric(2))
-    CHECK_PAIRINGS(out2)
-
     out3 <- fastMNN(B1x, B2x, B3x, d=50, min.batch.skip=0.1)
     expect_identical(metadata(out3)$merge.order, 1:3)
     expect_identical(metadata(out3)$lost.var, numeric(3))
+    expect_identical(metadata(out3)$merge.info$skipped, !logical(2))
     CHECK_PAIRINGS(out3)
 
     out3r <- fastMNN(B1x, B2x, B3x, d=50, auto.order=3:1, min.batch.skip=0.1)
     expect_identical(metadata(out3r)$merge.order, 3:1)
     expect_identical(metadata(out3r)$lost.var, numeric(3))
+    expect_identical(metadata(out3r)$lost.var, numeric(3))
+    expect_identical(metadata(out3r)$merge.info$skipped, !logical(2))
     CHECK_PAIRINGS(out3r)
 
     out3a <- fastMNN(B1x, B2x, B3x, d=50, auto.order=TRUE, min.batch.skip=0.1)
     expect_identical(metadata(out3a)$lost.var, numeric(3))
     expect_identical(metadata(out3a)$merge.order, c(2L, 1L, 3L)) 
+    expect_identical(metadata(out3a)$merge.info$skipped, !logical(2))
     CHECK_PAIRINGS(out3a)
 })
 
