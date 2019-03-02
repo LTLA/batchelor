@@ -238,7 +238,7 @@
 #' @importFrom BiocNeighbors KmknnParam
 #' @importFrom BiocSingular ExactParam
 fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3, d=50, 
-        auto.order=FALSE, compute.variances=TRUE, reorth=TRUE, min.batch.skip=0,
+        auto.order=FALSE, compute.variances=TRUE, min.batch.skip=0,
         subset.row=NULL, correct.all=FALSE, pc.input=FALSE, assay.type="logcounts", get.spikes=FALSE, use.dimred=NULL, 
         BSPARAM=ExactParam(), BNPARAM=KmknnParam(), BPPARAM=SerialParam()) 
 {
@@ -265,7 +265,7 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
 
     common.args <-list(k=k, cos.norm=cos.norm, ndist=ndist, d=d, subset.row=subset.row, 
         correct.all=correct.all, auto.order=auto.order, pc.input=pc.input, 
-        compute.variances=compute.variances, reorth=reorth, min.batch.skip=min.batch.skip,
+        compute.variances=compute.variances, min.batch.skip=min.batch.skip,
         BSPARAM=BSPARAM, BNPARAM=BNPARAM, BPPARAM=BPPARAM)
 
     if (length(batches)==1L) {
@@ -368,9 +368,9 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
 #' @importFrom BiocNeighbors KmknnParam
 #' @importClassesFrom S4Vectors List
 #' @importFrom methods as
+#' @importFrom utils head
 .fast_mnn <- function(batches, k=20, restrict=NULL, ndist=3, auto.order=FALSE, 
-    compute.variances=TRUE, reorth=TRUE, min.batch.skip=0, 
-    BNPARAM=KmknnParam(), BPPARAM=SerialParam()) 
+    compute.variances=TRUE, min.batch.skip=0, BNPARAM=KmknnParam(), BPPARAM=SerialParam()) 
 {
     nbatches <- length(batches)
 
@@ -399,6 +399,23 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
         refdata <- .get_reference(mnn.store)
         curdata <- .get_current(mnn.store)
 
+        # Reorthogonalizing.    
+        for (prev in seq_len(mdx-1L)) {
+            if (skipped[prev]) {
+                next
+            }
+            olddata <- curdata
+            curdata <- .center_along_batch_vector(curdata, batch.vec[[prev]], 
+                previous=head(batch.vec, prev-1L),
+                restrict=.get_current_restrict(mnn.store))
+
+            if (compute.variances) {
+                old.var <- .compute_solo_var(olddata) 
+                new.var <- .compute_solo_var(curdata) 
+                var.kept[prev,.get_current_index(mnn.store)] <- new.var/old.var
+            }
+        }
+
         # Estimate the overall batch vector (implicitly 'restrict'd by definition of MNNs).
         mnn.sets <- .get_mnn_result(mnn.store) 
         ave.out <- .average_correction(refdata, mnn.sets$first, curdata, mnn.sets$second)
@@ -423,25 +440,12 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
                 cur.var.before <- .compute_solo_var(curdata)
             }
 
-            refdata <- .center_along_batch_vector(refdata, overall.batch, restrict=.get_reference_restrict(mnn.store))
-            curdata <- .center_along_batch_vector(curdata, overall.batch, restrict=.get_current_restrict(mnn.store))
-
-            if (reorth) {
-                for (prev in seq_len(mdx-1L)) {
-                    if (is.null(batch.vec[[prev]])) {
-                        next
-                    }
-                    olddata <- curdata
-                    curdata <- .center_along_batch_vector(curdata, batch.vec[[prev]], restrict=.get_current_restrict(mnn.store))
-
-                    if (compute.variances) {
-                        old.var <- .compute_solo_var(olddata) 
-                        new.var <- .compute_solo_var(curdata) 
-                        var.kept[prev,.get_current_index(mnn.store)] <- new.var/old.var
-                    }
-                }
-            }
-            batch.vec[[mdx]] <- overall.batch
+            refdata <- .center_along_batch_vector(refdata, overall.batch, 
+                previous=head(batch.vec, mdx-1L),
+                restrict=.get_reference_restrict(mnn.store))
+            curdata <- .center_along_batch_vector(curdata, overall.batch, 
+                previous=head(batch.vec, mdx-1L),
+                restrict=.get_current_restrict(mnn.store))
 
             if (compute.variances) {
                 ref.var.after <- .compute_reference_var(refdata, mnn.store)
@@ -455,6 +459,7 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
             curdata <- .tricube_weighted_correction(curdata, re.ave.out$averaged, re.ave.out$second, k=k, ndist=ndist, BNPARAM=BNPARAM, BPPARAM=BPPARAM)
         }
 
+        batch.vec[[mdx]] <- overall.batch
         mnn.pairings[[mdx]] <- DataFrame(first=mnn.sets$first, second=mnn.sets$second + nrow(refdata))
         mnn.store <- .compile(mnn.store, new.reference=refdata, curdata)
     }
@@ -526,10 +531,17 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
     }
 }
 
-.center_along_batch_vector <- function(mat, batch.vec, restrict=NULL) 
+.center_along_batch_vector <- function(mat, batch.vec, previous=list(), restrict=NULL) 
 # Projecting along the batch vector, and shifting all cells to the center _within_ each batch.
 # This removes any variation along the overall batch vector within each matrix.
 {
+    for (i in seq_along(previous)) {
+        # Orthogonalizing with respect to previous batch vectors,
+        # to avoid 'double removal' of those components.
+        cur.prev <- previous[[i]]
+        batch.vec <- batch.vec - cur.prev * as.numeric(batch.vec %*% cur.prev) / sum(cur.prev^2)
+    }
+
     batch.vec <- batch.vec/sqrt(sum(batch.vec^2))
     batch.loc <- as.vector(mat %*% batch.vec)
 
@@ -539,8 +551,7 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
         central.loc <- mean(batch.loc[restrict])
     }
 
-    mat <- mat + outer(central.loc - batch.loc, batch.vec, FUN="*")
-    return(mat)
+    mat + outer(central.loc - batch.loc, batch.vec, FUN="*")
 }
 
 #' @importFrom BiocNeighbors queryKNN KmknnParam
