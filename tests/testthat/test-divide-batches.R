@@ -32,7 +32,7 @@ test_that("divideIntoBatches works correctly", {
 
 set.seed(1000)
 test_that("divideIntoBatches handles restriction correctly", { 
-    A <- matrix(runif(2000), 50, 40)
+    A <- matrix(runif(4000), 100, 80)
 
     # Testing by row.
     b <- sample(LETTERS[1:5], nrow(A), replace=TRUE)
@@ -41,7 +41,7 @@ test_that("divideIntoBatches handles restriction correctly", {
 
     expect_identical(X$restricted, lapply(split(seq_len(nrow(A)) %in% restrict, b), which))
 
-    # Testing by row.
+    # Testing by column.
     b <- sample(LETTERS[1:5], ncol(A), replace=TRUE)
     restrict <- sample(nrow(A), ncol(A)/2)
     X <- divideIntoBatches(A, b, restrict=restrict) 

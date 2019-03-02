@@ -337,7 +337,8 @@ test_that("fastMNN computes the batch size correctly and skips no-batch scenario
     expect_true(metadata(out)$merge.info$skipped)
     expect_true(all(metadata(out)$merge.info$lost.var == 0))
 
-    expect_identical(reducedDim(out), do.call(rbind, multiBatchPCA(cosineNorm(B1), cosineNorm(B2y)))) # No correction applied.
+    ref <- multiBatchPCA(cosineNorm(B1), cosineNorm(B2y))
+    expect_identical(reducedDim(out), rbind(ref[[1]], ref[[2]]))
     CHECK_PAIRINGS(out)
 })
 
