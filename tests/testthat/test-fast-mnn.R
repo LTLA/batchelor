@@ -46,6 +46,13 @@ test_that("centering along a batch vector works correctly", {
     keep <- seq_len(nrow(test))
     current <- batchelor:::.center_along_batch_vector(test2, batch, restrict=keep)
     expect_identical(original, current[keep,])
+
+    # Correctly handle previous batches.
+    batch2 <- rnorm(10) 
+    first <- batchelor:::.center_along_batch_vector(test, batch2)
+    second <- batchelor:::.center_along_batch_vector(first, batch, previous=list(batch2))
+    expect_true(sd(second %*% batch) < 1e-8)
+    expect_true(sd(second %*% batch2) < 1e-8)
 })
 
 set.seed(1200003)
@@ -362,6 +369,29 @@ test_that("fastMNN with three batches behaves in the absence of a batch effect",
     expect_identical(metadata(out3a)$merge.order, c(2L, 1L, 3L)) 
     expect_identical(metadata(out3a)$merge.info$skipped, !logical(2))
     CHECK_PAIRINGS(out3a)
+})
+
+set.seed(120000502)
+test_that("Orthogonalization is performed correctly at each step", {
+    B1 <- matrix(rnorm(10000), nrow=100)
+    B2 <- matrix(rnorm(20000, 1), nrow=100)
+    B3 <- matrix(rnorm(5000, 2), nrow=100) 
+
+    # Checking that variance is removed properly with just two batches.
+    out <- fastMNN(B1, B2)
+    output <- reducedDim(out) %*% metadata(out)$merge.info$batch.vector[[1]]
+    expect_equal(sd(output), 0)
+
+    # Reorthogonalization removes variance correctly.
+    out <- fastMNN(B1, B2, B3)
+    orth.vec <- metadata(out)$merge.info$batch.vector
+    for (i in seq_along(orth.vec)) {
+        output <- reducedDim(out) %*% orth.vec[[i]]
+        expect_equal(sd(output), 0)
+    }
+
+    expect_identical(dim(metadata(out)$merge.info$lost.var), c(2L, 3L))
+    expect_true(all(metadata(out)$merge.info$lost.var > 0))
 })
 
 set.seed(12000051)
