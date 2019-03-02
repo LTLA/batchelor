@@ -238,7 +238,7 @@
 #' @importFrom BiocNeighbors KmknnParam
 #' @importFrom BiocSingular ExactParam
 fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3, d=50, 
-        auto.order=FALSE, compute.variances=TRUE, min.batch.skip=0,
+        auto.order=FALSE, compute.variances=TRUE, reorth=TRUE, min.batch.skip=0,
         subset.row=NULL, correct.all=FALSE, pc.input=FALSE, assay.type="logcounts", get.spikes=FALSE, use.dimred=NULL, 
         BSPARAM=ExactParam(), BNPARAM=KmknnParam(), BPPARAM=SerialParam()) 
 {
@@ -263,10 +263,9 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
         restrict <- checkRestrictions(batches, restrict, cells.in.columns=!pc.input)
     }
 
-    # Subsetting by 'batch'.
     common.args <-list(k=k, cos.norm=cos.norm, ndist=ndist, d=d, subset.row=subset.row, 
         correct.all=correct.all, auto.order=auto.order, pc.input=pc.input, 
-        compute.variances=compute.variances, min.batch.skip=min.batch.skip,
+        compute.variances=compute.variances, reorth=reorth, min.batch.skip=min.batch.skip,
         BSPARAM=BSPARAM, BNPARAM=BNPARAM, BPPARAM=BPPARAM)
 
     if (length(batches)==1L) {
@@ -369,7 +368,9 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
 #' @importFrom BiocNeighbors KmknnParam
 #' @importClassesFrom S4Vectors List
 #' @importFrom methods as
-.fast_mnn <- function(batches, k=20, restrict=NULL, ndist=3, auto.order=FALSE, compute.variances=TRUE, min.batch.skip=0, BNPARAM=KmknnParam(), BPPARAM=SerialParam()) 
+.fast_mnn <- function(batches, k=20, restrict=NULL, ndist=3, auto.order=FALSE, 
+    compute.variances=TRUE, reorth=TRUE, min.batch.skip=0, 
+    BNPARAM=KmknnParam(), BPPARAM=SerialParam()) 
 {
     nbatches <- length(batches)
 
@@ -389,6 +390,7 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
     nmerges <- nbatches - 1L
     mnn.pairings <- vector("list", nmerges)
     batch.size <- rep(NA_real_, nmerges)
+    batch.vec <- vector("list", nmerges)
     skipped <- logical(nmerges)
     var.kept <- matrix(1, nmerges, nbatches) 
 
@@ -417,16 +419,35 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
             # Remove variation along the batch vector, which responds to 'restrict'.
             # Also recording the lost variation if desired, which does not respond to 'restrict'.
             if (compute.variances) {
-                var.before <- .compute_intra_var(refdata, curdata, mnn.store)
+                ref.var.before <- .compute_reference_var(refdata, mnn.store)
+                cur.var.before <- .compute_solo_var(curdata)
             }
 
             refdata <- .center_along_batch_vector(refdata, overall.batch, restrict=.get_reference_restrict(mnn.store))
             curdata <- .center_along_batch_vector(curdata, overall.batch, restrict=.get_current_restrict(mnn.store))
 
+            if (reorth) {
+                for (prev in seq_len(mdx-1L)) {
+                    if (is.null(batch.vec[[prev]])) {
+                        next
+                    }
+                    olddata <- curdata
+                    curdata <- .center_along_batch_vector(curdata, batch.vec[[prev]], restrict=.get_current_restrict(mnn.store))
+
+                    if (compute.variances) {
+                        old.var <- .compute_solo_var(olddata) 
+                        new.var <- .compute_solo_var(curdata) 
+                        var.kept[prev,.get_current_index(mnn.store)] <- new.var/old.var
+                    }
+                }
+            }
+            batch.vec[[mdx]] <- overall.batch
+
             if (compute.variances) {
-                var.after <- .compute_intra_var(refdata, curdata, mnn.store)
-                var.kept[mdx,.get_reference_indices(mnn.store)] <- var.after$reference/var.before$reference
-                var.kept[mdx,.get_current_index(mnn.store)] <- var.after$current/var.before$current
+                ref.var.after <- .compute_reference_var(refdata, mnn.store)
+                cur.var.after <- .compute_solo_var(curdata)
+                var.kept[mdx,.get_reference_indices(mnn.store)] <- ref.var.after/ref.var.before
+                var.kept[mdx,.get_current_index(mnn.store)] <- cur.var.after/cur.var.before
             }
 
             # Recompute correction vectors and apply them to all cells (hence, no restriction).
@@ -454,7 +475,7 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
     
     # Formatting the output.
     output <- DataFrame(corrected=I(refdata), batch=batch.names$ids)
-    mdf <- DataFrame(pairs=I(as(mnn.pairings, "List")))
+    mdf <- DataFrame(pairs=I(as(mnn.pairings, "List")), batch.vector=I(as(batch.vec, "List")))
     m.out <- list(merge.order=batch.names$labels[merge.order])
 
     if (!is.na(min.batch.skip)) {
@@ -538,23 +559,26 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
 ############################################
 # Variance calculation functions.
 
-#' @importFrom DelayedArray DelayedArray
 #' @importFrom DelayedMatrixStats colVars
-.compute_intra_var <- function(reference, current, store) {
+#' @importFrom DelayedArray DelayedArray
+.compute_solo_var <- function(mat, rows=NULL) {
+    sum(colVars(DelayedArray(mat), rows=rows))
+}
+
+.compute_reference_var <- function(reference, store) {
     ri <- .get_reference_indices(store)
     batches <- .get_batches(store)
     ref.var <- numeric(length(ri))
 
     last <- 0L
-    dm <- DelayedArray(reference)
     for (i in seq_along(ri)) {
         cur.ncells <- nrow(batches[[ri[i]]])
         chosen <- last + seq_len(cur.ncells)
-        ref.var[i] <- sum(colVars(dm, rows=chosen))
+        ref.var[i] <- .compute_solo_var(reference, rows=chosen)
         last <- last + cur.ncells
     }
 
-    list(reference=ref.var, current=sum(colVars(DelayedArray(current))))
+    ref.var
 }
 
 ############################################
