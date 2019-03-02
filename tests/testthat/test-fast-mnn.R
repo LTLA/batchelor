@@ -197,39 +197,35 @@ test_that("variance loss calculations work as expected", {
 
     store <- batchelor:::MNN_supplied_order(list(PC1, PC2))
     store <- batchelor:::.advance(store, k=20)
-    out <- batchelor:::.compute_intra_var(PC1, PC2, store)
-    expect_identical(out$reference, sum(DelayedMatrixStats::colVars(DelayedArray(PC1))))
-    expect_identical(out$current, sum(DelayedMatrixStats::colVars(DelayedArray(PC2))))
+    out <- batchelor:::.compute_reference_var(PC1, store)
+    expect_identical(out, sum(DelayedMatrixStats::colVars(PC1)))
 
     # Alternative ordering. 
     store <- batchelor:::MNN_supplied_order(list(PC1, PC2), ordering=2:1)
     store <- batchelor:::.advance(store, k=20)
-    out2 <- batchelor:::.compute_intra_var(PC2, PC1, store)
-    expect_identical(out$reference, out2$current)
-    expect_identical(out$current, out2$reference)
+    out2 <- batchelor:::.compute_reference_var(PC2, store)
+    expect_identical(out2, sum(DelayedMatrixStats::colVars(PC2)))
 
     # Multiple lengths.
     PC3 <- matrix(rnorm(5000, 2), ncol=10) # Batch 3
 
     store <- batchelor:::MNN_supplied_order(list(PC1, PC2, PC3))
     store <- batchelor:::.advance(store, k=20)
-    out3a <- batchelor:::.compute_intra_var(PC1, PC2, store)
+    out3a <- batchelor:::.compute_reference_var(PC1, store)
     expect_identical(out3a, out)
 
     store <- batchelor:::.compile(store, corrected=PC2)
     store <- batchelor:::.advance(store, k=20)
-    out3b <- batchelor:::.compute_intra_var(rbind(PC1, PC2), PC3, store)
-    expect_identical(out3b$reference, c(out$reference, out$current))
-    expect_identical(out3b$current, sum(DelayedMatrixStats::colVars(DelayedArray(PC3))))
+    out3b <- batchelor:::.compute_reference_var(rbind(PC1, PC2), store)
+    expect_identical(out3b, c(out, out2))
 
     # Multiple lengths and a different order.
     store <- batchelor:::MNN_supplied_order(list(PC1, PC2, PC3), ordering=c(2L,3L,1L))
     store <- batchelor:::.advance(store, k=20)
     store <- batchelor:::.compile(store, corrected=PC3)
     store <- batchelor:::.advance(store, k=20)
-    out3c <- batchelor:::.compute_intra_var(rbind(PC2, PC3), PC1, store)
-    expect_identical(out3c$reference, c(out3b$reference[2], out3b$current))
-    expect_identical(out3c$current, out3b$reference[1])
+    out3c <- batchelor:::.compute_reference_var(rbind(PC2, PC3), store)
+    expect_identical(out3c, c(out2, sum(DelayedMatrixStats::colVars(PC3))))
 
     # Checking that we compute something.
     mnn.out <- fastMNN(PC1, PC2, pc.input=TRUE)
