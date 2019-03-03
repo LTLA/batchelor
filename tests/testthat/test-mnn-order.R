@@ -245,17 +245,45 @@ test_that("replacement of the reference works in MNN store", {
 
     running.ref <- batches[[1]] 
     running.ref <- running.ref + rnorm(length(running.ref))
-    store <- batchelor:::.compile(store, batches[[2]], new.reference=running.ref)
+    store <- batchelor:::.update_reference(store, running.ref)
+    store <- batchelor:::.compile(store, batches[[2]])
     running.ref <- rbind(running.ref, batches[[2]])
     expect_identical(batchelor:::.get_reference(store), running.ref)
-    
+
     store <- batchelor:::.advance(store, 10)
 
     running.ref <- batchelor:::.get_reference(store)
     running.ref <- running.ref + rnorm(length(running.ref))
-    store <- batchelor:::.compile(store, batches[[3]], new.reference=running.ref)
+    store <- batchelor:::.update_reference(store, running.ref)
+    store <- batchelor:::.compile(store, batches[[3]])
     running.ref <- rbind(running.ref, batches[[3]])
     expect_identical(batchelor:::.get_reference(store), running.ref)
+})
+
+set.seed(123005)
+test_that("replacement of the batch works in MNN store", {
+    batches <- GENERATOR(c(1000, 2000, 500), 10)
+    store <- batchelor:::MNN_auto_order(batches)
+    store <- batchelor:::.advance(store, 10)
+
+    alt.batches <- lapply(batches, FUN=function(x) x + rnorm(nrow(x)))
+    alt.store <- batchelor:::MNN_auto_order(alt.batches)
+
+    # Correct replacement of existing batches.
+    alt.store <- batchelor:::.update_batch(alt.store, 1, batches[[1]])
+    alt.store <- batchelor:::.update_batch(alt.store, 2, batches[[2]])
+    expect_identical(NULL, batchelor:::.get_precomputed(alt.store)[[1]])
+    expect_identical(NULL, batchelor:::.get_precomputed(alt.store)[[2]])
+    expect_identical(batches[[1]], batchelor:::.get_batches(alt.store)[[1]])
+    expect_identical(batches[[2]], batchelor:::.get_batches(alt.store)[[2]])
+
+    # Correct recalculation of precomputed indices.
+    alt.store <- batchelor:::.advance(alt.store, 10)
+    expect_identical(batchelor:::.get_current_index(store), batchelor:::.get_current_index(alt.store))
+    expect_identical(batchelor:::.get_current(store), batchelor:::.get_current(alt.store))
+    expect_identical(batchelor:::.get_reference_indices(store), batchelor:::.get_reference_indices(alt.store))
+    expect_identical(batchelor:::.get_reference(store), batchelor:::.get_reference(alt.store))
+    expect_identical(batchelor:::.get_mnn_result(store), batchelor:::.get_mnn_result(alt.store))
 })
 
 set.seed(123006)
@@ -267,10 +295,12 @@ test_that("error conditions trigger successfully", {
     expect_error(batchelor:::.compile(ref), "not available yet")
     ref <- batchelor:::.advance(ref, 10)
     expect_error(batchelor:::.advance(ref, 20), "not been assimilated yet")
+
+    expect_error(ref <- batchelor:::.update_reference(ref, batches[[3]]), "invalid dimensions for the updated reference")
+    expect_error(ref <- batchelor:::.update_batch(ref, 1, batches[[3]]), "invalid dimensions for the updated batch")
     
     expect_error(ref <- batchelor:::.compile(ref, batches[[2]][,1:5]), "invalid dimensions for the corrected batch")
     expect_error(ref <- batchelor:::.compile(ref, batches[[3]]), "invalid dimensions for the corrected batch")
-    expect_error(ref <- batchelor:::.compile(ref, batches[[2]], new.reference=batches[[3]]), "invalid dimensions for the updated reference")
     ref <- batchelor:::.compile(ref, batches[[2]])
     expect_error(ref <- batchelor:::.compile(ref, batches[[2]]), "not available yet")
 })
