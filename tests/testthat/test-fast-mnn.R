@@ -373,26 +373,54 @@ test_that("fastMNN with three batches behaves in the absence of a batch effect",
 })
 
 set.seed(120000502)
-test_that("Orthogonalization is performed correctly at each step", {
-    B1 <- matrix(rnorm(10000), nrow=100)
-    B2 <- matrix(rnorm(20000, 1), nrow=100)
-    B3 <- matrix(rnorm(5000, 2), nrow=100) 
+test_that("Orthogonalization is performed correctly across objects", {
+    B1 <- matrix(rnorm(10000), ncol=10)
+    B2 <- matrix(rnorm(20000, 1), ncol=10)
+    B3 <- matrix(rnorm(5000, rep(0:1, each=5)), ncol=10) 
+    B4 <- matrix(rnorm(8000, rep(0:1, 5)), ncol=10) 
 
-    # Checking that variance is removed properly with just two batches.
-    out <- fastMNN(B1, B2)
-    output <- reducedDim(out) %*% metadata(out)$merge.info$batch.vector[[1]]
-    expect_equal(sd(output), 0)
+    ref <- fastMNN(B1, B2, B3, B4, pc.input=TRUE)
 
-    # Reorthogonalization removes variance correctly.
-    out <- fastMNN(B1, B2, B3)
-    orth.vec <- metadata(out)$merge.info$batch.vector
-    for (i in seq_along(orth.vec)) {
-        output <- reducedDim(out) %*% orth.vec[[i]]
-        expect_equal(sd(output), 0)
-    }
+    outA <- fastMNN(B1, B2, pc.input=TRUE)
+    outB <- fastMNN(outA, B3)
+    outC <- fastMNN(outB, B4)
+    expect_equal(ref$corrected, outC$corrected, tol=0.001) # not theoretically equal, but should be close.
+    expect_identical(nrow(metadata(outC)$orthogonalize), 2L)
 
-    expect_identical(dim(metadata(out)$merge.info$lost.var), c(2L, 3L))
-    expect_true(all(metadata(out)$merge.info$lost.var > 0))
+    # Handles hierarhical merges.
+    out.i <- fastMNN(B1, B2, pc.input=TRUE)
+    out.ii <- fastMNN(B3, B4, pc.input=TRUE)
+    out.iii <- fastMNN(out.i, out.ii)
+    expect_identical(nrow(metadata(out.iii)$orthogonalize), 2L)
+
+    # Handles restriction correctly.
+    B1x <- rbind(B1, B1[1:10,])
+    B2x <- rbind(B2, B2[1:10,])
+    B3x <- rbind(B3, B3[1:10,])
+    B4x <- rbind(B4, B4[1:10,])
+
+    collected <- list(seq_len(nrow(B1)), seq_len(nrow(B2)))
+    outAx <- fastMNN(B1x, B2x, restrict=collected, pc.input=TRUE)
+    collected[[2]] <- collected[[2]] + nrow(B1x)
+    collected[[3]] <- seq_len(nrow(B3))
+    outBx <- fastMNN(outAx, B3x, restrict=list(unlist(collected[1:2]), collected[[3]]))
+    collected[[3]] <- collected[[3]] + nrow(outAx)
+    collected[[4]] <- seq_len(nrow(B4))
+    outCx <- fastMNN(outBx, B4x, restrict=list(unlist(collected[1:3]), collected[[4]]))
+    collected[[4]] <- collected[[4]] + nrow(outBx)
+    
+    expect_equal(outCx$corrected[unlist(collected),], outC$corrected)
+    first.ten <- lapply(collected, head, 10)
+    expect_equal(outCx$corrected[unlist(first.ten),], outCx$corrected[-unlist(collected),])
+
+    # Handles skipping correctly.
+    outAs <- fastMNN(B1, B1, pc.input=TRUE, min.batch.skip=0.1)
+    outBs <- fastMNN(outAs, B2)
+    expect_identical(NULL, metadata(outBs)$orthogonalize)
+
+    outAs <- fastMNN(B1, B1, pc.input=TRUE, min.batch.skip=0)
+    outBs <- fastMNN(outAs, B2)
+    expect_identical(nrow(metadata(outBs)$orthogonalize), 1L)
 })
 
 set.seed(12000051)
