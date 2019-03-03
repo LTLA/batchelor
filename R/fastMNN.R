@@ -461,7 +461,8 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
 
         batch.vec[[mdx]] <- overall.batch
         mnn.pairings[[mdx]] <- DataFrame(first=mnn.sets$first, second=mnn.sets$second + nrow(refdata))
-        mnn.store <- .compile(mnn.store, new.reference=refdata, curdata)
+        mnn.store <- .update_reference(mnn.store, refdata)
+        mnn.store <- .compile(mnn.store, curdata)
     }
 
     refdata <- .get_reference(mnn.store)

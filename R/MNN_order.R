@@ -125,10 +125,11 @@ setMethod(".advance", "MNN_supplied_order", function(x, k, BNPARAM, BPPARAM) {
     x
 })
 
-setMethod(".update_batch", "MNN_supplied_order", function(x, i, batch) {
+setMethod(".update_batch", "MNN_order", function(x, i, batch) {
     old <- .get_batches(x)[[i]]
-    stopifnot(identical(dim(old), dim(batch)))
-    stopifnot(identical(dimnames(old), dimnames(batch)))
+    if (!identical(dim(old), dim(batch))) {
+        stop("invalid dimensions for the updated batch")
+    }
     x@batches[[i]] <- batch
     x
 })
@@ -258,43 +259,41 @@ setMethod(".advance", "MNN_auto_order", function(x, k, BNPARAM, BPPARAM) {
 })
 
 setMethod(".update_batch", "MNN_auto_order", function(x, i, batch) {
-    old <- .get_batches(x)[[i]]
-    stopifnot(identical(dim(old), dim(batch)))
-    stopifnot(identical(dimnames(old), dimnames(batch)))
-    x@batches[[i]] <- batch
+    x <- callNextMethod()
 
     cur.res <- .get_restrict(x)[[i]]
     if (!is.null(cur.res)) {
         batch <- batch[cur.res,,drop=FALSE]
     }
     x@restricted.batches[[i]] <- batch
-    x@precomputed[[i]] <- NULL
+    x@precomputed[i] <- list(NULL)
 
     x
 })
 
 #############################################
 
-.compile <- function(x, corrected, new.reference=NULL) {
-    .check_unclean(x)
-
-    # Updating the reference information.
+.update_reference <- function(x, reference) {
     old.reference <- .get_reference(x)
-    if (!is.null(new.reference)) {
-        if (!identical(dim(new.reference), dim(old.reference))) {
-            stop("invalid dimensions for the updated reference")
-        }
-    } else {
-        new.reference <- old.reference
+    if (!identical(dim(reference), dim(old.reference))) {
+        stop("invalid dimensions for the updated reference")
     }
 
+    x@reference <- reference
+    x
+}
+
+.compile <- function(x, corrected) {
+    .check_unclean(x)
+
+    reference <- .get_reference(x)
     cur.dex <- .get_current_index(x)
-    refN <- nrow(new.reference) # for later use.
+    refN <- nrow(reference) # for later use.
     if (!identical(dim(corrected), dim(.get_batches(x)[[cur.dex]]))) {
         stop("invalid dimensions for the corrected batch")
     }
 
-    x@reference <- rbind(new.reference, corrected)
+    x@reference <- rbind(reference, corrected)
     x@reference.indices <- c(.get_reference_indices(x), cur.dex)
 
     # Updating the restricted set in the current reference.
