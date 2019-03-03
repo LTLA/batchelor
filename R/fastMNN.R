@@ -2,19 +2,25 @@
 #'
 #' Correct for batch effects in single-cell expression data using a fast version of the mutual nearest neighbors (MNN) method.
 #'
-#' @param ... One or more log-expression matrix where genes correspond to rows and cells correspond to columns, if \code{pc.input=FALSE}.
+#' @param ... One or more log-expression matrices where genes correspond to rows and cells correspond to columns, if \code{pc.input=FALSE}.
 #' Each matrix should contain the same number of rows, corresponding to the same genes in the same order.
 #' 
 #' Alternatively, one or more matrices of low-dimensional representations can be supplied if \code{pc.input=TRUE}, where rows are cells and columns are dimensions.
 #' Each object should contain the same number of columns, corresponding to the same dimensions.
 #'
 #' Alternatively, one or more \linkS4class{SingleCellExperiment} objects can be supplied containing a log-expression matrix in the \code{assay.type} assay.
-#' Note the same restrictions described above for matrix inputs.
+#' Note the same restrictions described above for gene expression matrix inputs.
 #'
 #' Alternatively, the SingleCellExperiment objects can contain reduced dimension coordinates in the \code{reducedDims} slot if \code{use.dimred} is specified.
 #' Note the same restrictions described above for low-dimensional matrix inputs.
 #' 
+#' Alternatively, one or more \linkS4class{DataFrame} objects produced by previous calls to \code{fastMNN}.
+#' This should contain a \code{corrected} field of low-dimensional corrected coordinates,
+#' along with information required for orthogonalization in the metadata.
+#' These can be mixed with matrices containing low-dimensional inputs.
+#' 
 #' In all cases, each object contains cells from a single batch; multiple objects represent separate batches of cells.
+#' SingleCellExperiments cannot be mixed with matrix inputs.
 #' @param batch A factor specifying the batch of origin for all cells when only a single object is supplied in \code{...}.
 #' This is ignored if multiple objects are present.
 #' @param restrict A list of length equal to the number of objects in \code{...}.
@@ -35,6 +41,7 @@
 #' Only used for gene expression inputs, i.e., when \code{pc.input=FALSE}.
 #' @param pc.input Logical scalar indicating whether the values in \code{...} are already low-dimensional, e.g., the output of \code{\link{multiBatchPCA}}.
 #' Only used when \code{...} does \emph{not} contain SingleCellExperiment objects - in those cases, set \code{use.dimred} instead.
+#' This is also assumed to be \code{TRUE} if any element of \code{...} is a DataFrame.
 #' @param assay.type A string or integer scalar specifying the assay containing the log-expression values.
 #' Only used for SingleCellExperiment inputs with \code{use.dimred=NULL}.
 #' @param get.spikes A logical scalar indicating whether to retain rows corresponding to spike-in transcripts.
@@ -81,13 +88,16 @@
 #' This contains the following fields:
 #' \itemize{
 #' \item \code{pairs}, a \linkS4class{List} of DataFrames specifying which pairs of cells in \code{corrected} were identified as MNNs at each step. 
-#' \item \code{vectors}, a List of numeric vectors specifying the average batch vector at each step.
+#' \item \code{batch.vector}, a List of numeric vectors specifying the average batch vector at each step.
 #' \item \code{batch.size}, a numeric vector specifying the relative magnitude of the batch effect at each merge.
 #' \item \code{skipped}, a logical vector indicating whether the correction was skipped if the magnitude was below \code{min.batch.skip}.
 #' \item \code{lost.var}, a numeric matrix specifying the percentage of variance lost due to orthogonalization at each merge step.
 #' This is reported separately for each batch (columns, ordered according to the input order, \emph{not} the merge order).
 #' }
-#' \item \code{lost.var}, a numeric vector containing the proportion of lost variance from each batch supplied in \code{...} (following the input order).
+#' \item \code{pre.orthog}, a DataFrame containing information about pre-correction orthogonalization.
+#' This is only reported if \code{...} contains one or more DataFrames.
+#' Each row corresponds to a vector used for orthogonalization in one of the DataFrames in \code{...}.
+#' The vector is stored in \code{batch.vector} and the variance lost due to orthogonalization in each batch is reported in \code{lost.var}.
 #' }
 #' 
 #' @details
@@ -129,7 +139,7 @@
 #' Indeed, no matter what the setting of \code{auto.order} is, the order of cells in the output corrected matrix is \emph{always} the same.
 #' 
 #' Further control of the merge order can be achieved by performing the multi-sample PCA outside of this function with \code{\link{multiBatchPCA}}.
-#' Batches can then be progressively merged by repeated calls to \code{fastMNN} with \code{pc.input=TRUE} or by setting \code{use.dimred} (see \dQuote{Using low-dimensional inputs}).
+#' Batches can then be progressively merged by repeated calls to \code{fastMNN} with low-dimensional inputs (see below).
 #' This is useful in situations where the batches need to be merged in a hierarhical manner, e.g., combining replicate samples before merging them across different conditions.
 #' For example, we could merge batch 1 with 4 to obtain a corrected 1+4; and then batch 2 with 3 to obtain a corrected 2+3;
 #' before merging the corrected 1+4 and 2+3 to obtain the final set of corrected values.
@@ -154,13 +164,14 @@
 #' Low-dimensional inputs can be supplied directly to \code{fastMNN} if the PCA (or some other projection to low-dimensional space) is performed outside the function.
 #' This intructs the function to skip the \code{\link{multiBatchPCA}} step. 
 #' To enable this, set \code{pc.input=TRUE} for matrix-like inputs in \code{...}, or specify \code{use.dimred} with SingleCellExperiment inputs.
-#' We only recommend this mode for advanced users, and note that:
-#' \itemize{
-#'     \item \code{\link{multiBatchPCA}} will not perform cosine-normalization, 
+#' 
+#' If \code{...} contains any DataFrame objects, these are assumed to be the output of a previous \code{fastMNN} call.
+#' All inputs are subsequently treated as low-dimensional inputs and any other setting of \code{pc.input} is ignored.
+#' 
+#' Note that \code{\link{multiBatchPCA}} will not perform cosine-normalization, 
 #' so it is the responsibility of the user to cosine-normalize each batch beforehand with \code{\link{cosineNorm}} to recapitulate results with \code{cos.norm=TRUE}.
-#'     \item \code{\link{multiBatchPCA}} must be run on all samples at once, to ensure that all cells are projected to the same low-dimensional space.
-#'     \item Setting \code{pc.input=TRUE} is criticial to avoid unnecessary (and incorrect) cosine-normalization and PCA within each step of the merge.
-#' }
+#' In addition, \code{\link{multiBatchPCA}} must be run on all samples at once, to ensure that all cells are projected to the same low-dimensional space.
+#' 
 #' Users are referred to the Examples for a demonstration of this functionality.
 #'
 #' @section Using restriction:
@@ -182,10 +193,17 @@
 #' The function will only completely ignore cells that are not in \code{restrict} if \code{pc.input=TRUE} or, for SingleCellExperiment inputs, \code{use.dimred} is set.
 #'
 #' @section Orthogonalization details:
-#' The function will compute the percentage of variance that is lost from each batch during orthogonalization.
+#' \code{fastMNN} will compute the percentage of variance that is lost from each batch during orthogonalization at each merge step.
 #' This represents the variance in each batch that is parallel to the average correction vectors (and hence removed during orthogonalization) at each merge step.
 #' Large proportions suggest that there is biological structure that is parallel to the batch effect, 
 #' corresponding to violations of the assumption that the batch effect is orthogonal to the biological subspace.
+#' 
+#' If \code{fastMNN} is called with DataFrame inputs, each DataFrame is assumed to be the result of a previous \code{fastMNN} call
+#' and have a set of vectors used for orthogonalization in the merge steps of that previous call.
+#' In the current call, \code{fastMNN} will gather all such batch vectors across all DataFrame inputs.
+#' Each batch is then re-orthogonalized with respect to each of these vectors.
+#' This ensures that the same variation is removed from each batch prior to merging.
+#' The variance lost due to this pre-correction orthogonalization is reported in the \code{pre.orthog} field in the output metadata.
 #'
 #' Orthogonalization may cause problems if there is actually no batch effect, resulting in large losses of variance.
 #' To avoid this, \code{fastMNN} will not perform any correction if the relative magnitude of the batch effect is less than \code{min.batch.skip}.
@@ -296,9 +314,9 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
  
     # Storing information about the orthogonalization process.
     if (needs.reorth) {
-        orth.stats <- DataFrame(vectors=I(as(orth.out$vectors, "List")))
+        orth.stats <- DataFrame(batch.vector=I(as(orth.out$vectors, "List")))
         orth.stats$lost.var <- 1 - orth.out$var
-        metadata(output)$orthogonalize <- orth.stats
+        metadata(output)$pre.orthog <- orth.stats
     }
 
     output
@@ -490,7 +508,6 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
 
     lost.var <- 1 - var.kept
     mdf$lost.var <- lost.var
-    m.out$lost.var <- 1 - apply(var.kept, 2, prod)
 
     m.out$merge.info <- mdf
     metadata(output) <- m.out
@@ -578,7 +595,7 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
         if (is(current, "DataFrame")) {
             curmeta <- metadata(current) 
             curmerge <- curmeta$merge.info
-            orth[[i]] <- c(as.list(curmeta$orthogonalize$vectors), as.list(curmerge$batch.vector[!curmerge$skipped]))
+            orth[[i]] <- c(as.list(curmeta$pre.orthog$batch.vector), as.list(curmerge$batch.vector[!curmerge$skipped]))
             batches[[i]] <- current$corrected
         }
     }

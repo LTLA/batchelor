@@ -229,16 +229,17 @@ test_that("variance loss calculations work as expected", {
 
     # Checking that we compute something.
     mnn.out <- fastMNN(PC1, PC2, pc.input=TRUE)
-    expect_identical(length(metadata(mnn.out)$lost.var), 2L)
-    expect_identical(length(unique(metadata(mnn.out)$lost.var)), 2L)
+    expect_identical(dim(metadata(mnn.out)$merge.info$lost.var), c(1L, 2L))
+    expect_identical(length(unique(metadata(mnn.out)$merge.info$lost.var)), 2L)
 
     mnn.out2 <- fastMNN(PC2, PC1, auto.order=2:1, pc.input=TRUE)
-    expect_identical(metadata(mnn.out)$lost.var, rev(metadata(mnn.out2)$lost.var)) # variance loss at first step should be symmetric.
+    expect_identical(metadata(mnn.out)$merge.info$lost.var, 
+         metadata(mnn.out2)$merge.info$lost.var[,2:1,drop=FALSE]) # variance loss at first step should be symmetric.
 
     # Variance loss should be zero without a batch effect.
     PC1x <- matrix(rnorm(20000, 0), ncol=10)
     mnn.outx <- fastMNN(PC1, PC1x, pc.input=TRUE, min.batch.skip=TRUE)
-    expect_identical(metadata(mnn.outx)$lost.var, numeric(2))
+    expect_identical(metadata(mnn.outx)$merge.info$lost.var, matrix(0, 1, 2))
 })
 
 set.seed(12000043)
@@ -347,20 +348,19 @@ test_that("fastMNN with three batches behaves in the absence of a batch effect",
 
     out3 <- fastMNN(B1x, B2x, B3x, d=50, min.batch.skip=0.1)
     expect_identical(metadata(out3)$merge.order, 1:3)
-    expect_identical(metadata(out3)$lost.var, numeric(3))
+    expect_identical(metadata(out3)$merge.info$lost.var, matrix(0, 2, 3))
     expect_identical(metadata(out3)$merge.info$skipped, !logical(2))
     CHECK_PAIRINGS(out3)
 
     out3r <- fastMNN(B1x, B2x, B3x, d=50, auto.order=3:1, min.batch.skip=0.1)
     expect_identical(metadata(out3r)$merge.order, 3:1)
-    expect_identical(metadata(out3r)$lost.var, numeric(3))
-    expect_identical(metadata(out3r)$lost.var, numeric(3))
+    expect_identical(metadata(out3r)$merge.info$lost.var, matrix(0, 2, 3))
     expect_identical(metadata(out3r)$merge.info$skipped, !logical(2))
     CHECK_PAIRINGS(out3r)
 
     out3a <- fastMNN(B1x, B2x, B3x, d=50, auto.order=TRUE, min.batch.skip=0.1)
-    expect_identical(metadata(out3a)$lost.var, numeric(3))
     expect_identical(metadata(out3a)$merge.order, c(2L, 1L, 3L)) 
+    expect_identical(metadata(out3a)$merge.info$lost.var, matrix(0, 2, 3))
     expect_identical(metadata(out3a)$merge.info$skipped, !logical(2))
     CHECK_PAIRINGS(out3a)
 })
@@ -378,13 +378,13 @@ test_that("Orthogonalization is performed correctly across objects", {
     outB <- fastMNN(outA, B3)
     outC <- fastMNN(outB, B4)
     expect_equal(ref$corrected, outC$corrected, tol=0.001) # not theoretically equal, but should be close.
-    expect_identical(nrow(metadata(outC)$orthogonalize), 2L)
+    expect_identical(nrow(metadata(outC)$pre.orthog), 2L)
 
     # Handles hierarhical merges.
     out.i <- fastMNN(B1, B2, pc.input=TRUE)
     out.ii <- fastMNN(B3, B4, pc.input=TRUE)
     out.iii <- fastMNN(out.i, out.ii)
-    expect_identical(nrow(metadata(out.iii)$orthogonalize), 2L)
+    expect_identical(nrow(metadata(out.iii)$pre.orthog), 2L)
 
     # Handles restriction correctly.
     B1x <- rbind(B1, B1[1:10,])
@@ -409,11 +409,11 @@ test_that("Orthogonalization is performed correctly across objects", {
     # Handles skipping correctly.
     outAs <- fastMNN(B1, B1, pc.input=TRUE, min.batch.skip=0.1)
     outBs <- fastMNN(outAs, B2)
-    expect_identical(nrow(metadata(outBs)$orthogonalize), 0L)
+    expect_identical(nrow(metadata(outBs)$pre.orthog), 0L)
 
     outAs <- fastMNN(B1, B1, pc.input=TRUE, min.batch.skip=0)
     outBs <- fastMNN(outAs, B2)
-    expect_identical(nrow(metadata(outBs)$orthogonalize), 1L)
+    expect_identical(nrow(metadata(outBs)$pre.orthog), 1L)
 })
 
 set.seed(120000503)
