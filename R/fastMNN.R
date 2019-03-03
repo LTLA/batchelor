@@ -27,7 +27,6 @@
 #' @param auto.order Logical scalar indicating whether re-ordering of batches should be performed to maximize the number of MNN pairs at each step.
 #' 
 #' Alternatively, an integer vector containing a permutation of \code{1:N} where \code{N} is the number of batches.
-#' @param compute.variances Logical scalar indicating whether the percentage of variance lost due to non-orthogonality should be computed.
 #' @param min.batch.skip Numeric scalar specifying the minimum relative magnitude of the batch effect, 
 #' below which no correction will be performed at a given merge step.
 #' @param subset.row A vector specifying which features to use for correction. 
@@ -82,15 +81,13 @@
 #' This contains the following fields:
 #' \itemize{
 #' \item \code{pairs}, a \linkS4class{List} of DataFrames specifying which pairs of cells in \code{corrected} were identified as MNNs at each step. 
-#' \item \code{batch.size} and \code{skipped}, if \code{min.batch.skip} is not \code{NA}.
-#' The former is a numeric vector specifying the relative magnitude of the batch effect at each merge, 
-#' and the latter indicates whether the correction was skipped if the magnitude was below \code{min.batch.skip}.
+#' \item \code{vectors}, a List of numeric vectors specifying the average batch vector at each step.
+#' \item \code{batch.size}, a numeric vector specifying the relative magnitude of the batch effect at each merge.
+#' \item \code{skipped}, a logical vector indicating whether the correction was skipped if the magnitude was below \code{min.batch.skip}.
 #' \item \code{lost.var}, a numeric matrix specifying the percentage of variance lost due to orthogonalization at each merge step.
 #' This is reported separately for each batch (columns, ordered according to the input order, \emph{not} the merge order).
-#' It is only reported if \code{compute.variances=TRUE}.
 #' }
 #' \item \code{lost.var}, a numeric vector containing the proportion of lost variance from each batch supplied in \code{...} (following the input order).
-#' Only returned when \code{compute.variances=TRUE}.
 #' }
 #' 
 #' @details
@@ -185,11 +182,10 @@
 #' The function will only completely ignore cells that are not in \code{restrict} if \code{pc.input=TRUE} or, for SingleCellExperiment inputs, \code{use.dimred} is set.
 #'
 #' @section Orthogonalization details:
-#' If \code{compute.variances=TRUE}, the function will compute the percentage of variance that is lost from each batch during orthogonalization.
+#' The function will compute the percentage of variance that is lost from each batch during orthogonalization.
 #' This represents the variance in each batch that is parallel to the average correction vectors (and hence removed during orthogonalization) at each merge step.
 #' Large proportions suggest that there is biological structure that is parallel to the batch effect, 
 #' corresponding to violations of the assumption that the batch effect is orthogonal to the biological subspace.
-#' This calculation can be turned off for greater efficiency if diagnostics are not required. 
 #'
 #' Orthogonalization may cause problems if there is actually no batch effect, resulting in large losses of variance.
 #' To avoid this, \code{fastMNN} will not perform any correction if the relative magnitude of the batch effect is less than \code{min.batch.skip}.
@@ -241,13 +237,13 @@
 #' @importFrom S4Vectors DataFrame metadata<-
 #' @importFrom methods as
 fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3, d=50, 
-        auto.order=FALSE, compute.variances=TRUE, min.batch.skip=0,
-        subset.row=NULL, correct.all=FALSE, pc.input=FALSE, assay.type="logcounts", get.spikes=FALSE, use.dimred=NULL, 
-        BSPARAM=ExactParam(), BNPARAM=KmknnParam(), BPPARAM=SerialParam()) 
+    auto.order=FALSE, min.batch.skip=0,
+    subset.row=NULL, correct.all=FALSE, pc.input=FALSE, assay.type="logcounts", get.spikes=FALSE, use.dimred=NULL, 
+    BSPARAM=ExactParam(), BNPARAM=KmknnParam(), BPPARAM=SerialParam()) 
 {
     originals <- batches <- list(...)
-    pre.existing <- list()
-    
+    needs.reorth <- FALSE 
+
     if (checkIfSCE(batches)) {
         # Pulling out information from the SCE objects
         checkBatchConsistency(batches)
@@ -266,10 +262,9 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
     } else if (.checkIfDataFrame(batches)) {
         # Reorthogonalizing across outputs from previous fastMNN results.
         pc.input <- TRUE
-
-        orth.out <- .orthogonalize_inputs(batches, restrict, compute.variances=compute.variances)
+        needs.reorth <- TRUE
+        orth.out <- .orthogonalize_inputs(batches, restrict) 
         batches <- orth.out$batches
-        pre.existing <- orth.out$vectors
         originals <- batches # to get correct column names later.
 
     } else {
@@ -279,7 +274,7 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
 
     common.args <-list(k=k, cos.norm=cos.norm, ndist=ndist, d=d, subset.row=subset.row, 
         correct.all=correct.all, auto.order=auto.order, pc.input=pc.input, 
-        compute.variances=compute.variances, min.batch.skip=min.batch.skip, 
+        min.batch.skip=min.batch.skip, 
         BSPARAM=BSPARAM, BNPARAM=BNPARAM, BPPARAM=BPPARAM)
 
     if (length(batches)==1L) {
@@ -300,11 +295,9 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
     }
  
     # Storing information about the orthogonalization process.
-    if (length(pre.existing)) {
-        orth.stats <- DataFrame(vectors=I(as(pre.existing, "List")))
-        if (compute.variances) {
-            orth.stats$lost.var <- 1 - orth.out$var
-        }
+    if (needs.reorth) {
+        orth.stats <- DataFrame(vectors=I(as(orth.out$vectors, "List")))
+        orth.stats$lost.var <- 1 - orth.out$var
         metadata(output)$orthogonalize <- orth.stats
     }
 
@@ -395,7 +388,7 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
 #' @importFrom methods as
 #' @importFrom utils head
 .fast_mnn <- function(batches, k=20, restrict=NULL, ndist=3, auto.order=FALSE, 
-    compute.variances=TRUE, min.batch.skip=0, BNPARAM=KmknnParam(), BPPARAM=SerialParam()) 
+    min.batch.skip=0, BNPARAM=KmknnParam(), BPPARAM=SerialParam()) 
 {
     nbatches <- length(batches)
 
@@ -443,20 +436,16 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
         if (do.correct) {
             # Remove variation along the batch vector, which responds to 'restrict'.
             # Also recording the lost variation if desired, which does not respond to 'restrict'.
-            if (compute.variances) {
-                ref.var.before <- .compute_reference_var(refdata, mnn.store)
-                cur.var.before <- .compute_solo_var(curdata)
-            }
+            ref.var.before <- .compute_reference_var(refdata, mnn.store)
+            cur.var.before <- .compute_solo_var(curdata)
 
             refdata <- .center_along_batch_vector(refdata, overall.batch, restrict=.get_reference_restrict(mnn.store))
             curdata <- .center_along_batch_vector(curdata, overall.batch, restrict=.get_current_restrict(mnn.store))
 
-            if (compute.variances) {
-                ref.var.after <- .compute_reference_var(refdata, mnn.store)
-                cur.var.after <- .compute_solo_var(curdata)
-                var.kept[mdx,.get_reference_indices(mnn.store)] <- ref.var.after/ref.var.before
-                var.kept[mdx,.get_current_index(mnn.store)] <- cur.var.after/cur.var.before
-            }
+            ref.var.after <- .compute_reference_var(refdata, mnn.store)
+            cur.var.after <- .compute_solo_var(curdata)
+            var.kept[mdx,.get_reference_indices(mnn.store)] <- ref.var.after/ref.var.before
+            var.kept[mdx,.get_current_index(mnn.store)] <- cur.var.after/cur.var.before
 
             # Recompute correction vectors and apply them to all cells (hence, no restriction).
             re.ave.out <- .average_correction(refdata, mnn.sets$first, curdata, mnn.sets$second)
@@ -464,12 +453,10 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
                 BNPARAM=BNPARAM, BPPARAM=BPPARAM)
 
             # Applying the same orthogonalization to the remaining batches. 
-            reorth.out <- .orthogonalize_remainders(mnn.store, overall.batch, compute.variances=compute.variances)
+            reorth.out <- .orthogonalize_remainders(mnn.store, overall.batch) 
 
             mnn.store <- reorth.out$store
-            if (compute.variances) {
-                var.kept[mdx,] <- var.kept[mdx,] * reorth.out$var
-            }
+            var.kept[mdx,] <- var.kept[mdx,] * reorth.out$var
         }
 
         batch.vec[[mdx]] <- overall.batch
@@ -493,18 +480,16 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
     
     # Formatting the output.
     output <- DataFrame(corrected=I(refdata), batch=batch.names$ids)
-    mdf <- DataFrame(pairs=I(as(mnn.pairings, "List")), batch.vector=I(as(batch.vec, "List")))
+    mdf <- DataFrame(pairs=I(as(mnn.pairings, "List")), 
+         batch.vector=I(as(batch.vec, "List")),
+         batch.size=batch.size,
+         skipped=skipped
+    )
     m.out <- list(merge.order=batch.names$labels[merge.order])
 
-    if (!is.na(min.batch.skip)) {
-        mdf$batch.size <- batch.size
-        mdf$skipped <- skipped
-    }
-    if (compute.variances) {
-        lost.var <- 1 - var.kept
-        mdf$lost.var <- lost.var
-        m.out$lost.var <- 1 - apply(var.kept, 2, prod)
-    }
+    lost.var <- 1 - var.kept
+    mdf$lost.var <- lost.var
+    m.out$lost.var <- 1 - apply(var.kept, 2, prod)
 
     m.out$merge.info <- mdf
     metadata(output) <- m.out
@@ -584,7 +569,7 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
 
 #' @importFrom methods is
 #' @importClassesFrom S4Vectors DataFrame
-.orthogonalize_inputs <- function(batches, restrict, compute.variances=TRUE) {
+.orthogonalize_inputs <- function(batches, restrict) { 
     # Pulling out information from DataFrames.
     orth <- vector("list", length(batches))
     for (i in seq_along(batches)) {
@@ -613,11 +598,9 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
             olddata <- curdata
             curdata <- .center_along_batch_vector(curdata, orth[[j]], restrict=currestrict)
 
-            if (compute.variances) {
-                old.var <- .compute_solo_var(olddata) 
-                new.var <- .compute_solo_var(curdata) 
-                more.var.kept[j,i] <- new.var/old.var
-            }
+            old.var <- .compute_solo_var(olddata) 
+            new.var <- .compute_solo_var(curdata) 
+            more.var.kept[j,i] <- new.var/old.var
         }
 
         batches[[i]] <- curdata
@@ -626,7 +609,7 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
     list(batches=batches, vectors=orth, var=more.var.kept) 
 }
 
-.orthogonalize_remainders <- function(store, batch.vec, compute.variances=TRUE)
+.orthogonalize_remainders <- function(store, batch.vec) 
 # Ensures that 'batch' is orthogonal to every 'vectors'.
 {
     all.batches <- .get_batches(store)
@@ -639,11 +622,9 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
         curdata <- .center_along_batch_vector(curdata, batch.vec, restrict=all.restrict[[i]])
         store <- .update_batch(store, i, curdata)
 
-        if (compute.variances) {
-            old.var <- .compute_solo_var(olddata) 
-            new.var <- .compute_solo_var(curdata) 
-            var.kept[i] <- new.var/old.var
-        }
+        old.var <- .compute_solo_var(olddata) 
+        new.var <- .compute_solo_var(curdata) 
+        var.kept[i] <- new.var/old.var
     }
 
     list(store=store, var=var.kept)
