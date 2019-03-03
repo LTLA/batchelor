@@ -125,6 +125,14 @@ setMethod(".advance", "MNN_supplied_order", function(x, k, BNPARAM, BPPARAM) {
     x
 })
 
+setMethod(".update_batch", "MNN_supplied_order", function(x, i, batch) {
+    old <- .get_batches(x)[[i]]
+    stopifnot(identical(dim(old), dim(batch)))
+    stopifnot(identical(dimnames(old), dimnames(batch)))
+    x@batches[[i]] <- batch
+    x
+})
+
 #############################################
 # This class is designed to hold information across iterations of MNN correction
 # for an automatically specified merge order across batches. 
@@ -211,8 +219,14 @@ MNN_auto_order <- function(batches, restrict=NULL) {
     processed <- .get_reference_indices(x)
 
     for (other in seq_along(restricted.batches)[-processed]) {
-        W21 <- queryKNN(BNINDEX=precomputed[[other]], query=refdata, k=k, BPPARAM=BPPARAM, get.distance=FALSE)
-        W12 <- queryKNN(BNINDEX=precomp.ref, query=restricted.batches[[other]], k=k, BPPARAM=BPPARAM, get.distance=FALSE)
+        curdata <- restricted.batches[[other]]
+        precomp.cur <- precomputed[[other]]
+        if (is.null(precomp.cur)) { # possibly due to .update_batch().
+            precomp.cur <- buildIndex(curdata, BNPARAM=BNPARAM)
+        }
+
+        W21 <- queryKNN(BNINDEX=precomp.cur, query=refdata, k=k, BPPARAM=BPPARAM, get.distance=FALSE)
+        W12 <- queryKNN(BNINDEX=precomp.ref, query=curdata, k=k, BPPARAM=BPPARAM, get.distance=FALSE)
         out <- .Call(cxx_find_mutual_nns, W21$index, W12$index)
         names(out) <- c("first", "second")
         
@@ -241,6 +255,22 @@ setMethod(".advance", "MNN_auto_order", function(x, k, BNPARAM, BPPARAM) {
     } else {
         .extend_auto_order(x, k, BNPARAM, BPPARAM)
     }
+})
+
+setMethod(".update_batch", "MNN_auto_order", function(x, i, batch) {
+    old <- .get_batches(x)[[i]]
+    stopifnot(identical(dim(old), dim(batch)))
+    stopifnot(identical(dimnames(old), dimnames(batch)))
+    x@batches[[i]] <- batch
+
+    cur.res <- .get_restrict(x)[[i]]
+    if (!is.null(cur.res)) {
+        batch <- batch[cur.res,,drop=FALSE]
+    }
+    x@restricted.batches[[i]] <- batch
+    x@precomputed[[i]] <- NULL
+
+    x
 })
 
 #############################################

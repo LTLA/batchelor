@@ -12,3 +12,5 @@ setGeneric("batchCorrect", function(..., batch=NULL, restrict=NULL, subset.row=N
 #' @importFrom BiocNeighbors queryKNN buildIndex KmknnParam
 #' @importFrom BiocParallel SerialParam
 setGeneric(".advance", function(x, k, BNPARAM=KmknnParam(), BPPARAM=SerialParam()) standardGeneric(".advance"))
+
+setGeneric(".update_batch", function(x, i, batch) standardGeneric(".update_batch"))

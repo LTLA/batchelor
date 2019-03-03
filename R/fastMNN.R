@@ -370,7 +370,8 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
 #' @importFrom methods as
 #' @importFrom utils head
 .fast_mnn <- function(batches, k=20, restrict=NULL, ndist=3, auto.order=FALSE, 
-    compute.variances=TRUE, min.batch.skip=0, BNPARAM=KmknnParam(), BPPARAM=SerialParam()) 
+    compute.variances=TRUE, min.batch.skip=0, previous.orth=list(),
+    BNPARAM=KmknnParam(), BPPARAM=SerialParam()) 
 {
     nbatches <- length(batches)
 
@@ -399,23 +400,6 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
         refdata <- .get_reference(mnn.store)
         curdata <- .get_current(mnn.store)
 
-        # Reorthogonalizing.    
-        for (prev in seq_len(mdx-1L)) {
-            if (skipped[prev]) {
-                next
-            }
-            olddata <- curdata
-            curdata <- .center_along_batch_vector(curdata, batch.vec[[prev]], 
-                previous=head(batch.vec, prev-1L),
-                restrict=.get_current_restrict(mnn.store))
-
-            if (compute.variances) {
-                old.var <- .compute_solo_var(olddata) 
-                new.var <- .compute_solo_var(curdata) 
-                var.kept[prev,.get_current_index(mnn.store)] <- new.var/old.var
-            }
-        }
-
         # Estimate the overall batch vector (implicitly 'restrict'd by definition of MNNs).
         mnn.sets <- .get_mnn_result(mnn.store) 
         ave.out <- .average_correction(refdata, mnn.sets$first, curdata, mnn.sets$second)
@@ -441,11 +425,9 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
             }
 
             refdata <- .center_along_batch_vector(refdata, overall.batch, 
-                previous=head(batch.vec, mdx-1L),
-                restrict=.get_reference_restrict(mnn.store))
+                previous=previous.orth, restrict=.get_reference_restrict(mnn.store))
             curdata <- .center_along_batch_vector(curdata, overall.batch, 
-                previous=head(batch.vec, mdx-1L),
-                restrict=.get_current_restrict(mnn.store))
+                previous=previous.orth, restrict=.get_current_restrict(mnn.store))
 
             if (compute.variances) {
                 ref.var.after <- .compute_reference_var(refdata, mnn.store)
@@ -456,7 +438,19 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
 
             # Recompute correction vectors and apply them to all cells (hence, no restriction).
             re.ave.out <- .average_correction(refdata, mnn.sets$first, curdata, mnn.sets$second)
-            curdata <- .tricube_weighted_correction(curdata, re.ave.out$averaged, re.ave.out$second, k=k, ndist=ndist, BNPARAM=BNPARAM, BPPARAM=BPPARAM)
+            curdata <- .tricube_weighted_correction(curdata, re.ave.out$averaged, re.ave.out$second, k=k, ndist=ndist, 
+                BNPARAM=BNPARAM, BPPARAM=BPPARAM)
+
+            # Orthogonalizing the remainders.
+            reorth.out <- .orthogonalize_remainders(mnn.store, overall.batch, 
+                previous=previous.orth, compute.variances=compute.variances)
+
+            mnn.store <- reorth.out$store
+            if (compute.variances) {
+                var.kept[mdx,] <- var.kept[mdx,] * reorth.out$var
+            }
+
+            previous.orth <- append(previous.orth, list(overall.batch))
         }
 
         batch.vec[[mdx]] <- overall.batch
@@ -565,6 +559,39 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
     closest <- queryKNN(query=curdata, X=cur.uniq, k=safe.k, BNPARAM=BNPARAM, BPPARAM=BPPARAM)
     weighted.correction <- .compute_tricube_average(correction, closest$index, closest$distance, ndist=ndist)
     curdata + weighted.correction
+}
+
+############################################
+# Reorthogonalization-related functions.
+
+#' @importFrom methods is
+#' @importClassesFrom S4Vectors DataFrame
+.checkIfDataFrame <- function(batches) {
+    any(vapply(batches, is, class2="DataFrame", FUN.VALUE=TRUE))
+}
+
+#' @importFrom utils head
+.orthogonalize_remainders <- function(store, batch.vec, previous=list(), compute.variances=TRUE)
+# Ensures that 'batch' is orthogonal to every 'vectors'.
+{
+    all.batches <- .get_batches(store)
+    all.restrict <- .get_restrict(store)
+    leftovers <- setdiff(seq_along(all.batches), c(.get_reference_indices(store), .get_current_index(store)))
+    var.kept <- rep(1, length(all.batches))
+
+    for (i in leftovers) {
+        olddata <- curdata <- all.batches[[i]]
+        curdata <- .center_along_batch_vector(curdata, batch.vec, previous=previous, restrict=all.restrict[[i]])
+        store <- .update_batch(store, i, curdata)
+
+        if (compute.variances) {
+            old.var <- .compute_solo_var(olddata) 
+            new.var <- .compute_solo_var(curdata) 
+            var.kept[i] <- new.var/old.var
+        }
+    }
+
+    list(store=store, var=var.kept)
 }
 
 ############################################
