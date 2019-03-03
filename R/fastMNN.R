@@ -269,9 +269,8 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
 
         orth.out <- .orthogonalize_inputs(batches, restrict, compute.variances=compute.variances)
         batches <- orth.out$batches
+        pre.existing <- orth.out$vectors
         originals <- batches # to get correct column names later.
-
-        pre.existing <- unlist(orth.out$vectors, recursive=FALSE)
 
     } else {
         checkBatchConsistency(batches, cells.in.columns=!pc.input)
@@ -280,7 +279,7 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
 
     common.args <-list(k=k, cos.norm=cos.norm, ndist=ndist, d=d, subset.row=subset.row, 
         correct.all=correct.all, auto.order=auto.order, pc.input=pc.input, 
-        compute.variances=compute.variances, min.batch.skip=min.batch.skip, previous=pre.existing,
+        compute.variances=compute.variances, min.batch.skip=min.batch.skip, 
         BSPARAM=BSPARAM, BNPARAM=BNPARAM, BPPARAM=BPPARAM)
 
     if (length(batches)==1L) {
@@ -396,8 +395,7 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
 #' @importFrom methods as
 #' @importFrom utils head
 .fast_mnn <- function(batches, k=20, restrict=NULL, ndist=3, auto.order=FALSE, 
-    compute.variances=TRUE, min.batch.skip=0, previous.orth=list(),
-    BNPARAM=KmknnParam(), BPPARAM=SerialParam()) 
+    compute.variances=TRUE, min.batch.skip=0, BNPARAM=KmknnParam(), BPPARAM=SerialParam()) 
 {
     nbatches <- length(batches)
 
@@ -450,10 +448,8 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
                 cur.var.before <- .compute_solo_var(curdata)
             }
 
-            refdata <- .center_along_batch_vector(refdata, overall.batch, 
-                previous=previous.orth, restrict=.get_reference_restrict(mnn.store))
-            curdata <- .center_along_batch_vector(curdata, overall.batch, 
-                previous=previous.orth, restrict=.get_current_restrict(mnn.store))
+            refdata <- .center_along_batch_vector(refdata, overall.batch, restrict=.get_reference_restrict(mnn.store))
+            curdata <- .center_along_batch_vector(curdata, overall.batch, restrict=.get_current_restrict(mnn.store))
 
             if (compute.variances) {
                 ref.var.after <- .compute_reference_var(refdata, mnn.store)
@@ -467,16 +463,13 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
             curdata <- .tricube_weighted_correction(curdata, re.ave.out$averaged, re.ave.out$second, k=k, ndist=ndist, 
                 BNPARAM=BNPARAM, BPPARAM=BPPARAM)
 
-            # Orthogonalizing the remainders.
-            reorth.out <- .orthogonalize_remainders(mnn.store, overall.batch, 
-                previous=previous.orth, compute.variances=compute.variances)
+            # Applying the same orthogonalization to the remaining batches. 
+            reorth.out <- .orthogonalize_remainders(mnn.store, overall.batch, compute.variances=compute.variances)
 
             mnn.store <- reorth.out$store
             if (compute.variances) {
                 var.kept[mdx,] <- var.kept[mdx,] * reorth.out$var
             }
-
-            previous.orth <- append(previous.orth, list(overall.batch))
         }
 
         batch.vec[[mdx]] <- overall.batch
@@ -551,17 +544,10 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
     }
 }
 
-.center_along_batch_vector <- function(mat, batch.vec, previous=list(), restrict=NULL) 
+.center_along_batch_vector <- function(mat, batch.vec, restrict=NULL) 
 # Projecting along the batch vector, and shifting all cells to the center _within_ each batch.
 # This removes any variation along the overall batch vector within each matrix.
 {
-    for (i in seq_along(previous)) {
-        # Orthogonalizing with respect to previous batch vectors,
-        # to avoid 'double removal' of those components.
-        cur.prev <- previous[[i]]
-        batch.vec <- batch.vec - cur.prev * as.numeric(batch.vec %*% cur.prev) / sum(cur.prev^2)
-    }
-
     batch.vec <- batch.vec/sqrt(sum(batch.vec^2))
     batch.loc <- as.vector(mat %*% batch.vec)
 
@@ -614,32 +600,23 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
     checkBatchConsistency(batches, cells.in.columns=FALSE)
     restrict <- checkRestrictions(batches, restrict, cells.in.columns=FALSE)
 
-    # Orthogonalizing each batch with respect to the other input's batch vectors.
-    more.var.kept <- matrix(1, sum(lengths(orth)), length(batches))
+    # Orthogonalizing each batch with respect to all of the input batch vectors.
+    # This includes its own (effectively repeated orthogonalization) to ensure
+    # that all batches have been projected and centred in the same way.
+    orth <- unlist(orth, recursive=FALSE)
+    more.var.kept <- matrix(1, length(orth), length(batches))
     for (i in seq_along(batches)) {
         curdata <- batches[[i]]
         currestrict <- restrict[[i]]
-        counter <- 1L
-        past <- orth[[i]]
 
         for (j in seq_along(orth)) {
-            cur.orth <- orth[[j]]
-            if (i==j) {
-                counter <- counter + length(cur.orth)
-                next
-            }
+            olddata <- curdata
+            curdata <- .center_along_batch_vector(curdata, orth[[j]], restrict=currestrict)
 
-            for (curbatch in cur.orth) {
-                olddata <- curdata
-                curdata <- .center_along_batch_vector(curdata, curbatch, previous=past, restrict=currestrict)
-                past <- append(past, list(curbatch))
-
-                if (compute.variances) {
-                    old.var <- .compute_solo_var(olddata) 
-                    new.var <- .compute_solo_var(curdata) 
-                    more.var.kept[counter,i] <- new.var/old.var
-                    counter <- counter + 1L
-                }
+            if (compute.variances) {
+                old.var <- .compute_solo_var(olddata) 
+                new.var <- .compute_solo_var(curdata) 
+                more.var.kept[j,i] <- new.var/old.var
             }
         }
 
@@ -649,7 +626,7 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
     list(batches=batches, vectors=orth, var=more.var.kept) 
 }
 
-.orthogonalize_remainders <- function(store, batch.vec, previous=list(), compute.variances=TRUE)
+.orthogonalize_remainders <- function(store, batch.vec, compute.variances=TRUE)
 # Ensures that 'batch' is orthogonal to every 'vectors'.
 {
     all.batches <- .get_batches(store)
@@ -659,7 +636,7 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
 
     for (i in leftovers) {
         olddata <- curdata <- all.batches[[i]]
-        curdata <- .center_along_batch_vector(curdata, batch.vec, previous=previous, restrict=all.restrict[[i]])
+        curdata <- .center_along_batch_vector(curdata, batch.vec, restrict=all.restrict[[i]])
         store <- .update_batch(store, i, curdata)
 
         if (compute.variances) {
