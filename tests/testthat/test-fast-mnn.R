@@ -416,6 +416,44 @@ test_that("Orthogonalization is performed correctly across objects", {
     expect_identical(nrow(metadata(outBs)$orthogonalize), 1L)
 })
 
+set.seed(120000503)
+test_that("orthogonalization is done correctly in exact toy examples", {
+    core <- cbind(rep(1:10, each=10), rep(1:10, 10))
+    b1 <- b2 <- core
+    b1[,1] <- b1[,1] + 20
+    b2[,2] <- b2[,2] + 20
+
+    # Orthogonalized on x-axis.
+    out1 <- fastMNN(core, b1, k=1, pc.input=TRUE)
+    expect_equal(out1$corrected[,1], rep(5.5, nrow(out1)))
+    expect_equal(out1$corrected[,2], c(core[,2], b1[,2]))
+
+    # Orthogonalized on y-axis.
+    out2 <- fastMNN(core, b1, b2, k=1, pc.input=TRUE)
+    expect_equal(out2$corrected[,1], rep(5.5, nrow(out2)))
+    expect_equal(out2$corrected[,2], rep(5.5, nrow(out2)))
+
+    # Orthogonalized step by step.
+    out3 <- fastMNN(out1, b2, k=1)
+    expect_equal(out3$corrected[,1], rep(5.5, nrow(out3)))
+    expect_equal(out3$corrected[,2], rep(5.5, nrow(out3)))
+
+    # Uses the information in 'orthogonalize'.
+    out4 <- fastMNN(out3, core + 10, k=1)
+    expect_equal(out4$corrected[,1], rep(5.5, nrow(out4)))
+    expect_equal(out4$corrected[,2], rep(5.5, nrow(out4)))
+
+    # Hierarchical orthogonalization works.
+    outX <- fastMNN(core, b1, pc.input=TRUE, k=1)
+    outY <- fastMNN(core+10, b2+10, pc.input=TRUE, k=1)
+    expect_equal(outY$corrected[,1], c(core[,1], b2[,1])+10)
+    expect_equal(outY$corrected[,2], rep(15.5, nrow(outY)))
+
+    outZ <- fastMNN(outX, outY, k=1)
+    expect_equal(outZ$corrected[,1], rep(5.5, nrow(out4)))
+    expect_equal(outZ$corrected[,2], rep(5.5, nrow(out4)))
+})
+
 set.seed(12000051)
 test_that("fastMNN works on SingleCellExperiment inputs", {
     B1 <- matrix(rnorm(10000, 0), nrow=100) # Batch 1 
