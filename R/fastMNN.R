@@ -237,15 +237,19 @@
 #' @importFrom SummarizedExperiment assay
 #' @importFrom BiocNeighbors KmknnParam
 #' @importFrom BiocSingular ExactParam
+#' @importClassesFrom S4Vectors List
+#' @importFrom S4Vectors DataFrame metadata<-
+#' @importFrom methods as
 fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3, d=50, 
         auto.order=FALSE, compute.variances=TRUE, min.batch.skip=0,
         subset.row=NULL, correct.all=FALSE, pc.input=FALSE, assay.type="logcounts", get.spikes=FALSE, use.dimred=NULL, 
         BSPARAM=ExactParam(), BNPARAM=KmknnParam(), BPPARAM=SerialParam()) 
 {
     originals <- batches <- list(...)
+    pre.existing <- list()
     
-    # Pulling out information from the SCE objects.        
     if (checkIfSCE(batches)) {
+        # Pulling out information from the SCE objects
         checkBatchConsistency(batches)
         checkSpikeConsistency(batches)
         restrict <- checkRestrictions(batches, restrict)
@@ -258,6 +262,17 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
             subset.row <- .SCE_subset_genes(subset.row, batches[[1]], get.spikes)
             batches <- lapply(batches, assay, i=assay.type, withDimnames=FALSE)
         }
+
+    } else if (.checkIfDataFrame(batches)) {
+        # Reorthogonalizing across outputs from previous fastMNN results.
+        pc.input <- TRUE
+
+        orth.out <- .orthogonalize_inputs(batches, restrict, compute.variances=compute.variances)
+        batches <- orth.out$batches
+        originals <- batches # to get correct column names later.
+
+        pre.existing <- unlist(orth.out$vectors, recursive=FALSE)
+
     } else {
         checkBatchConsistency(batches, cells.in.columns=!pc.input)
         restrict <- checkRestrictions(batches, restrict, cells.in.columns=!pc.input)
@@ -265,7 +280,7 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
 
     common.args <-list(k=k, cos.norm=cos.norm, ndist=ndist, d=d, subset.row=subset.row, 
         correct.all=correct.all, auto.order=auto.order, pc.input=pc.input, 
-        compute.variances=compute.variances, min.batch.skip=min.batch.skip,
+        compute.variances=compute.variances, min.batch.skip=min.batch.skip, previous=pre.existing,
         BSPARAM=BSPARAM, BNPARAM=BNPARAM, BPPARAM=BPPARAM)
 
     if (length(batches)==1L) {
@@ -277,12 +292,23 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
         output <- do.call(.fast_mnn_list, c(list(batch.list=batches, restrict=restrict), common.args))
     }
 
+    # Adding names.
     if (pc.input) {
         output$corrected <- .rename_output(output$corrected, originals, cells.in.columns=FALSE)
         rownames(output) <- rownames(output$corrected)
     } else {
         output <- .rename_output(output, originals, subset.row=subset.row)
     }
+ 
+    # Storing information about the orthogonalization process.
+    if (length(pre.existing)) {
+        orth.stats <- DataFrame(vectors=I(as(pre.existing, "List")))
+        if (compute.variances) {
+            orth.stats$lost.var <- 1 - orth.out$var
+        }
+        metadata(output)$orthogonalize <- orth.stats
+    }
+
     output
 }
 
@@ -570,7 +596,59 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
     any(vapply(batches, is, class2="DataFrame", FUN.VALUE=TRUE))
 }
 
-#' @importFrom utils head
+#' @importFrom methods is
+#' @importClassesFrom S4Vectors DataFrame
+.orthogonalize_inputs <- function(batches, restrict, compute.variances=TRUE) {
+    # Pulling out information from DataFrames.
+    orth <- vector("list", length(batches))
+    for (i in seq_along(batches)) {
+        current <- batches[[i]]
+        if (is(current, "DataFrame")) {
+            curmeta <- metadata(current) 
+            curmerge <- curmeta$merge.info
+            orth[[i]] <- c(as.list(curmeta$orthogonalize$vectors), as.list(curmerge$batch.vector[!curmerge$skipped]))
+            batches[[i]] <- current$corrected
+        }
+    }
+
+    checkBatchConsistency(batches, cells.in.columns=FALSE)
+    restrict <- checkRestrictions(batches, restrict, cells.in.columns=FALSE)
+
+    # Orthogonalizing each batch with respect to the other input's batch vectors.
+    more.var.kept <- matrix(1, sum(lengths(orth)), length(batches))
+    for (i in seq_along(batches)) {
+        curdata <- batches[[i]]
+        currestrict <- restrict[[i]]
+        counter <- 1L
+        past <- orth[[i]]
+
+        for (j in seq_along(orth)) {
+            cur.orth <- orth[[j]]
+            if (i==j) {
+                counter <- counter + length(cur.orth)
+                next
+            }
+
+            for (curbatch in cur.orth) {
+                olddata <- curdata
+                curdata <- .center_along_batch_vector(curdata, curbatch, previous=past, restrict=currestrict)
+                past <- append(past, list(curbatch))
+
+                if (compute.variances) {
+                    old.var <- .compute_solo_var(olddata) 
+                    new.var <- .compute_solo_var(curdata) 
+                    more.var.kept[counter,i] <- new.var/old.var
+                    counter <- counter + 1L
+                }
+            }
+        }
+
+        batches[[i]] <- curdata
+    }
+
+    list(batches=batches, vectors=orth, var=more.var.kept) 
+}
+
 .orthogonalize_remainders <- function(store, batch.vec, previous=list(), compute.variances=TRUE)
 # Ensures that 'batch' is orthogonal to every 'vectors'.
 {
