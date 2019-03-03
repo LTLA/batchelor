@@ -46,13 +46,6 @@ test_that("centering along a batch vector works correctly", {
     keep <- seq_len(nrow(test))
     current <- batchelor:::.center_along_batch_vector(test2, batch, restrict=keep)
     expect_identical(original, current[keep,])
-
-    # Correctly handle previous batches.
-    batch2 <- rnorm(10) 
-    first <- batchelor:::.center_along_batch_vector(test, batch2)
-    second <- batchelor:::.center_along_batch_vector(first, batch, previous=list(batch2))
-    expect_true(sd(second %*% batch) < 1e-8)
-    expect_true(sd(second %*% batch2) < 1e-8)
 })
 
 set.seed(1200003)
@@ -416,7 +409,7 @@ test_that("Orthogonalization is performed correctly across objects", {
     # Handles skipping correctly.
     outAs <- fastMNN(B1, B1, pc.input=TRUE, min.batch.skip=0.1)
     outBs <- fastMNN(outAs, B2)
-    expect_identical(NULL, metadata(outBs)$orthogonalize)
+    expect_identical(nrow(metadata(outBs)$orthogonalize), 0L)
 
     outAs <- fastMNN(B1, B1, pc.input=TRUE, min.batch.skip=0)
     outBs <- fastMNN(outAs, B2)
