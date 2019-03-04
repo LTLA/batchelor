@@ -164,10 +164,12 @@ mnnCorrect <- function(..., batch=NULL, restrict=NULL, k=20, sigma=0.1, cos.norm
     restrict <- checkRestrictions(batches, restrict)
     
     # Pulling out information from the SCE objects.        
-    if (checkIfSCE(batches)) {
-        checkSpikeConsistency(batches)
-        subset.row <- .SCE_subset_genes(subset.row, batches[[1]], get.spikes)
-        batches <- lapply(batches, assay, i=assay.type, withDimnames=FALSE)
+    is.sce <- checkIfSCE(batches)
+    if (any(is.sce)) {
+        sce.batches <- batches[is.sce]
+        checkSpikeConsistency(sce.batches)
+        subset.row <- .SCE_subset_genes(subset.row, sce.batches[[1]], get.spikes)
+        batches[is.sce] <- lapply(sce.batches, assay, i=assay.type, withDimnames=FALSE)
     }
 
     # Subsetting by 'batch'.

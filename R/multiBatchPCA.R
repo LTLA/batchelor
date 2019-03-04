@@ -95,10 +95,12 @@ multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, rotate.all=FAL
     }
     checkBatchConsistency(mat.list)
 
-    if (checkIfSCE(mat.list)) {
-        checkSpikeConsistency(mat.list)
-        subset.row <- .SCE_subset_genes(subset.row, mat.list[[1]], get.spikes)
-        mat.list <- lapply(mat.list, assay, i=assay.type, withDimnames=FALSE)
+    is.sce <- checkIfSCE(mat.list)
+    if (any(is.sce)) {
+        sce.in <- mat.list[is.sce]
+        checkSpikeConsistency(sce.in)
+        subset.row <- .SCE_subset_genes(subset.row, sce.in[[1]], get.spikes)
+        mat.list[is.sce] <- lapply(sce.in, assay, i=assay.type, withDimnames=FALSE)
     }
 
     # Different function calls for different input modes.

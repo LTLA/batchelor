@@ -2,7 +2,7 @@
 #'
 #' Perform scaling normalization within each batch to provide comparable results to the lowest-coverage batch.
 #' 
-#' @param ... Two or more SingleCellExperiment objects containing counts and size factors.
+#' @param ... Two or more \linkS4class{SingleCellExperiment} objects containing counts and size factors.
 #' Each object is assumed to represent one batch.
 #' @param assay.type A string specifying which assay values contains the counts.
 #' @param norm.args A named list of further arguments to pass to \code{\link[scater]{normalize}}.
@@ -84,8 +84,8 @@ multiBatchNorm <- function(..., assay.type="counts", norm.args=list(), min.mean=
 {
     batches <- list(...)
     checkBatchConsistency(batches)
-    if (!checkIfSCE(batches) || length(batches)==0L) {
-        stop("at least one SingleCellExperiment object must be supplied")
+    if (length(batches)==0L) { 
+        stop("at least one SingleCellExperiment must be supplied") 
     }
     checkSpikeConsistency(batches)
 

@@ -22,9 +22,7 @@
 #' @return
 #' \code{checkBatchConsistency} and \code{checkSpikeConsistency} will return an invisible \code{NULL} if there are no errors.
 #'
-#' \code{checkIfSCE} will return \code{TRUE} if all entries of \code{batches} are SingleCellExperiment objects.
-#' If none of them are, it will return \code{FALSE}.
-#' Otherwise it will raise an error.
+#' \code{checkIfSCE} will return a logical vector specifying whether each element of \code{batches} is a SingleCellExperiment objects.
 #'
 #' \code{checkRestrictions} will return \code{NULL} if \code{restrictions=NULL}.
 #' Otherwise, it will return a list by taking \code{restrictions} and converting each non-\code{NULL} element into an integer subsetting vector.
@@ -107,15 +105,8 @@ checkSpikeConsistency <- function(batches)
 #' @export
 #' @importFrom methods is
 #' @importClassesFrom SingleCellExperiment SingleCellExperiment
-checkIfSCE <- function(batches) 
-# Checks that everyone is either an SCE or is not.
-# Returns FALSE if 'batches' is empty.
-{
-    all.sce <- vapply(batches, is, class2="SingleCellExperiment", FUN.VALUE=TRUE)
-    if (length(unique(all.sce)) > 1L) {
-        stop("cannot mix SingleCellExperiments and other objects")
-    }
-    any(all.sce) # don't do all.sce[1], avoid errors when length(batches)==0L.
+checkIfSCE <- function(batches) {
+    vapply(batches, is, class2="SingleCellExperiment", FUN.VALUE=TRUE)
 }
 
 #' @rdname checkInputs
