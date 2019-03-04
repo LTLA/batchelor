@@ -17,10 +17,9 @@
 #' Alternatively, one or more \linkS4class{DataFrame} objects produced by previous calls to \code{fastMNN}.
 #' This should contain a \code{corrected} field of low-dimensional corrected coordinates,
 #' along with information required for orthogonalization in the metadata.
-#' These can be mixed with matrices containing low-dimensional inputs.
 #' 
 #' In all cases, each object contains cells from a single batch; multiple objects represent separate batches of cells.
-#' SingleCellExperiments cannot be mixed with matrix inputs.
+#' Objects of different types can be mixed together if all or none are low-dimensional.
 #' @param batch A factor specifying the batch of origin for all cells when only a single object is supplied in \code{...}.
 #' This is ignored if multiple objects are present.
 #' @param restrict A list of length equal to the number of objects in \code{...}.
@@ -167,6 +166,7 @@
 #' 
 #' If \code{...} contains any DataFrame objects, these are assumed to be the output of a previous \code{fastMNN} call.
 #' All inputs are subsequently treated as low-dimensional inputs and any other setting of \code{pc.input} is ignored.
+#' If any SingleCellExperiment objects are also present in \code{...}, \code{use.dimred} must be specified.
 #' 
 #' Note that \code{\link{multiBatchPCA}} will not perform cosine-normalization, 
 #' so it is the responsibility of the user to cosine-normalize each batch beforehand with \code{\link{cosineNorm}} to recapitulate results with \code{cos.norm=TRUE}.
@@ -260,31 +260,42 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
     BSPARAM=ExactParam(), BNPARAM=KmknnParam(), BPPARAM=SerialParam()) 
 {
     originals <- batches <- list(...)
-    needs.reorth <- FALSE 
 
-    if (checkIfSCE(batches)) {
-        # Pulling out information from the SCE objects
-        checkBatchConsistency(batches)
-        checkSpikeConsistency(batches)
-        restrict <- checkRestrictions(batches, restrict)
-
-        pc.input <- !is.null(use.dimred)
-        if (pc.input) {
-            batches <- lapply(batches, reducedDim, type=use.dimred, withDimnames=FALSE)
-            checkBatchConsistency(batches, cells.in.columns=FALSE) # re-checking dimensions of reddim matrices.
-        } else {
-            subset.row <- .SCE_subset_genes(subset.row, batches[[1]], get.spikes)
-            batches <- lapply(batches, assay, i=assay.type, withDimnames=FALSE)
-        }
-
-    } else if (.checkIfDataFrame(batches)) {
-        # Reorthogonalizing across outputs from previous fastMNN results.
+    is.sce <- vapply(batches, is, class2="SingleCellExperiment", FUN.VALUE=TRUE)
+    is.df <- vapply(batches, is, class2="DataFrame", FUN.VALUE=TRUE)
+    if (any(is.df)) {
         pc.input <- TRUE
-        needs.reorth <- TRUE
+        if (any(is.sce) && is.null(use.dimred)) {
+            stop("cannot mix low- and high-dimensional inputs")
+        }
+    } else if (any(is.sce) && !all(is.sce)) {
+        sce.pcs <- !is.null(use.dimred)
+        if (sce.pcs != pc.input) {
+            stop("cannot mix low- and high-dimensional inputs")
+        }
+    } else if (all(is.sce)) {
+        pc.input <- !is.null(use.dimred)
+    }
+
+    if (any(is.sce)) {
+        sce.batches <- batches[is.sce]
+        checkBatchConsistency(sce.batches)
+        checkSpikeConsistency(sce.batches)
+
+        if (pc.input) {
+            sce.batches <- lapply(sce.batches, reducedDim, type=use.dimred, withDimnames=FALSE)
+        } else {
+            subset.row <- .SCE_subset_genes(subset.row, sce.batches[[1]], get.spikes)
+            sce.batches <- lapply(sce.batches, assay, i=assay.type, withDimnames=FALSE)
+        }
+        batches[is.sce] <- sce.batches
+    }
+
+    if (needs.reorth <- any(is.df)) {
+        # Reorthogonalizing across outputs from previous fastMNN results.
         orth.out <- .orthogonalize_inputs(batches, restrict) 
         batches <- orth.out$batches
-        originals <- batches # to get correct column names later.
-
+        originals[is.df] <- batches[is.df] # to get correct column names later.
     } else {
         checkBatchConsistency(batches, cells.in.columns=!pc.input)
         restrict <- checkRestrictions(batches, restrict, cells.in.columns=!pc.input)

@@ -638,9 +638,6 @@ test_that("fastMNN fails on silly inputs", {
     expect_error(expect_warning(fastMNN(B1[0,], B2[0,]), "more requested"), "zero")
     expect_error(expect_warning(fastMNN(B1[,0], B2[,0]), "more requested"), "zero")
 
-    # SCE vs matrix errors.    
-    expect_error(fastMNN(SingleCellExperiment(list(logcounts=B1)), B2), "cannot mix")
-
     # Throws errors upon row checks.
     expect_error(fastMNN(B1[1:10,], B2), "number of rows is not the same")
     xB1 <- B1
