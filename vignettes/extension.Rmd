@@ -148,10 +148,12 @@ setMethod("batchCorrect", "NothingParam", function(..., batch = NULL,
     checkBatchConsistency(batches)
 
     # Pulling out information from the SCE objects.        
-    if (checkIfSCE(batches)) {
-        checkSpikeConsistency(batches)
-        subset.row <- batchelor:::.SCE_subset_genes(subset.row, batches[[1]], get.spikes)
-        batches <- lapply(batches, assay, i=assay.type)
+    is.sce <- checkIfSCE(batches)
+    if (any(is.sce)) {
+        sce.batches <- batches[is.sce]
+        checkSpikeConsistency(sce.batches)
+        subset.row <- batchelor:::.SCE_subset_genes(subset.row, sce.batches[[1]], get.spikes)
+        batches[is.sce] <- lapply(sce.batches, assay, i=assay.type)
     }
 
     # Subsetting by 'batch', if only one object is supplied. 
