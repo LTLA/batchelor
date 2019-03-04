@@ -75,15 +75,15 @@ test_that("checkIfSCE works correctly", {
     sce1 <- SingleCellExperiment(list(logcounts=matrix(runif(5000), nrow=10)))
     sce2 <- SingleCellExperiment(list(logcounts=matrix(runif(2000), nrow=10)))
 
-    expect_true(checkIfSCE(list(sce1, sce2)))
-    expect_false(checkIfSCE(list(assay(sce1), assay(sce2))))
+    expect_identical(checkIfSCE(list(sce1, sce2)), !logical(2))
+    expect_identical(checkIfSCE(list(assay(sce1), assay(sce2))), logical(2))
 
-    expect_error(checkIfSCE(list(assay(sce1), sce2)), "cannot mix")
-    expect_error(checkIfSCE(list(sce1, assay(sce2))), "cannot mix")
+    expect_identical(checkIfSCE(list(assay(sce1), sce2)), c(FALSE, TRUE))
+    expect_identical(checkIfSCE(list(sce1, assay(sce2))), c(TRUE, FALSE))
 
     expect_true(checkIfSCE(list(sce1)))
     expect_false(checkIfSCE(list(assay(sce1))))
-    expect_false(checkIfSCE(list()))
+    expect_identical(checkIfSCE(list()), logical(0))
 })
 
 set.seed(10000051)

@@ -225,9 +225,6 @@ test_that("rescaleBatches fails on silly inputs", {
     expect_error(rescaleBatches(), "at least two batches")
     expect_error(rescaleBatches(B1), "'batch' must be specified")
 
-    # SCE vs matrix errors.    
-    expect_error(rescaleBatches(SingleCellExperiment(list(logcounts=B1)), B2), "cannot mix")
- 
     # Throws errors upon row checks.
     expect_error(rescaleBatches(B1[1:10,], B2), "number of rows is not the same")
     xB1 <- B1

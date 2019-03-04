@@ -93,8 +93,7 @@ test_that("multi-sample PCA works with SCEs", {
     out <- multiBatchPCA(sce1[i,], sce2[i,], d=2)
     expect_equal(ref, out)
 
-    # Throws a variety of useful errors.
-    expect_error(multiBatchPCA(sce1, test2), "cannot mix")
+    # Throws a useful error.
     sce1x <- clearSpikes(sce1)
     expect_error(multiBatchPCA(sce1x, sce2), "spike-in sets")
 })
