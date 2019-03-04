@@ -261,8 +261,10 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
 {
     originals <- batches <- list(...)
 
-    is.sce <- vapply(batches, is, class2="SingleCellExperiment", FUN.VALUE=TRUE)
+    is.sce <- checkIfSCE(batches)
     is.df <- vapply(batches, is, class2="DataFrame", FUN.VALUE=TRUE)
+
+    # Checking whether the PC status is consistent.
     if (any(is.df)) {
         pc.input <- TRUE
         if (any(is.sce) && is.null(use.dimred)) {
@@ -277,28 +279,35 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
         pc.input <- !is.null(use.dimred)
     }
 
+    # Extracting information from SCEs.
     if (any(is.sce)) {
         sce.batches <- batches[is.sce]
         checkBatchConsistency(sce.batches)
         checkSpikeConsistency(sce.batches)
+        subset.row <- .SCE_subset_genes(subset.row, sce.batches[[1]], get.spikes)
 
+        # NOTE: do NOT set withDimnames=FALSE, this will break the consistency check.
         if (pc.input) {
-            sce.batches <- lapply(sce.batches, reducedDim, type=use.dimred, withDimnames=FALSE)
+            sce.batches <- lapply(sce.batches, reducedDim, type=use.dimred)
         } else {
-            subset.row <- .SCE_subset_genes(subset.row, sce.batches[[1]], get.spikes)
-            sce.batches <- lapply(sce.batches, assay, i=assay.type, withDimnames=FALSE)
+            sce.batches <- lapply(sce.batches, assay, i=assay.type)
         }
         batches[is.sce] <- sce.batches
     }
 
+    # Batch consistency checks.
+    for.checking <- batches
+    if (any(is.df)) {
+        for.checking[is.df] <- lapply(batches[is.df], FUN=function(x) x$corrected)
+    }
+    checkBatchConsistency(for.checking, cells.in.columns=!pc.input)
+    restrict <- checkRestrictions(for.checking, restrict, cells.in.columns=!pc.input)
+
+    # Reorthogonalizing across outputs from previous fastMNN results.
     if (needs.reorth <- any(is.df)) {
-        # Reorthogonalizing across outputs from previous fastMNN results.
         orth.out <- .orthogonalize_inputs(batches, restrict) 
         batches <- orth.out$batches
         originals[is.df] <- batches[is.df] # to get correct column names later.
-    } else {
-        checkBatchConsistency(batches, cells.in.columns=!pc.input)
-        restrict <- checkRestrictions(batches, restrict, cells.in.columns=!pc.input)
     }
 
     common.args <-list(k=k, cos.norm=cos.norm, ndist=ndist, d=d, subset.row=subset.row, 
@@ -592,12 +601,6 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
 
 #' @importFrom methods is
 #' @importClassesFrom S4Vectors DataFrame
-.checkIfDataFrame <- function(batches) {
-    any(vapply(batches, is, class2="DataFrame", FUN.VALUE=TRUE))
-}
-
-#' @importFrom methods is
-#' @importClassesFrom S4Vectors DataFrame
 .orthogonalize_inputs <- function(batches, restrict) { 
     # Pulling out information from DataFrames.
     orth <- vector("list", length(batches))
@@ -610,9 +613,6 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
             batches[[i]] <- current$corrected
         }
     }
-
-    checkBatchConsistency(batches, cells.in.columns=FALSE)
-    restrict <- checkRestrictions(batches, restrict, cells.in.columns=FALSE)
 
     # Orthogonalizing each batch with respect to all of the input batch vectors.
     # This includes its own (effectively repeated orthogonalization) to ensure
