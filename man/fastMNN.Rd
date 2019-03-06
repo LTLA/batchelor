@@ -264,7 +264,7 @@ Batch effects in single-cell RNA-sequencing data are corrected by matching mutua
 
 Lun ATL (2018).
 Further MNN algorithm development.
-\url{https://github.com/MarioniLab/FurtherMNN2018}
+\url{https://MarioniLab.github.io/FurtherMNN2018/theory/description.html}
 }
 \seealso{
 \code{\link{cosineNorm}} and \code{\link{multiBatchPCA}} to obtain the values to be corrected.

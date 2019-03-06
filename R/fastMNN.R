@@ -229,7 +229,7 @@
 #'
 #' Lun ATL (2018).
 #' Further MNN algorithm development.
-#' \url{https://github.com/MarioniLab/FurtherMNN2018}
+#' \url{https://MarioniLab.github.io/FurtherMNN2018/theory/description.html}
 #'
 #' @rdname fastMNN
 #' @export
