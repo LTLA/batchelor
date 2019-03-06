@@ -49,8 +49,10 @@ in terms of the length and names of the two lists.
 It will also check that each batch contains at least one usable cell after restriction.
 }
 \examples{
-checkBatchConsistency(cbind(1:5), cbind(1:5, 2:6))
-try(checkBatchConsistency(cbind(1:5), cbind(1:4, 2:5))) # fails.
+checkBatchConsistency(list(cbind(1:5), cbind(1:5, 2:6)))
+try( # fails
+    checkBatchConsistency(list(cbind(1:5), cbind(1:4, 2:5)))
+)
 
 }
 \seealso{

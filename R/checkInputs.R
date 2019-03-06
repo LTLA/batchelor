@@ -30,8 +30,10 @@
 #' @author Aaron Lun
 #'
 #' @examples
-#' checkBatchConsistency(cbind(1:5), cbind(1:5, 2:6))
-#' try(checkBatchConsistency(cbind(1:5), cbind(1:4, 2:5))) # fails.
+#' checkBatchConsistency(list(cbind(1:5), cbind(1:5, 2:6)))
+#' try( # fails
+#'     checkBatchConsistency(list(cbind(1:5), cbind(1:4, 2:5)))
+#' )
 #'
 #' @seealso
 #' \code{\link{divideIntoBatches}}

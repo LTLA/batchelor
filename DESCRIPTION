@@ -1,6 +1,6 @@
 Package: batchelor
-Version: 0.99.0
-Date: 2019-02-11
+Version: 0.99.2
+Date: 2019-03-05
 Title: Single-Cell Batch Correction Methods
 Authors@R: c(person("Aaron", "Lun", role = c("aut", "cre"), 
         email = "infinite.monkeys.with.keyboards@gmail.com")) 
@@ -12,8 +12,13 @@ Suggests: testthat, BiocStyle, knitr, beachmat, scRNAseq
 biocViews: Sequencing, RNASeq, Software, GeneExpression, 
         Transcriptomics, SingleCell, BatchEffect, Normalization
 Description: Implements a variety of methods for batch correction of 
-        single-cell (RNA sequencing) data. This includes correction
-        with a variety of mutual nearest neighbors techniques.
+        single-cell (RNA sequencing) data. This includes methods based
+        on detecting mutually nearest neighbors as well as a simple
+        sparsity-preserving translation of the population means. 
+        Functions are also provided for global rescaling to remove 
+        differences in depth between batches, and to perform a 
+        principal components analysis that is robust to differences
+        in the numbers of cells across different batches.
 License: GPL-3
 NeedsCompilation: yes
 VignetteBuilder: knitr
