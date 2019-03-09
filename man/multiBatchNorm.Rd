@@ -8,7 +8,7 @@ multiBatchNorm(..., assay.type = "counts", norm.args = list(),
   min.mean = 1, subset.row = NULL, separate.spikes = FALSE)
 }
 \arguments{
-\item{...}{Two or more SingleCellExperiment objects containing counts and size factors.
+\item{...}{Two or more \linkS4class{SingleCellExperiment} objects containing counts and size factors.
 Each object is assumed to represent one batch.}
 
 \item{assay.type}{A string specifying which assay values contains the counts.}

@@ -424,7 +424,6 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
 #' @importFrom BiocNeighbors KmknnParam
 #' @importClassesFrom S4Vectors List
 #' @importFrom methods as
-#' @importFrom utils head
 .fast_mnn <- function(batches, k=20, restrict=NULL, ndist=3, auto.order=FALSE, 
     min.batch.skip=0, BNPARAM=KmknnParam(), BPPARAM=SerialParam()) 
 {

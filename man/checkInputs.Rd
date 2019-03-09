@@ -25,9 +25,7 @@ checkRestrictions(batches, restrictions, cells.in.columns = TRUE)
 \value{
 \code{checkBatchConsistency} and \code{checkSpikeConsistency} will return an invisible \code{NULL} if there are no errors.
 
-\code{checkIfSCE} will return \code{TRUE} if all entries of \code{batches} are SingleCellExperiment objects.
-If none of them are, it will return \code{FALSE}.
-Otherwise it will raise an error.
+\code{checkIfSCE} will return a logical vector specifying whether each element of \code{batches} is a SingleCellExperiment objects.
 
 \code{checkRestrictions} will return \code{NULL} if \code{restrictions=NULL}.
 Otherwise, it will return a list by taking \code{restrictions} and converting each non-\code{NULL} element into an integer subsetting vector.
