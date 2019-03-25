@@ -249,6 +249,7 @@
 #' @export
 #' @importFrom SingleCellExperiment reducedDim
 #' @importFrom SummarizedExperiment assay
+#' @importFrom BiocParallel SerialParam bpstart bpstop bpisup register
 #' @importFrom BiocNeighbors KmknnParam
 #' @importFrom BiocSingular ExactParam
 #' @importClassesFrom S4Vectors List
@@ -310,6 +311,17 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
         originals[is.df] <- batches[is.df] # to get correct column names later.
     }
 
+    # Setting up the parallelization environment.
+    old <- bpparam()
+    register(BPPARAM)
+    on.exit(register(old))
+
+    if (!bpisup(BPPARAM)) {
+        bpstart(BPPARAM)
+        on.exit(bpstop(BPPARAM), add=TRUE)
+    }
+
+    # Performing the MNN search.
     common.args <-list(k=k, cos.norm=cos.norm, ndist=ndist, d=d, subset.row=subset.row, 
         correct.all=correct.all, auto.order=auto.order, pc.input=pc.input, 
         min.batch.skip=min.batch.skip, 

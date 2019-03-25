@@ -150,7 +150,7 @@
 #' \emph{Nat. Biotechnol.} 36(5):421
 #' 
 #' @export
-#' @importFrom BiocParallel SerialParam
+#' @importFrom BiocParallel SerialParam bpstart bpstop bpisup register
 #' @importFrom S4Vectors metadata metadata<-
 #' @importFrom SummarizedExperiment assay
 #' @importFrom BiocSingular ExactParam
@@ -178,6 +178,16 @@ mnnCorrect <- function(..., batch=NULL, restrict=NULL, k=20, sigma=0.1, cos.norm
         divided <- divideIntoBatches(batches[[1]], batch=batch, restrict=restrict[[1]])
         batches <- divided$batches
         restrict <- divided$restrict
+    }
+
+    # Setting up the parallelization environment.
+    old <- bpparam()
+    register(BPPARAM)
+    on.exit(register(old))
+
+    if (!bpisup(BPPARAM)) {
+        bpstart(BPPARAM)
+        on.exit(bpstop(BPPARAM), add=TRUE)
     }
 
     output <- do.call(.mnn_correct, c(batches, 
