@@ -379,12 +379,14 @@ test_that("Orthogonalization is performed correctly across objects", {
     outC <- fastMNN(outB, B4)
     expect_equal(ref$corrected, outC$corrected, tol=0.001) # not theoretically equal, but should be close.
     expect_identical(nrow(metadata(outC)$pre.orthog), 2L)
+    expect_true(all(metadata(outC)$pre.orthog$lost.var > 0))
 
     # Handles hierarhical merges.
     out.i <- fastMNN(B1, B2, pc.input=TRUE)
     out.ii <- fastMNN(B3, B4, pc.input=TRUE)
     out.iii <- fastMNN(out.i, out.ii)
     expect_identical(nrow(metadata(out.iii)$pre.orthog), 2L)
+    expect_true(all(metadata(out.iii)$pre.orthog$lost.var >= 0)) # equality, as the same orthogonalization vector is applied to a freshly orthogonalized batch.
 
     # Handles restriction correctly.
     B1x <- rbind(B1, B1[1:10,])
@@ -403,6 +405,7 @@ test_that("Orthogonalization is performed correctly across objects", {
     collected[[4]] <- collected[[4]] + nrow(outBx)
     
     expect_equal(outCx$corrected[unlist(collected),], outC$corrected)
+    expect_true(all(metadata(outCx)$pre.orthog$lost.var > 0))
     first.ten <- lapply(collected, head, 10)
     expect_equal(outCx$corrected[unlist(first.ten),], outCx$corrected[-unlist(collected),])
 
@@ -414,6 +417,7 @@ test_that("Orthogonalization is performed correctly across objects", {
     outAs <- fastMNN(B1, B1, pc.input=TRUE, min.batch.skip=0)
     outBs <- fastMNN(outAs, B2)
     expect_identical(nrow(metadata(outBs)$pre.orthog), 1L)
+    expect_true(all(metadata(outBs)$pre.orthog$lost.var >= 0)) # same argument as above.
 })
 
 set.seed(120000503)

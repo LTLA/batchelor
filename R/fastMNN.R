@@ -264,6 +264,7 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
 
     is.sce <- checkIfSCE(batches)
     is.df <- vapply(batches, is, class2="DataFrame", FUN.VALUE=TRUE)
+    needs.reorth <- any(is.df)
 
     # Checking whether the PC status is consistent.
     if (any(is.df)) {
@@ -298,17 +299,17 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
 
     # Batch consistency checks.
     for.checking <- batches
-    if (any(is.df)) {
+    if (needs.reorth) {
         for.checking[is.df] <- lapply(batches[is.df], FUN=function(x) x$corrected)
     }
     checkBatchConsistency(for.checking, cells.in.columns=!pc.input)
     restrict <- checkRestrictions(for.checking, restrict, cells.in.columns=!pc.input)
 
     # Reorthogonalizing across outputs from previous fastMNN results.
-    if (needs.reorth <- any(is.df)) {
+    if (needs.reorth) {
         orth.out <- .orthogonalize_inputs(batches, restrict) 
         batches <- orth.out$batches
-        originals[is.df] <- batches[is.df] # to get correct column names later.
+        originals[is.df] <- batches[is.df] # to get correct column names later; otherwise column names would be 'corrected', etc.
     }
 
     # Setting up the parallelization environment.
@@ -632,15 +633,19 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
     more.var.kept <- matrix(1, length(orth), length(batches))
     for (i in seq_along(batches)) {
         curdata <- batches[[i]]
+        curvar <- .compute_solo_var(curdata)
         currestrict <- restrict[[i]]
 
         for (j in seq_along(orth)) {
             olddata <- curdata
+            oldvar <- curvar
             curdata <- .center_along_batch_vector(curdata, orth[[j]], restrict=currestrict)
+            curvar <- .compute_solo_var(curdata) 
 
-            old.var <- .compute_solo_var(olddata) 
-            new.var <- .compute_solo_var(curdata) 
-            more.var.kept[j,i] <- new.var/old.var
+            # The same orthogonalization vector applied to a freshly orthogonalized batch 
+            # will exhibit no loss of variance; min() protects against numerical imprecision
+            # to guarantee that 'more.kept.var' values lie in [0, 1].
+            more.var.kept[j,i] <- min(1, curvar/oldvar)
         }
 
         batches[[i]] <- curdata
