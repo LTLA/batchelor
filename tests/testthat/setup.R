@@ -1,2 +1,0 @@
-library(BiocParallel)
-register(SerialParam())
