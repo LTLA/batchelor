@@ -1,6 +1,6 @@
 Package: batchelor
-Version: 0.99.5
-Date: 2019-03-24
+Version: 0.99.6
+Date: 2019-03-25
 Title: Single-Cell Batch Correction Methods
 Authors@R: c(person("Aaron", "Lun", role = c("aut", "cre"), 
         email = "infinite.monkeys.with.keyboards@gmail.com")) 
@@ -23,5 +23,5 @@ License: GPL-3
 NeedsCompilation: yes
 VignetteBuilder: knitr
 SystemRequirements: C++11
-LinkingTo: Rcpp, beachmat, Rhdf5lib
+LinkingTo: Rcpp, beachmat
 RoxygenNote: 6.1.1
