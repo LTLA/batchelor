@@ -2,6 +2,7 @@
 
 #include "utils.h"
 #include "beachmat/numeric_matrix.h"
+#include "beachmat/utils/const_column.h"
 
 #include <algorithm>
 #include <vector>
@@ -54,14 +55,16 @@ SEXP adjust_shift_variance(SEXP data1, SEXP data2, SEXP vect, SEXP sigma, SEXP r
     Rcpp::NumericVector output(ncells);
 
     // Temporary objects for beachmat extraction.
-    Rcpp::NumericVector grad(ngenes), 
-        tmpcell_current(ngenes), 
-        tmpcell_same(ngenes),
-        tmpcell_other(ngenes);
+    // Turning off sparsity for simplicity.
+    Rcpp::NumericVector grad(ngenes);
+    beachmat::const_column<beachmat::numeric_matrix> tmpcell_current(d2.get(), false),
+        tmpcell_same(d2.get(), false),
+        tmpcell_other(d1.get(), false);
 
     // Iterating through all cells.
     for (size_t cell=0; cell<ncells; ++cell) {
-        const auto curcell=d2->get_const_col(cell, tmpcell_current.begin());
+        tmpcell_current.fill(cell);
+        auto curcell=tmpcell_current.get_values();
 
         // Calculating the l2 norm and adjusting to a unit vector.
         double l2norm=0;
@@ -92,7 +95,8 @@ SEXP adjust_shift_variance(SEXP data1, SEXP data2, SEXP vect, SEXP sigma, SEXP r
 
                 // If same==cell, probability of 1 is always added, so log_prob is simply 0.
                 if (same!=cell) { 
-                    const auto samecell=d2->get_const_col(same, tmpcell_same.begin());
+                    tmpcell_same.fill(same);
+                    auto samecell=tmpcell_same.get_values();
                     const double sameproj=std::inner_product(grad.begin(), grad.end(), samecell, 0.0); // Projection
                     const double samedist=sq_distance_to_line(curcell, grad.begin(), samecell, working); // Distance.
                     
@@ -125,7 +129,8 @@ SEXP adjust_shift_variance(SEXP data1, SEXP data2, SEXP vect, SEXP sigma, SEXP r
         {
             bool starting_total=true;
             for (size_t other=0; other<restricted1.size(); ++other) {
-                const auto othercell=d1->get_const_col(restricted1[other], tmpcell_other.begin());
+                tmpcell_other.fill(restricted1[other]);
+                auto othercell=tmpcell_other.get_values();
                 distance1[other].first=std::inner_product(grad.begin(), grad.end(), othercell, 0.0); // Projection
                 const double otherdist=sq_distance_to_line(curcell, grad.begin(), othercell, working); // Distance.
                 distance1[other].second=-otherdist/s2;

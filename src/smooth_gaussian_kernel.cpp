@@ -2,6 +2,7 @@
 
 #include "utils.h"
 #include "beachmat/numeric_matrix.h"
+#include "beachmat/utils/const_column.h"
 
 #include <vector>
 #include <set>
@@ -64,15 +65,18 @@ SEXP smooth_gaussian_kernel(SEXP vect, SEXP index, SEXP data, SEXP sigma) {
     // Setting up output constructs.
     Rcpp::NumericMatrix output(ngenes, ncells); // yes, this is 'ngenes' not 'ngenes_for_dist'.
     std::vector<double> distances2(ncells), totalprob(ncells);
-    Rcpp::NumericVector mnn_incoming(ngenes_for_dist), other_incoming(ngenes_for_dist);
+    beachmat::const_column<beachmat::numeric_matrix> mnn_incoming(mat.get(), false), // no support for sparsity here.
+        other_incoming(mat.get(), false);
 
     // Using distances between cells and MNN-involved cells to smooth the correction vector per cell.
     for (size_t mnn : mnncell) {
-        auto mnn_iIt=mat->get_const_col(mnn, mnn_incoming.begin());
+        mnn_incoming.fill(mnn);
+        auto mnn_iIt=mnn_incoming.get_values();
 
         for (size_t other=0; other<ncells; ++other) {
             double& curdist2=(distances2[other]=0);
-            auto other_iIt=mat->get_const_col(other, other_incoming.begin());
+            other_incoming.fill(other);
+            auto other_iIt=other_incoming.get_values();
             auto iIt_copy=mnn_iIt;
 
             for (size_t g=0; g<ngenes_for_dist; ++g) {

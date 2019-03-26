@@ -54,9 +54,11 @@ SEXP unlog_exprs_scaled (SEXP mat, SEXP base, SEXP pseudo, SEXP subset, SEXP res
 
     const size_t ncells=ptr->get_ncol();
     Rcpp::NumericVector tmp(ncells);
-    auto optr=beachmat::create_numeric_output(slen, ncells, 
-        beachmat::output_param(mat, true, pseudo_count==1) // preserve sparsity if pseudo count is unity.
-    );
+    beachmat::output_param OPARAM(ptr.get());
+    if (pseudo_count!=1 && OPARAM.get_class()=="dgCMatrix" && OPARAM.get_package()=="Matrix") {
+        OPARAM=beachmat::output_param(); // don't preserve sparsity if pseudo count is not unity.
+    }
+    auto optr=beachmat::create_numeric_output(slen, ncells, OPARAM);
 
     for (size_t s=0; s<slen; ++s) {
         ptr->get_row(schosen[s], tmp.begin());
