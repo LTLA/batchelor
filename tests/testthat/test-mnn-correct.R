@@ -73,6 +73,15 @@ test_that("Batch vectors are correctly calculated", {
     xx <- batchelor:::.compute_correction_vectors(data1, data2, mnn1, mnn2, t(data2), s2)
     ref <- REF(data1, data2, mnn1, mnn2, s2)
     expect_equal(xx, ref)
+
+    # Check with sparse matrices.
+    library(Matrix)
+    sp1 <- rsparsematrix(50, 25, density=0.1)
+    sp2 <- rsparsematrix(100, 25, density=0.1)
+
+    xx <- batchelor:::.compute_correction_vectors(sp1, sp2, mnn1, mnn2, t(sp2), 0.5)
+    ref <- REF(as.matrix(sp1), as.matrix(sp2), mnn1, mnn2, 0.5)
+    expect_equal(xx, ref)
 })
 
 set.seed(100032)
@@ -151,6 +160,16 @@ test_that("Variance shift adjustment is correctly performed", {
     common <- seq_len(ncol(data2))
     expect_identical(test1, test2[common,])
     expect_identical(test1[i2,], test2[-common,])
+
+    # Check with sparse matrices.
+    library(Matrix)
+    sp1 <- rsparsematrix(50, 25, density=0.5)
+    sp2 <- rsparsematrix(50, 100, density=0.5)
+    corvect <- matrix(runif(length(sp2)), nrow=ncol(sp2)) # Yes, this is transposed relative to 'data2'.
+
+    test <- batchelor:::.adjust_shift_variance(sp1, sp2, corvect, 1)
+    ref <- batchelor:::.adjust_shift_variance(as.matrix(sp1), as.matrix(sp2), corvect, 1)
+    expect_equal(test, ref)
 })
 
 set.seed(10004)

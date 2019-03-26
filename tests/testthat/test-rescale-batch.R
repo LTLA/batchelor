@@ -81,6 +81,13 @@ test_that("rescaleBatches preserves sparsity if possible", {
 
     ref <- rescaleBatches(B1, B2) 
     expect_equivalent(assay(ref), as.matrix(assay(rescaled)))
+
+    # Sparisty is lost.
+    X.mat <- rescaleBatches(B1, B2, pseudo.count=2) 
+    X.spr <- rescaleBatches(B1s, B2s, pseudo.count=2) 
+    expect_true(is.matrix(assay(X.spr)))
+    expect_true(is.matrix(assay(X.mat)))
+    expect_identical(assay(X.mat), assay(X.spr))
 })
 
 set.seed(130001)
