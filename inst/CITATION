@@ -1,0 +1,16 @@
+bibentry(
+    bibtype = "article",
+    author = c(
+        person("Laleh", "Haghverdi"),
+        person(c("Aaron", "T.", "L."), "Lun"),
+        person(c("Michael", "D."), "Morgan"),
+        person(c("John", "C."), "Marioni")
+    ),
+    title="{{B}atch effects in single-cell {R}{N}{A}-sequencing data are corrected by matching mutual nearest neighbors}",
+    journal="Nat. Biotechnol.",
+    year="2018",
+    volume="36",
+    number="5",
+    pages="421--427",
+    doi="10.1038/nbt.4091"
+)
