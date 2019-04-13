@@ -58,6 +58,20 @@ test_that("Cosine normalization preserves Delayed'ness", {
     expect_equivalent(ref, out)
 })
 
+set.seed(100013)
+test_that("Cosine normalization preserves dimension names", {
+    X <- matrix(rnorm(2000), nrow=100)
+    dimnames(X) <- list(sprintf("GENE_%i", seq_len(nrow(X))), 
+        sprintf("CELL_%i", seq_len(ncol(X))))
+    out <- cosineNorm(X)
+    expect_identical(dimnames(X), dimnames(out))
+
+    Y <- DelayedArray(X)
+    expect_identical(dimnames(X), dimnames(Y))
+    out <- cosineNorm(Y)
+    expect_identical(dimnames(Y), dimnames(out))
+ })
+
 set.seed(10002)
 test_that("Cosine normalization behaves with silly inputs", {
     X <- matrix(rnorm(10000), ncol=100)

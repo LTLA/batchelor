@@ -59,6 +59,9 @@ cosineNorm <- function(x, mode=c("matrix", "all", "l2norm"))
     } else {
         out <- .Call(cxx_cosine_norm, x, mode!="l2norm")
         names(out) <- c("matrix", "l2norm")
+        if (!is.null(out$matrix)) {
+            dimnames(out$matrix) <- dimnames(x)
+        }
     }
 
     switch(mode, all=out, matrix=out$matrix, l2norm=out$l2norm)
