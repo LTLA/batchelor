@@ -3,7 +3,8 @@ Version: 1.1.0
 Date: 2019-04-13
 Title: Single-Cell Batch Correction Methods
 Authors@R: c(person("Aaron", "Lun", role = c("aut", "cre"), 
-        email = "infinite.monkeys.with.keyboards@gmail.com")) 
+        email = "infinite.monkeys.with.keyboards@gmail.com"),
+        person("Laleh", "Haghverdi", role="ctb"))
 Depends: SingleCellExperiment
 Imports: SummarizedExperiment, S4Vectors, BiocGenerics, Rcpp, 
         stats, methods, BiocNeighbors, BiocSingular, Matrix, 
