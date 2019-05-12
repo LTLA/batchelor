@@ -1,28 +1,50 @@
 Package: batchelor
-Version: 1.1.0
-Date: 2019-04-13
+Version: 1.1.1
+Date: 2019-05-12
 Title: Single-Cell Batch Correction Methods
-Authors@R: c(person("Aaron", "Lun", role = c("aut", "cre"), 
-        email = "infinite.monkeys.with.keyboards@gmail.com"),
-        person("Laleh", "Haghverdi", role="ctb"))
+Authors@R: c(person("Aaron", "Lun", role = c("aut", "cre"), email = "infinite.monkeys.with.keyboards@gmail.com"),
+    person("Laleh", "Haghverdi", role="ctb"))
 Depends: SingleCellExperiment
-Imports: SummarizedExperiment, S4Vectors, BiocGenerics, Rcpp, 
-        stats, methods, BiocNeighbors, BiocSingular, Matrix, 
-        DelayedArray, DelayedMatrixStats, scater, BiocParallel
-Suggests: testthat, BiocStyle, knitr, beachmat, scRNAseq
-biocViews: Sequencing, RNASeq, Software, GeneExpression, 
-        Transcriptomics, SingleCell, BatchEffect, Normalization
-Description: Implements a variety of methods for batch correction of 
-        single-cell (RNA sequencing) data. This includes methods based
-        on detecting mutually nearest neighbors as well as a simple
-        sparsity-preserving translation of the population means. 
-        Functions are also provided for global rescaling to remove 
-        differences in depth between batches, and to perform a 
-        principal components analysis that is robust to differences
-        in the numbers of cells across different batches.
+Imports: 
+    SummarizedExperiment,
+    S4Vectors,
+    BiocGenerics,
+    Rcpp,
+    stats,
+    methods,
+    BiocNeighbors,
+    BiocSingular,
+    Matrix,
+    DelayedArray,
+    DelayedMatrixStats,
+    scater,
+    BiocParallel
+Suggests: 
+    testthat,
+    BiocStyle,
+    knitr,
+    beachmat,
+    scRNAseq
+biocViews: 
+    Sequencing,
+    RNASeq,
+    Software,
+    GeneExpression,
+    Transcriptomics,
+    SingleCell,
+    BatchEffect,
+    Normalization
+LinkingTo: 
+    Rcpp,
+    beachmat
+Description: 
+    Implements a variety of methods for batch correction of single-cell (RNA sequencing) data. 
+    This includes methods based on detecting mutually nearest neighbors,
+    as well as a simple sparsity-preserving translation of the population means. 
+    Functions are also provided for global rescaling to remove differences in depth between batches, 
+    and to perform a principal components analysis that is robust to differences in the numbers of cells across batches.
 License: GPL-3
 NeedsCompilation: yes
 VignetteBuilder: knitr
 SystemRequirements: C++11
-LinkingTo: Rcpp, beachmat
 RoxygenNote: 6.1.1
