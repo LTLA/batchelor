@@ -210,7 +210,8 @@ mnnCorrect <- function(..., batch=NULL, restrict=NULL, k=20, sigma=0.1, cos.norm
 
 #' @importFrom S4Vectors DataFrame 
 #' @importFrom BiocParallel SerialParam
-#' @importFrom BiocGenerics t rbind
+#' @importFrom BiocGenerics rbind
+#' @importFrom Matrix t
 #' @importFrom DelayedArray DelayedArray
 #' @importFrom SingleCellExperiment SingleCellExperiment
 #' @importFrom BiocSingular ExactParam
@@ -427,7 +428,7 @@ mnnCorrect <- function(..., batch=NULL, restrict=NULL, k=20, sigma=0.1, cos.norm
 }
 
 #' @importFrom BiocSingular runSVD ExactParam
-#' @importFrom BiocGenerics rowMeans
+#' @importFrom Matrix rowMeans
 #' @importFrom DelayedArray DelayedArray
 #' @importFrom BiocParallel SerialParam
 .get_bio_span <- function(exprs, ndim, subset.row=NULL, BSPARAM=ExactParam(), BPPARAM=SerialParam())

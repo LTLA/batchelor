@@ -205,7 +205,7 @@ multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, rotate.all=FAL
 #' @importFrom BiocGenerics ncol
 #' @importFrom DelayedArray DelayedArray
 #' @importFrom BiocSingular DeferredMatrix
-#' @importFrom BiocGenerics t
+#' @importFrom Matrix t
 .process_listed_matrices_for_pca <- function(mat.list, subset.row, deferred=FALSE) {
     all.centers <- 0
     for (idx in seq_along(mat.list)) {
@@ -337,7 +337,7 @@ multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, rotate.all=FAL
 
 #' @importFrom DelayedArray DelayedArray
 #' @importFrom BiocSingular DeferredMatrix
-#' @importFrom BiocGenerics t
+#' @importFrom Matrix t
 .process_single_matrix_for_pca <- function(x, batch, subset.row, deferred=FALSE) {
     batch <- factor(batch)
     tab <- table(batch)

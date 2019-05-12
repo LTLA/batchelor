@@ -115,7 +115,8 @@ rescaleBatches <- function(..., batch=NULL, restrict=NULL, log.base=2, pseudo.co
 # Internal main function, to separate the input handling from the actual calculations.
 
 #' @importFrom SingleCellExperiment SingleCellExperiment
-#' @importFrom BiocGenerics cbind rowMeans
+#' @importFrom BiocGenerics cbind 
+#' @importFrom Matrix rowMeans
 .rescale_batches <- function(..., log.base=2, pseudo.count=1, subset.row=NULL, restrict=NULL) {
     batches <- list(...)
     nbatches <- length(batches)
