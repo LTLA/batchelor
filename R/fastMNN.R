@@ -260,8 +260,7 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
     subset.row=NULL, correct.all=FALSE, pc.input=FALSE, assay.type="logcounts", get.spikes=FALSE, use.dimred=NULL, 
     BSPARAM=ExactParam(), BNPARAM=KmknnParam(), BPPARAM=SerialParam()) 
 {
-    originals <- batches <- list(...)
-
+    batches <- list(...)
     is.sce <- checkIfSCE(batches)
     is.df <- vapply(batches, is, class2="DataFrame", FUN.VALUE=TRUE)
     needs.reorth <- any(is.df)
@@ -309,7 +308,6 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
     if (needs.reorth) {
         orth.out <- .orthogonalize_inputs(batches, restrict) 
         batches <- orth.out$batches
-        originals[is.df] <- batches[is.df] # to get correct column names later; otherwise column names would be 'corrected', etc.
     }
 
     # Setting up the parallelization environment.
@@ -339,10 +337,13 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
 
     # Adding names.
     if (pc.input) {
-        output$corrected <- .rename_output(output$corrected, originals, cells.in.columns=FALSE)
         rownames(output) <- rownames(output$corrected)
     } else {
-        output <- .rename_output(output, originals, subset.row=subset.row)
+        feat.names <- rownames(batches[[1]])
+        if (!is.null(subset.row)) {
+            feat.names <- feat.names[.row_subset_to_index(batches[[1]], subset.row)]
+        }
+        rownames(output) <- feat.names
     }
  
     # Storing information about the orthogonalization process.
