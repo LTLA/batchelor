@@ -16,7 +16,9 @@
 #' @param assay.type A string or integer scalar specifying the assay containing the expression values, if SingleCellExperiment objects are present in \code{...}.
 #' @param get.spikes A logical scalar indicating whether to retain rows corresponding to spike-in transcripts.
 #' Only used for SingleCellExperiment inputs.
-#' @param rotate.all A logical scalar indicating whether the reported rotation vectors should include genes that are excluded by a non-\code{NULL} value of \code{subset.row}.
+#' @param get.all.genes A logical scalar indicating whether the reported rotation vectors should include genes 
+#' that are excluded by a non-\code{NULL} value of \code{subset.row}.
+#' @param rotate.all A deprecated synonym for \code{get.all.genes}.
 #' @param get.variance A logical scalar indicating whether to return the (weighted) variance explained by each PC.
 #' @param preserve.single A logical scalar indicating whether to combine the results into a single matrix if only one object was supplied in \code{...}.
 #' @param BSPARAM A \linkS4class{BiocSingularParam} object specifying the algorithm to use for PCA, see \code{\link{runSVD}} for details.
@@ -37,7 +39,7 @@
 #' These will be removed prior to PCA unless \code{get.spikes=TRUE}.
 #' If \code{subset.row} is specified and \code{get.spikes=FALSE}, only the non-spike-in specified features will be used. 
 #'
-#' Setting \code{rotate.all=TRUE} will report rotation vectors that span all genes, even when only a subset of genes are used for the PCA.
+#' Setting \code{get.all.genes=TRUE} will report rotation vectors that span all genes, even when only a subset of genes are used for the PCA.
 #' This is done by projecting all non-used genes into the low-dimensional \dQuote{cell space} defined by the first \code{d} components.
 #'
 #' If \code{BSPARAM} is defined with \code{deferred=TRUE}, the per-gene centering and per-cell scaling will be manually deferred during matrix multiplication.
@@ -76,11 +78,12 @@
 #' @export
 #' @importFrom BiocParallel SerialParam
 #' @importFrom SummarizedExperiment assay
-#' @importFrom S4Vectors metadata metadata<-
+#' @importFrom S4Vectors metadata<-
 #' @importClassesFrom S4Vectors List
 #' @importFrom BiocGenerics colnames<- rownames<- colnames rownames
 #' @importFrom BiocSingular ExactParam
-multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, rotate.all=FALSE, get.variance=FALSE, preserve.single=FALSE,
+multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, get.all.genes=FALSE, 
+    rotate.all=FALSE, get.variance=FALSE, preserve.single=FALSE, 
     assay.type="logcounts", get.spikes=FALSE, BSPARAM=ExactParam(), BPPARAM=SerialParam()) 
 # Performs a multi-sample PCA (i.e., batches).
 # Each batch is weighted inversely by the number of cells when computing the gene-gene covariance matrix.
@@ -100,11 +103,17 @@ multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, rotate.all=FAL
         sce.in <- mat.list[is.sce]
         checkSpikeConsistency(sce.in)
         subset.row <- .SCE_subset_genes(subset.row, sce.in[[1]], get.spikes)
-        mat.list[is.sce] <- lapply(sce.in, assay, i=assay.type, withDimnames=FALSE)
+        mat.list[is.sce] <- lapply(sce.in, assay, i=assay.type)
+    }
+
+    if (rotate.all) {
+        .Deprecated(msg="'rotate.all=TRUE' is deprecated.\nUse 'get.all.genes=TRUE' instead.")
+        get.all.genes <- TRUE
     }
 
     # Different function calls for different input modes.
-    common.args <- list(subset.row=subset.row, d=d, rotate.all=rotate.all, get.variance=get.variance, BSPARAM=BSPARAM, BPPARAM=BPPARAM) 
+    common.args <- list(subset.row=subset.row, d=d, get.all.genes=get.all.genes, 
+        get.variance=get.variance, BSPARAM=BSPARAM, BPPARAM=BPPARAM) 
     if (length(mat.list)==1L) {
         if (is.null(batch)) { 
             stop("'batch' must be specified if '...' has only one object")
@@ -128,7 +137,7 @@ multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, rotate.all=FAL
     }
 
     # Adding dimension names to the metadata fields.
-    if (rotate.all || is.null(subset.row)) {
+    if (get.all.genes || is.null(subset.row)) {
         rnames <- rownames(originals[[1]])
     } else {
         if (is.character(subset.row)) { 
@@ -151,7 +160,7 @@ multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, rotate.all=FAL
 #' @importClassesFrom S4Vectors List
 #' @importFrom S4Vectors metadata<- 
 #' @importFrom Matrix crossprod
-.multi_pca_list <- function(mat.list, subset.row=NULL, d=50, rotate.all=FALSE, get.variance=FALSE, 
+.multi_pca_list <- function(mat.list, subset.row=NULL, d=50, get.all.genes=FALSE, get.variance=FALSE, 
     BSPARAM=ExactParam(), BPPARAM=SerialParam()) 
 # Internal function that uses DelayedArray to do the centering and scaling,
 # to avoid actually realizing the matrices in memory.
@@ -177,7 +186,7 @@ multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, rotate.all=FAL
 
     # Performing an SVD on the untransposed _scaled_ expression matrix,
     # then projecting the _unscaled_ matrices back into this space.
-    svd.out <- .run_scaled_SVD(scaled, d=d, rotate.all=rotate.all, get.variance=get.variance, BSPARAM=BSPARAM, BPPARAM=BPPARAM)
+    svd.out <- .run_scaled_SVD(scaled, d=d, get.all.genes=get.all.genes, get.variance=get.variance, BSPARAM=BSPARAM, BPPARAM=BPPARAM)
 
     output <- centered
     for (idx in seq_along(centered)) {
@@ -187,7 +196,7 @@ multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, rotate.all=FAL
 
     # Recording useful PCA metadata.
     metadata(output) <- .get_pca_metadata(mat=mat.list[[1]], subset.row=subset.row, 
-        rotate.all=rotate.all, FUN=FUN, svd.out=svd.out, centers=centers, 
+        get.all.genes=get.all.genes, FUN=FUN, svd.out=svd.out, centers=centers, 
         get.variance=get.variance, nbatches=length(mat.list), scaled=scaled)
 
     output
@@ -252,24 +261,24 @@ multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, rotate.all=FAL
 ###########################################
 
 #' @importFrom BiocSingular runSVD
-.run_scaled_SVD <- function(scaled, d, rotate.all=FALSE, get.variance=FALSE, ...) {
+.run_scaled_SVD <- function(scaled, d, get.all.genes=FALSE, get.variance=FALSE, ...) {
     runSVD(scaled, 
-        k=if (rotate.all || get.variance) d else 0,
+        k=if (get.all.genes || get.variance) d else 0,
         nu=d, 
-        nv=if (rotate.all) d else 0, 
+        nv=if (get.all.genes) d else 0, 
         ...
     )
 }
 
 #' @importFrom DelayedArray DelayedArray sweep
 .get_pca_metadata <- function(mat, subset.row, 
-    rotate.all, FUN, svd.out, centers,
+    get.all.genes, FUN, svd.out, centers,
     get.variance, nbatches, scaled)
-# Inferring rotation vectors for genes not in subset.row, if rotate.all=TRUE.
+# Inferring rotation vectors for genes not in subset.row, if get.all.genes=TRUE.
 # This involves projecting the unused genes into the space defined by the PCs.
 # We also fill in the missing center values.
 {
-    if (rotate.all && !is.null(subset.row)) {
+    if (get.all.genes && !is.null(subset.row)) {
         subset.row <- .row_subset_to_index(mat, subset.row)
 
         leftovers <- FUN(-subset.row)
@@ -305,7 +314,7 @@ multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, rotate.all=FAL
 #' @importFrom BiocParallel SerialParam
 #' @importFrom BiocSingular ExactParam bsdeferred
 #' @importFrom Matrix crossprod
-.multi_pca_single <- function(mat, batch, subset.row=NULL, d=50, rotate.all=FALSE, get.variance=FALSE, BSPARAM=ExactParam(), BPPARAM=SerialParam()) 
+.multi_pca_single <- function(mat, batch, subset.row=NULL, d=50, get.all.genes=FALSE, get.variance=FALSE, BSPARAM=ExactParam(), BPPARAM=SerialParam()) 
 # Similar to .multi_pca_list, but avoids the unnecessary
 # overhead of splitting 'mat' into batch-specific matrices
 # when you end up having to put them back together again anyway.
@@ -320,12 +329,12 @@ multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, rotate.all=FAL
 
     # Performing an SVD on the untransposed expression matrix,
     # and projecting the _unscaled_ matrices back into this space.
-    svd.out <- .run_scaled_SVD(scaled, d=d, rotate.all=rotate.all, get.variance=get.variance, BSPARAM=BSPARAM, BPPARAM=BPPARAM)
+    svd.out <- .run_scaled_SVD(scaled, d=d, get.all.genes=get.all.genes, get.variance=get.variance, BSPARAM=BSPARAM, BPPARAM=BPPARAM)
     output <- List(as.matrix(crossprod(centered, svd.out$u)))
 
     # Recording the rotation vectors. 
     metadata(output) <- .get_pca_metadata(mat=mat, subset.row=subset.row, 
-        rotate.all=rotate.all, FUN=FUN, svd.out=svd.out, centers=centers, 
+        get.all.genes=get.all.genes, FUN=FUN, svd.out=svd.out, centers=centers, 
         get.variance=get.variance, nbatches=length(unique(batch)), scaled=scaled)
 
     output

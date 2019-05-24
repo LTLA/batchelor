@@ -376,7 +376,7 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
         if (cos.norm) { 
             batch.list <- lapply(batch.list, FUN=cosineNorm, mode="matrix")
         }
-        pc.mat <- .multi_pca_list(batch.list, d=d, rotate.all=correct.all, BSPARAM=BSPARAM, BPPARAM=BPPARAM)
+        pc.mat <- .multi_pca_list(batch.list, d=d, get.all.genes=correct.all, BSPARAM=BSPARAM, BPPARAM=BPPARAM)
     } else {
         pc.mat <- batch.list
     }
@@ -406,7 +406,7 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
         if (cos.norm) { 
             x <- cosineNorm(x, mode="matrix")
         }
-        mat <- .multi_pca_single(x, batch=batch, d=d, rotate.all=correct.all, BSPARAM=BSPARAM, BPPARAM=BPPARAM)
+        mat <- .multi_pca_single(x, batch=batch, d=d, get.all.genes=correct.all, BSPARAM=BSPARAM, BPPARAM=BPPARAM)
     } else {
         mat <- List(x)
     }
