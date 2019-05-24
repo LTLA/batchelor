@@ -102,20 +102,30 @@ set.seed(1200002)
 test_that("multi-sample PCA rotation vector inference works", {
     test1 <- matrix(rnorm(1000), nrow=10)
     test2 <- matrix(rnorm(2000), nrow=10)
-    N <- nrow(test1)
-
     ref <- multiBatchPCA(test1, test2, d=5)
+
+    # Checking that the rotation vectors and centers are sensible, for starters.
+    expect_identical(length(metadata(ref)$centers), nrow(test1))
+    expect_identical(dim(metadata(ref)$rotation), c(nrow(test1), 5L))
+    expect_equal(ref[[1]], crossprod(test1 - metadata(ref)$centers, metadata(ref)$rotation))
+    expect_equal(ref[[2]], crossprod(test2 - metadata(ref)$centers, metadata(ref)$rotation))
+
+    # Checking that expansion works.
     others <- c(7, 3, 1, 2)
+    N <- nrow(test1)
     expanded <- c(seq_len(N), others)
-    out <- multiBatchPCA(test1[expanded,], test2[expanded,], d=5, subset.row=1:N, rotate.all=TRUE)
+    out <- multiBatchPCA(test1[expanded,], test2[expanded,], d=5, subset.row=1:N, get.all.genes=TRUE)
 
     expect_equal(ref[[1]], out[[1]])
     expect_equal(ref[[2]], out[[2]])
     expect_equal(metadata(ref)$rotation[expanded,], metadata(out)$rotation)
 
     # Also works with a logical vector for subsetting. 
-    alt <- multiBatchPCA(test1[expanded,], test2[expanded,], d=5, subset.row=seq_along(expanded) <= N, rotate.all=TRUE)
+    alt <- multiBatchPCA(test1[expanded,], test2[expanded,], d=5, subset.row=seq_along(expanded) <= N, get.all.genes=TRUE)
     expect_equal(alt, out)
+
+    # Center expansion also works.
+    expect_equal(metadata(ref)$centers[expanded], metadata(out)$centers) 
 })
 
 set.seed(12000021)
@@ -160,16 +170,19 @@ test_that("multi-sample PCA preserves dimension names in the output", {
     out <- multiBatchPCA(A=test1, V=test2, d=3)
     expect_identical(names(out), c("A", "V"))
 
-    # Preserves row names in rotation vectors.
+    # Preserves row names in rotation vectors and centering vectors.
     rownames(test1) <- rownames(test2) <- LETTERS[sample(nrow(test1))]
     out <- multiBatchPCA(test1, test2, d=3)
     expect_identical(rownames(test1), rownames(metadata(out)$rotation))
+    expect_identical(rownames(test1), names(metadata(out)$centers))
 
     out <- multiBatchPCA(test1, test2, d=3, subset.row=2:6)
     expect_identical(rownames(test1)[2:6], rownames(metadata(out)$rotation))
+    expect_identical(rownames(test1)[2:6], names(metadata(out)$centers))
 
-    out <- multiBatchPCA(test1, test2, d=3, subset.row=2:6, rotate.all=TRUE)
+    out <- multiBatchPCA(test1, test2, d=3, subset.row=2:6, get.all.genes=TRUE)
     expect_identical(rownames(test1), rownames(metadata(out)$rotation))
+    expect_identical(rownames(test1), names(metadata(out)$centers))
 
     # Preserves column names.
     test1 <- matrix(rnorm(1000), nrow=10)
