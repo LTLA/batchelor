@@ -127,8 +127,7 @@ multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, rotate.all=FAL
         }
     }
 
-    # Adding dimension names to the rotation matrix.        
-    rotation <- metadata(collected)$rotation
+    # Adding dimension names to the metadata fields.
     if (rotate.all || is.null(subset.row)) {
         rnames <- rownames(originals[[1]])
     } else {
@@ -138,10 +137,10 @@ multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, rotate.all=FAL
             rnames <- rownames(originals[[1]])[subset.row]
         }
     }
-    rownames(rotation) <- rnames
-    metadata(collected)$rotation <- rotation
+    rownames(metadata(collected)$rotation) <- rnames
+    names(metadata(collected)$centers) <- rnames
 
-    return(collected)
+    collected
 }
 
 ###########################################
@@ -152,13 +151,18 @@ multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, rotate.all=FAL
 #' @importClassesFrom S4Vectors List
 #' @importFrom S4Vectors metadata<- 
 #' @importFrom Matrix crossprod
-.multi_pca_list <- function(mat.list, subset.row=NULL, d=50, rotate.all=FALSE, get.variance=FALSE, BSPARAM=ExactParam(), BPPARAM=SerialParam()) 
+.multi_pca_list <- function(mat.list, subset.row=NULL, d=50, rotate.all=FALSE, get.variance=FALSE, 
+    BSPARAM=ExactParam(), BPPARAM=SerialParam()) 
 # Internal function that uses DelayedArray to do the centering and scaling,
 # to avoid actually realizing the matrices in memory.
 {
-    processed <- .process_listed_matrices_for_pca(mat.list, subset.row=subset.row, deferred=bsdeferred(BSPARAM))
+    FUN <- function(keep) {
+        .process_listed_matrices_for_pca(mat.list, subset.row=keep, deferred=bsdeferred(BSPARAM))
+    }
+    processed <- FUN(subset.row)
     centered <- processed$centered
     scaled <- processed$scaled
+    centers <- processed$centers
 
     # Setting up the parallelization environment (for crossprod,
     # but runSVD might as well take advantage of it).
@@ -181,67 +185,54 @@ multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, rotate.all=FAL
     }
     output <- as(output, "List")
 
-    # Recording the rotation vectors. 
-    extra.info <- list(
-        rotation=.get_rotation_vectors(
-            mat=mat.list[[1]], 
-            subset.row=subset.row, 
-            svd.out=svd.out, 
-            rotate.all=rotate.all,
-            process.FUN=.process_listed_matrices_for_pca, 
-            process.args=list(mat.list=mat.list, deferred=bsdeferred(BSPARAM))
-        )
-    )
+    # Recording useful PCA metadata.
+    metadata(output) <- .get_pca_metadata(mat=mat.list[[1]], subset.row=subset.row, 
+        rotate.all=rotate.all, FUN=FUN, svd.out=svd.out, centers=centers, 
+        get.variance=get.variance, nbatches=length(mat.list), scaled=scaled)
 
-    # Computing the amount of variation explained.
-    if (get.variance) {
-        extra.info <- c(extra.info, .compute_var_explained(D=svd.out$d, nbatches=length(mat.list), scaled=scaled))
-    }
-        
-    metadata(output) <- extra.info
-    return(output)
+    output
 }
 
 #' @importFrom BiocGenerics ncol
 #' @importFrom DelayedArray DelayedArray
 #' @importFrom BiocSingular DeferredMatrix
-#' @importFrom Matrix t
+#' @importFrom Matrix t rowMeans
 .process_listed_matrices_for_pca <- function(mat.list, subset.row, deferred=FALSE) {
-    all.centers <- 0
+    grand.centers <- 0
     for (idx in seq_along(mat.list)) {
         current <- mat.list[[idx]]
         if (!is.null(subset.row)) {
             current <- current[subset.row,,drop=FALSE]
         }
 
-        centers <- Matrix::rowMeans(current)
-        all.centers <- all.centers + centers
+        centers <- rowMeans(current)
+        grand.centers <- grand.centers + centers
         mat.list[[idx]] <- current
     }
 
     # Computing the grand average of centers, and using that to center each batch.
     # (Not using batch-specific centers, which makes compositional assumptions.)
-    all.centers <- all.centers/length(mat.list) 
+    grand.centers <- grand.centers/length(mat.list) 
     centered <- mat.list
 
     if (deferred) {
         transposed <- lapply(mat.list, t)
         for (idx in seq_along(mat.list)) {
             current <- transposed[[idx]]
-            current <- DeferredMatrix(current, center=all.centers)
+            current <- DeferredMatrix(current, center=grand.centers)
             centered[[idx]] <- t(current)
         } 
 
         all.scale <- lapply(mat.list, function(x) rep(sqrt(ncol(x)), ncol(x)))
 
         # (Deferred) scaling to implicitly downweight samples with many cells.
-        tmp <- DeferredMatrix(do.call(rbind, transposed), center=all.centers)
+        tmp <- DeferredMatrix(do.call(rbind, transposed), center=grand.centers)
         scaled <- DeferredMatrix(t(tmp), scale=unlist(all.scale))
 
     } else {
         for (idx in seq_along(mat.list)) {
             current <- DelayedArray(mat.list[[idx]])
-            current <- current - all.centers
+            current <- current - grand.centers
             centered[[idx]] <- current
         }
 
@@ -255,8 +246,10 @@ multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, rotate.all=FAL
         scaled <- do.call(cbind, scaled)
     }
 
-    list(centered=centered, scaled=scaled)
+    list(centered=centered, scaled=scaled, centers=grand.centers)
 }
+
+###########################################
 
 #' @importFrom BiocSingular runSVD
 .run_scaled_SVD <- function(scaled, d, rotate.all=FALSE, get.variance=FALSE, ...) {
@@ -268,30 +261,42 @@ multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, rotate.all=FAL
     )
 }
 
-.get_rotation_vectors <- function(mat, subset.row, svd.out, process.FUN, process.args, rotate.all=FALSE)
-# inferring the for genes not in subset.row, if rotate.all=TRUE.
+#' @importFrom DelayedArray DelayedArray sweep
+.get_pca_metadata <- function(mat, subset.row, 
+    rotate.all, FUN, svd.out, centers,
+    get.variance, nbatches, scaled)
+# Inferring rotation vectors for genes not in subset.row, if rotate.all=TRUE.
 # This involves projecting the unused genes into the space defined by the PCs.
+# We also fill in the missing center values.
 {
     if (rotate.all && !is.null(subset.row)) {
         subset.row <- .row_subset_to_index(mat, subset.row)
 
-        leftovers <- do.call(process.FUN, c(process.args, list(subset.row=-subset.row)))$scaled
-        leftover.u <- as.matrix(sweep(leftovers %*% svd.out$v, 2, svd.out$d, FUN="/"))
+        leftovers <- FUN(-subset.row)
+        left.scaled <- leftovers$scaled
+        leftover.u <- as.matrix(sweep(left.scaled %*% svd.out$v, 2, svd.out$d, FUN="/"))
     
         rotation <- matrix(0, nrow(mat), ncol(svd.out$u))
         rotation[subset.row,] <- svd.out$u
         rotation[-subset.row,] <- leftover.u
+
+        all.centers <- numeric(nrow(mat))
+        all.centers[subset.row] <- centers
+        all.centers[-subset.row] <- leftovers$centers
     } else {
         rotation <- svd.out$u
+        all.centers <- centers
     }
-    return(rotation)
-}
 
-#' @importFrom DelayedArray DelayedArray
-.compute_var_explained <- function(D, nbatches, scaled) {
-    var.explained <- D^2 / nbatches
-    var.total <- sum(DelayedArray(scaled)^2) / nbatches # DelayedArray needed as DeferredMatrix doesn't support arbitrary math.
-    list(var.explained=var.explained, var.total=var.total)
+    output <- list(rotation=rotation, centers=all.centers)
+
+    # Adding the variance explained.
+    if (get.variance) {
+        output$var.explained <- svd.out$d^2 / nbatches
+        output$var.total <- sum(scaled^2) / nbatches 
+    }
+
+    output
 }
 
 ###########################################
@@ -305,9 +310,13 @@ multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, rotate.all=FAL
 # overhead of splitting 'mat' into batch-specific matrices
 # when you end up having to put them back together again anyway.
 {
-    processed <- .process_single_matrix_for_pca(mat, batch=batch, subset.row=subset.row, deferred=bsdeferred(BSPARAM))
+    FUN <- function(keep) {
+        .process_single_matrix_for_pca(mat, batch=batch, subset.row=keep, deferred=bsdeferred(BSPARAM))
+    }
+    processed <- FUN(subset.row)
     centered <- processed$centered
     scaled <- processed$scaled
+    centers <- processed$centers
 
     # Performing an SVD on the untransposed expression matrix,
     # and projecting the _unscaled_ matrices back into this space.
@@ -315,29 +324,16 @@ multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, rotate.all=FAL
     output <- List(as.matrix(crossprod(centered, svd.out$u)))
 
     # Recording the rotation vectors. 
-    extra.info <- list(
-        rotation=.get_rotation_vectors(
-            mat=mat,
-            subset.row=subset.row, 
-            svd.out=svd.out, 
-            rotate.all=rotate.all,
-            process.FUN=.process_single_matrix_for_pca, 
-            process.args=list(mat=mat, batch=batch, deferred=bsdeferred(BSPARAM))
-        )
-    )
+    metadata(output) <- .get_pca_metadata(mat=mat, subset.row=subset.row, 
+        rotate.all=rotate.all, FUN=FUN, svd.out=svd.out, centers=centers, 
+        get.variance=get.variance, nbatches=length(unique(batch)), scaled=scaled)
 
-    # Computing the amount of variation explained.
-    if (get.variance) {
-        extra.info <- c(extra.info, .compute_var_explained(D=svd.out$d, nbatches=length(unique(batch)), scaled=scaled))
-    }
-        
-    metadata(output) <- extra.info
-    return(output)
+    output
 }
 
 #' @importFrom DelayedArray DelayedArray
 #' @importFrom BiocSingular DeferredMatrix
-#' @importFrom Matrix t
+#' @importFrom Matrix t rowMeans
 .process_single_matrix_for_pca <- function(x, batch, subset.row, deferred=FALSE) {
     batch <- factor(batch)
     tab <- table(batch)
@@ -348,22 +344,22 @@ multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, rotate.all=FAL
     }
 
     # Computing the grand average of the centers.
-    all.centers <- 0
+    centers <- 0
     for (b in levels(batch)) {
         current <- x[,batch==b,drop=FALSE]
-        all.centers <- all.centers + Matrix::rowMeans(current)
+        centers <- centers + rowMeans(current)
     }
-    all.centers <- all.centers/length(tab)
+    centers <- centers/length(tab)
 
     # Applying the centering and scaling.
     if (deferred) {
-        centered <- t(DeferredMatrix(t(x), center=all.centers))
+        centered <- t(DeferredMatrix(t(x), center=centers))
         scaled <- DeferredMatrix(centered, scale=w)
     } else {
         centered <- DelayedArray(x)
-        centered <- centered - all.centers
+        centered <- centered - centers
         scaled <- sweep(centered, 2, w, "/", check.margin=FALSE)
     }
 
-    list(centered=centered, scaled=scaled)
+    list(centered=centered, scaled=scaled, centers=centers)
 }
