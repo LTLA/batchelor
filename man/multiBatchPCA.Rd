@@ -5,9 +5,10 @@
 \title{Multi-batch PCA}
 \usage{
 multiBatchPCA(..., batch = NULL, d = 50, subset.row = NULL,
-  rotate.all = FALSE, get.variance = FALSE, preserve.single = FALSE,
-  assay.type = "logcounts", get.spikes = FALSE,
-  BSPARAM = ExactParam(), BPPARAM = SerialParam())
+  get.all.genes = FALSE, rotate.all = FALSE, get.variance = FALSE,
+  preserve.single = FALSE, assay.type = "logcounts",
+  get.spikes = FALSE, BSPARAM = ExactParam(),
+  BPPARAM = SerialParam())
 }
 \arguments{
 \item{...}{Two or more matrices containing expression values (usually log-normalized).
@@ -25,7 +26,10 @@ Ignored if \code{...} contains more than one argument.}
 
 \item{subset.row}{A vector specifying which features to use for correction.}
 
-\item{rotate.all}{A logical scalar indicating whether the reported rotation vectors should include genes that are excluded by a non-\code{NULL} value of \code{subset.row}.}
+\item{get.all.genes}{A logical scalar indicating whether the reported rotation vectors should include genes 
+that are excluded by a non-\code{NULL} value of \code{subset.row}.}
+
+\item{rotate.all}{A deprecated synonym for \code{get.all.genes}.}
 
 \item{get.variance}{A logical scalar indicating whether to return the (weighted) variance explained by each PC.}
 
@@ -70,7 +74,7 @@ If \code{...} contains SingleCellExperiment objects, any spike-in transcripts sh
 These will be removed prior to PCA unless \code{get.spikes=TRUE}.
 If \code{subset.row} is specified and \code{get.spikes=FALSE}, only the non-spike-in specified features will be used. 
 
-Setting \code{rotate.all=TRUE} will report rotation vectors that span all genes, even when only a subset of genes are used for the PCA.
+Setting \code{get.all.genes=TRUE} will report rotation vectors that span all genes, even when only a subset of genes are used for the PCA.
 This is done by projecting all non-used genes into the low-dimensional \dQuote{cell space} defined by the first \code{d} components.
 
 If \code{BSPARAM} is defined with \code{deferred=TRUE}, the per-gene centering and per-cell scaling will be manually deferred during matrix multiplication.
