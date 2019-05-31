@@ -8,8 +8,8 @@ fastMNN(..., batch = NULL, k = 20, restrict = NULL,
   cos.norm = TRUE, ndist = 3, d = 50, auto.order = FALSE,
   min.batch.skip = 0, subset.row = NULL, correct.all = FALSE,
   pc.input = FALSE, assay.type = "logcounts", get.spikes = FALSE,
-  use.dimred = NULL, BSPARAM = ExactParam(), BNPARAM = KmknnParam(),
-  BPPARAM = SerialParam())
+  use.dimred = NULL, BSPARAM = IrlbaParam(deferred = TRUE),
+  BNPARAM = KmknnParam(), BPPARAM = SerialParam())
 }
 \arguments{
 \item{...}{One or more log-expression matrices where genes correspond to rows and cells correspond to columns, if \code{pc.input=FALSE}.
@@ -72,7 +72,8 @@ Only used for SingleCellExperiment inputs with \code{use.dimred=NULL}.}
 \item{use.dimred}{A string or integer scalar specifying which reduced dimension result to use, if any.
 Only used for SingleCellExperiment inputs.}
 
-\item{BSPARAM}{A \linkS4class{BiocSingularParam} object specifying the algorithm to use for PCA.}
+\item{BSPARAM}{A \linkS4class{BiocSingularParam} object specifying the algorithm to use for PCA.
+This uses a fast approximate algorithm from \pkg{irlba} by default, see \code{\link{multiBatchPCA}} for details.}
 
 \item{BNPARAM}{A \linkS4class{BiocNeighborParam} object specifying the nearest neighbor algorithm.}
 
