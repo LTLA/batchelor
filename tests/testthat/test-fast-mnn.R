@@ -642,8 +642,8 @@ test_that("fastMNN fails on silly inputs", {
     # Throws errors properly with no genes or no cells.
     expect_error(fastMNN(), "at least two batches")
     expect_error(fastMNN(B1), "'batch' must be specified")
-    expect_error(expect_warning(fastMNN(B1[0,], B2[0,]), "more requested"), "zero")
-    expect_error(expect_warning(fastMNN(B1[,0], B2[,0]), "more requested"), "zero")
+    expect_error(expect_warning(fastMNN(B1[0,], B2[0,], BSPARAM=ExactParam()), "more requested"), "zero")
+    expect_error(expect_warning(fastMNN(B1[,0], B2[,0], BSPARAM=ExactParam()), "more requested"), "zero")
 
     # Throws errors upon row checks.
     expect_error(fastMNN(B1[1:10,], B2), "number of rows is not the same")
