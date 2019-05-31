@@ -48,6 +48,7 @@
 #' @param use.dimred A string or integer scalar specifying which reduced dimension result to use, if any.
 #' Only used for SingleCellExperiment inputs.
 #' @param BSPARAM A \linkS4class{BiocSingularParam} object specifying the algorithm to use for PCA.
+#' This uses a fast approximate algorithm from \pkg{irlba} by default, see \code{\link{multiBatchPCA}} for details.
 #' @param BNPARAM A \linkS4class{BiocNeighborParam} object specifying the nearest neighbor algorithm.
 #' @param BPPARAM A \linkS4class{BiocParallelParam} object specifying whether the PCA and nearest-neighbor searches should be parallelized.
 #' 
@@ -251,14 +252,14 @@
 #' @importFrom SummarizedExperiment assay
 #' @importFrom BiocParallel SerialParam bpstart bpstop bpisup register
 #' @importFrom BiocNeighbors KmknnParam
-#' @importFrom BiocSingular ExactParam
+#' @importFrom BiocSingular IrlbaParam
 #' @importClassesFrom S4Vectors List
 #' @importFrom S4Vectors DataFrame metadata<-
 #' @importFrom methods as
 fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3, d=50, 
     auto.order=FALSE, min.batch.skip=0,
     subset.row=NULL, correct.all=FALSE, pc.input=FALSE, assay.type="logcounts", get.spikes=FALSE, use.dimred=NULL, 
-    BSPARAM=ExactParam(), BNPARAM=KmknnParam(), BPPARAM=SerialParam()) 
+    BSPARAM=IrlbaParam(deferred=TRUE), BNPARAM=KmknnParam(), BPPARAM=SerialParam()) 
 {
     batches <- list(...)
     is.sce <- checkIfSCE(batches)
