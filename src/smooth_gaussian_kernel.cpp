@@ -64,7 +64,10 @@ SEXP smooth_gaussian_kernel(SEXP vect, SEXP index, SEXP data, SEXP sigma) {
 
     // Setting up output constructs.
     Rcpp::NumericMatrix output(ngenes, ncells); // yes, this is 'ngenes' not 'ngenes_for_dist'.
-    std::vector<double> distances2(ncells), totalprob(ncells);
+    std::fill(output.begin(), output.end(), R_NaReal);
+    Rcpp::LogicalMatrix isneg(ngenes, ncells);
+
+    std::vector<double> distances2(ncells), totalprob(ncells, R_NaReal); 
     beachmat::const_column<beachmat::numeric_matrix> mnn_incoming(mat.get(), false), // no support for sparsity here.
         other_incoming(mat.get(), false);
 
@@ -109,24 +112,59 @@ SEXP smooth_gaussian_kernel(SEXP vect, SEXP index, SEXP data, SEXP sigma) {
         // Summation (and then division, see below) yields smoothed correction vectors.
         const auto& correction = averages[mnn];
         auto oIt=output.begin();
-        for (size_t other=0; other<ncells; ++other) {
-            const double mult=std::exp(distances2[other] - density);
-            totalprob[other]+=mult;
+        auto nIt=isneg.begin();
 
-            for (const auto& corval : correction) { 
-                (*oIt)+=corval*mult;
+        for (size_t other=0; other<ncells; ++other) {
+            const double logmult=distances2[other] - density;
+            double& logtotal=totalprob[other];
+
+            if (!ISNA(logtotal)) {
+                logtotal=R::logspace_add(logtotal, logmult);
+            } else {
+                logtotal=logmult;
+            }
+
+            // Again, a **lot** of care is required to avoid underflow!
+            for (const auto& corval : correction) {
+                if (corval!=0) {
+                    const double tmp=std::log(std::abs(corval)) + logmult;
+                    if (!ISNA(*oIt)) {
+                        if (*nIt == (corval < 0)) {
+                            (*oIt)=R::logspace_add(*oIt, tmp);
+                        } else {
+                            if (tmp > *oIt) {
+                                *oIt=R::logspace_sub(tmp, *oIt);
+                                *nIt=!*nIt;
+                            } else {
+                                *oIt=R::logspace_sub(*oIt, tmp);
+                            }
+                        }
+                    } else {
+                        *oIt=tmp;
+                        *nIt=(corval < 0);
+                    }
+                }
                 ++oIt;
+                ++nIt;
             }
         }
     }
 
-    // Dividing by the total probability.
+    // Dividing by the total probability, and un-logging.
     for (size_t other=0; other<ncells; ++other) {
         auto curcol=output.column(other);
+        auto curneg=isneg.column(other);
         const double total=totalprob[other];
 
+        auto nIt=curneg.begin();
         for (auto& val : curcol) {
-            val/=total;
+            if (ISNA(val)) {
+                val=0;
+            } else {
+                val=std::exp(val-total);
+                if (*nIt) { val *= -1; }
+            }
+            ++nIt;
         }
     }
 
