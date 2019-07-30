@@ -64,9 +64,10 @@ SEXP smooth_gaussian_kernel(SEXP vect, SEXP index, SEXP data, SEXP sigma) {
 
     // Setting up output constructs.
     Rcpp::NumericMatrix output(ngenes, ncells); // yes, this is 'ngenes' not 'ngenes_for_dist'.
-    std::fill(output.begin(), output.end(), R_NaReal);
-    Rcpp::LogicalMatrix isneg(ngenes, ncells);
+    Rcpp::NumericMatrix exponent(ngenes, ncells);
+    std::fill(exponent.begin(), exponent.end(), R_NegInf);
 
+    bool starting_prob=true;
     std::vector<double> distances2(ncells), totalprob(ncells, R_NaReal); 
     beachmat::const_column<beachmat::numeric_matrix> mnn_incoming(mat.get(), false), // no support for sparsity here.
         other_incoming(mat.get(), false);
@@ -112,59 +113,48 @@ SEXP smooth_gaussian_kernel(SEXP vect, SEXP index, SEXP data, SEXP sigma) {
         // Summation (and then division, see below) yields smoothed correction vectors.
         const auto& correction = averages[mnn];
         auto oIt=output.begin();
-        auto nIt=isneg.begin();
+        auto eIt=exponent.begin();
 
         for (size_t other=0; other<ncells; ++other) {
             const double logmult=distances2[other] - density;
             double& logtotal=totalprob[other];
 
-            if (!ISNA(logtotal)) {
+            if (!starting_prob) {
                 logtotal=R::logspace_add(logtotal, logmult);
             } else {
                 logtotal=logmult;
             }
 
             // Again, a **lot** of care is required to avoid underflow!
+            // The current sum for the 'i'th entry is determined by 'output[i] * exp(exponent[i])'. 
+            // This avoids underflow during summation from very large negative 'exponent'.
+            // We try to keep 'exponent' as large as possible to avoid overflow in 'output'.
             for (const auto& corval : correction) {
-                if (corval!=0) {
-                    const double tmp=std::log(std::abs(corval)) + logmult;
-                    if (!ISNA(*oIt)) {
-                        if (*nIt == (corval < 0)) {
-                            (*oIt)=R::logspace_add(*oIt, tmp);
-                        } else {
-                            if (tmp > *oIt) {
-                                *oIt=R::logspace_sub(tmp, *oIt);
-                                *nIt=!*nIt;
-                            } else {
-                                *oIt=R::logspace_sub(*oIt, tmp);
-                            }
-                        }
-                    } else {
-                        *oIt=tmp;
-                        *nIt=(corval < 0);
-                    }
+                if (logmult > *eIt) {
+                    *oIt *= std::exp(*eIt - logmult);
+                    *oIt += corval;
+                    *eIt = logmult;
+                } else {
+                    *oIt += corval * std::exp(logmult - *eIt);
                 }
                 ++oIt;
-                ++nIt;
+                ++eIt;
             }
         }
+
+        starting_prob=false;
     }
 
     // Dividing by the total probability, and un-logging.
     for (size_t other=0; other<ncells; ++other) {
         auto curcol=output.column(other);
-        auto curneg=isneg.column(other);
-        const double total=totalprob[other];
+        auto curexp=exponent.column(other);
+        const double logtotal=totalprob[other];
 
-        auto nIt=curneg.begin();
+        auto eIt=curexp.begin();
         for (auto& val : curcol) {
-            if (ISNA(val)) {
-                val=0;
-            } else {
-                val=std::exp(val-total);
-                if (*nIt) { val *= -1; }
-            }
-            ++nIt;
+            val *= std::exp(*eIt - logtotal);
+            ++eIt;
         }
     }
 
