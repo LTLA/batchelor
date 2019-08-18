@@ -1,4 +1,5 @@
-setClass("MNN_treenode", slots=c(index="integer", data="ANY", restrict="integer", origin="integer", extras="list"))
+#' @importClassesFrom DelayedArray integer_OR_NULL
+setClass("MNN_treenode", slots=c(index="integer", data="ANY", restrict="integer_OR_NULL", origin="integer", extras="list"))
 
 .get_node_index <- function(node) node@index
 
@@ -21,8 +22,8 @@ setClass("MNN_treenode", slots=c(index="integer", data="ANY", restrict="integer"
             extras=list()
         ))
     }
-    merge.tree[[1]] <- .fill_tree(merge.tree[[1]], batches)
-    merge.tree[[2]] <- .fill_tree(merge.tree[[2]], batches)
+    merge.tree[[1]] <- .fill_tree(merge.tree[[1]], batches, restrict)
+    merge.tree[[2]] <- .fill_tree(merge.tree[[2]], batches, restrict)
     merge.tree
 }
 
@@ -37,7 +38,7 @@ setClass("MNN_treenode", slots=c(index="integer", data="ANY", restrict="integer"
 }
 
 .update_tree <- function(merge.tree, path, ...) {
-    if (length(path)) {
+    if (length(path)==0L) {
         return(new("MNN_treenode", ...))
     }
     merge.tree[[path[1]]] <- .update_tree(merge.tree[[path[[1]]]], path[-1], ...)

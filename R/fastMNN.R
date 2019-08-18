@@ -83,7 +83,7 @@
 #' 
 #' The metadata of the output object contains:
 #' \itemize{
-#' \item \code{merge.order}, a vector of batch names or indices, specifying the order in which batches were merged.
+#' \item \code{merge.order}, a vector of batch names or index, specifying the order in which batches were merged.
 #' \item \code{merge.info}, a DataFrame of information about each merge step (corresponding to each row).
 #' This contains the following fields:
 #' \itemize{
@@ -326,7 +326,7 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
 
     # Performing the MNN search.
     common.args <-list(k=k, cos.norm=cos.norm, ndist=ndist, d=d, subset.row=subset.row, 
-        correct.all=correct.all, auto.order=auto.order, pc.input=pc.input, 
+        correct.all=correct.all, pc.input=pc.input, 
         min.batch.skip=min.batch.skip, 
         BSPARAM=BSPARAM, BNPARAM=BNPARAM, BPPARAM=BPPARAM)
 
@@ -455,8 +455,7 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
             merge.tree <- list(merge.tree, i)
         }
     }
-
-    merge.tree <- .fill_tree(merge.tree, batches)
+    merge.tree <- .fill_tree(merge.tree, batches, restrict)
 
     # Filling in output containers.
     nbatches <- length(batches)
@@ -474,21 +473,21 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
 
         left.data <- .get_node_data(left)
         left.restrict <- .get_node_restrict(left)
-        left.indices <- .get_node_indices(left)
+        left.index <- .get_node_index(left)
         left.origin <- .get_node_origin(left)
         left.extras <- .get_node_extras(left)
 
         right.data <- .get_node_data(right)
         right.restrict <- .get_node_restrict(right)
-        right.indices <- .get_node_indices(right)
+        right.index <- .get_node_index(right)
         right.origin <- .get_node_origin(right)
         right.extras <- .get_node_extras(right)
 
         # Computing the variance *before* attempting the merge.
-        left.old.var <- .compute_perbatch_var(left.data, left.indices, left.origin)
-        right.old.var <- .compute_perbatch_var(right.data, right.indices, right.origin)
-        left.set[[mdx]] <- left.indices
-        right.set[[mdx]] <- right.indices
+        left.old.var <- .compute_perbatch_var(left.data, left.index, left.origin)
+        right.old.var <- .compute_perbatch_var(right.data, right.index, right.origin)
+        left.set[[mdx]] <- left.index
+        right.set[[mdx]] <- right.index
 
         # Orthogonalizing and obtaining all MNNs.
         for (vec in left.extras) {
@@ -521,20 +520,20 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
             left.data <- .center_along_batch_vector(left.data, overall.batch, restrict=left.restrict)
             right.data <- .center_along_batch_vector(right.data, overall.batch, restrict=right.restrict)
 
-            left.new.var <- .compute_perbatch_var(left.data, left.indices, left.origin)
-            right.new.var <- .compute_perbatch_var(right.data, right.indices, right.origin)
+            left.new.var <- .compute_perbatch_var(left.data, left.index, left.origin)
+            right.new.var <- .compute_perbatch_var(right.data, right.index, right.origin)
 
             # Recompute correction vectors and apply them to all cells (hence, no restriction).
-            re.ave.out <- .average_correction(refdata, mnn.sets$first, curdata, mnn.sets$second)
-            curdata <- .tricube_weighted_correction(curdata, re.ave.out$averaged, re.ave.out$second, k=k, ndist=ndist, 
-                BNPARAM=BNPARAM, BPPARAM=BPPARAM)
+            re.ave.out <- .average_correction(left.data, mnn.sets$first, right.data, mnn.sets$second)
+            right.data <- .tricube_weighted_correction(right.data, re.ave.out$averaged, re.ave.out$second, 
+                k=k, ndist=ndist, BNPARAM=BNPARAM, BPPARAM=BPPARAM)
         } else {
-            left.new.var <- .compute_perbatch_var(left.data, left.indices, left.origin)
-            right.new.var <- .compute_perbatch_var(right.data, right.indices, right.origin)
+            left.new.var <- .compute_perbatch_var(left.data, left.index, left.origin)
+            right.new.var <- .compute_perbatch_var(right.data, right.index, right.origin)
         }
 
-        var[mdx,left.indices] <- left.new.var/left.old.var
-        var[mdx,right.indices] <- right.new.var/right.old.var
+        var.kept[mdx,left.index] <- left.new.var/left.old.var
+        var.kept[mdx,right.index] <- right.new.var/right.old.var
 
         batch.vec[[mdx]] <- overall.batch
         mnn.pairings[[mdx]] <- DataFrame(first=mnn.sets$first, second=mnn.sets$second + nrow(left.data))
@@ -547,7 +546,7 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
     }
 
     full.data <- .get_node_data(merge.tree)
-    full.order <- .get_node_indices(merge.tree)
+    full.order <- .get_node_index(merge.tree)
     full.origin <- .get_node_origin(merge.tree)
 
     # Adjusting the output back to the input order in 'batches'.
@@ -560,7 +559,7 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
     }
     
     # Formatting the output.
-    output <- DataFrame(corrected=I(refdata), batch=full.origin)
+    output <- DataFrame(corrected=I(full.data), batch=full.origin)
     mdf <- DataFrame(
         left=I(as(left.set, "List")),
         right=I(as(right.set, "List")),
@@ -688,7 +687,7 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
 {
     all.batches <- .get_batches(store)
     all.restrict <- .get_restrict(store)
-    leftovers <- setdiff(seq_along(all.batches), c(.get_reference_indices(store), .get_current_index(store)))
+    leftovers <- setdiff(seq_along(all.batches), c(.get_reference_index(store), .get_current_index(store)))
     var.kept <- rep(1, length(all.batches))
 
     for (i in leftovers) {
@@ -714,7 +713,7 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
 }
 
 .compute_reference_var <- function(reference, store) {
-    ri <- .get_reference_indices(store)
+    ri <- .get_reference_index(store)
     batches <- .get_batches(store)
     ref.var <- numeric(length(ri))
 
@@ -729,14 +728,11 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
     ref.var
 }
 
-.compute_perbatch_var <- function(data, batch, indices) {
-    ref.var <- numeric(length(indices))
-
-    for (i in seq_along(indices)) {
-        current <- batch==indices[i]
-        ref.var[i] <- .compute_solo_var(reference, rows=current)
+.compute_perbatch_var <- function(data, index, origin) {
+    ref.var <- numeric(length(index))
+    for (i in seq_along(index)) {
+        ref.var[i] <- .compute_solo_var(data, rows=(origin==index[i]))
     }
-
     ref.var
 }
 
