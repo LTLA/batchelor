@@ -327,7 +327,7 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
     # Performing the MNN search.
     common.args <-list(k=k, cos.norm=cos.norm, ndist=ndist, d=d, subset.row=subset.row, 
         correct.all=correct.all, pc.input=pc.input, 
-        min.batch.skip=min.batch.skip, 
+        min.batch.skip=min.batch.skip, auto.merge=auto.order,
         BSPARAM=BSPARAM, BNPARAM=BNPARAM, BPPARAM=BPPARAM)
 
     if (length(batches)==1L) {
@@ -593,12 +593,6 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
     metadata(output)$merge.info <- mdf
     output
 }
-
-
-
-
-
-
 
 ############################################
 # Correction-related functions.

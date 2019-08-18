@@ -69,7 +69,7 @@ MNN_treenode <- function(index, data, restrict, origin=rep(index, nrow(data)), e
 # search has to orthogonalize each batch before comparing them.
 
 .search_for_merge <- function(remainders, ...) {
-    left <- right <- n <- list()
+    left.idx <- right.idx <- n <- list()
     counter <- 1L
 
     for (i in seq_along(remainders)) {
@@ -88,21 +88,27 @@ MNN_treenode <- function(index, data, restrict, origin=rep(index, nrow(data)), e
             left.data <- .orthogonalize_other(left.data, left.restrict, right.extras)
             collected <- .restricted_mnn(left.data, left.restrict, right.data, right.restrict, ...)
 
-            left[[counter]] <- i
-            right[[counter]] <- j
+            left.idx[[counter]] <- i
+            right.idx[[counter]] <- j
             n[[counter]] <- length(collected$first)
+            counter <- counter + 1L
         }
     }
     
     n <- unlist(n)
     chosen <- which.max(n)
-    chosen.left <- left[[chosen]]
-    chosen.right <- right[[chosen]]
+    chosen.left <- left.idx[[chosen]]
+    chosen.right <- right.idx[[chosen]]
     list(left=remainders[[chosen.left]], right=remainders[[chosen.right]], 
         chosen=c(chosen.left, chosen.right))
 }
 
 .update_remainders <- function(remainders, chosen, ...) {
     leftovers <- remainders[-chosen]
-    c(leftovers, list(MNN_treenode(...)))
+    val <- MNN_treenode(...)
+    if (length(leftovers)) {
+        c(leftovers, list(val))
+    } else {
+        val # Return node directly to indicate completion.
+    }
 }
