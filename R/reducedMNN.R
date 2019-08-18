@@ -9,7 +9,44 @@
 #' along with information required for orthogonalization in the metadata.
 #' @inheritParams fastMNN
 #'
-#' @inherit fastMNN value
+#' @return
+#' A \linkS4class{DataFrame} is returned where each row corresponds to a cell, containing:
+#' \itemize{
+#' \item \code{corrected}, the matrix of corrected low-dimensional coordinates for each cell.
+#' \item \code{batch}, the Rle specifying the batch of origin for each row.
+#' }
+#' Cells in the output object are always ordered in the same manner as supplied in \code{...}.
+#' The metadata on this object is the same as that in the output of \code{\link{fastMNN}}.
+#'
+#' @details
+#' \code{reducedMNN} performs the same operations as \code{\link{fastMNN}} but assumes that the PCA has already been performed.
+#' This is useful as the PCA (via \code{\link{multiBatchPCA}} is often the most time-consuming part of the procedure.
+#' By performing the PCA once, \code{reducedMNN} allows the MNN correction to be quickly repeated with different parameters.
+#'
+#' \code{reducedMNN} operates on the same principles as \code{\link{fastMNN}}, 
+#' so users are referred to the documentation for the latter for more details on the effect of each of the arguments.
+#' Obviously, any arguments pertaining to gene-based steps in \code{\link{fastMNN}} are not relevant here.
+#' 
+#' Note that \code{\link{multiBatchPCA}} will not perform cosine-normalization, 
+#' so it is the responsibility of the user to cosine-normalize each batch beforehand with \code{\link{cosineNorm}} to recapitulate results of \code{\link{fastMNN}} with \code{cos.norm=TRUE}.
+#' In addition, \code{\link{multiBatchPCA}} must be run on all samples at once, to ensure that all cells are projected to the same low-dimensional space.
+#'
+#' @author Aaron Lun
+#' @examples
+#' B1 <- matrix(rnorm(10000), ncol=50) # Batch 1 
+#' B2 <- matrix(rnorm(10000), ncol=50) # Batch 2
+#'
+#' # Equivalent to fastMNN().
+#' cB1 <- cosineNorm(B1)
+#' cB2 <- cosineNorm(B2)
+#' pcs <- multiBatchPCA(cB1, cB2)
+#' out2 <- reducedMNN(pcs[[1]], pcs[[2]])
+#'
+#' @seealso
+#' \code{\link{cosineNorm}} and \code{\link{multiBatchPCA}}, to obtain the values to be corrected.
+#'
+#' \code{\link{reducedMNN}}, for a version of the function that operates in low-dimensional space.
+#'
 #' @export
 #' @importFrom BiocNeighbors KmknnParam
 #' @importFrom BiocParallel SerialParam bpstart bpstop bpisup register
