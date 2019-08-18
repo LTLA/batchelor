@@ -228,7 +228,6 @@
 #' Further MNN algorithm development.
 #' \url{https://MarioniLab.github.io/FurtherMNN2018/theory/description.html}
 #'
-#' @rdname fastMNN
 #' @export
 #' @importFrom SingleCellExperiment reducedDim
 #' @importFrom SummarizedExperiment assay
@@ -378,21 +377,53 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
 ############################################
 # Internal main function, to separate the input handling from the actual calculations.
 
-.fast_mnn <- function(batches, k=20, restrict=NULL, ndist=3, merge.tree=NULL, auto.merge=FALSE,
+#' @importFrom BiocParallel SerialParam
+#' @importFrom S4Vectors DataFrame metadata<- metadata List
+#' @importFrom BiocNeighbors KmknnParam
+#' @importFrom utils tail
+.fast_mnn <- function(batches, k=20, restrict=NULL, ndist=3, 
+    merge.order=NULL, auto.merge=FALSE, auto.order=NULL, 
     min.batch.skip=0, BNPARAM=KmknnParam(), BPPARAM=SerialParam()) 
 {
     args <- list(k=k, restrict=restrict, ndist=ndist,
         min.batch.skip=min.batch.skip, BNPARAM=BNPARAM, BPPARAM=BPPARAM)
 
+    if (!is.null(auto.order)) {
+        .Deprecated(old="auto.order", new="auto.merge")
+        if (isTRUE(auto.order)) {
+            auto.merge <- TRUE
+        } else if (is.numeric(auto.order)) {
+            merge.order <- auto.order
+        }
+    }
+
     if (!auto.merge) {
-        if (is.null(merge.tree)) {
-            merge.tree <- list(1L, 2L)
-            for (i in tail(seq_along(batches), -2L)) {
+        if (is.null(merge.order)) {
+            merge.order <- seq_along(batches)
+        }
+        if (!is.list(merge.order) && length(merge.order) > 1L) {
+            merge.tree <- list(merge.order[1], merge.order[2])
+            for (i in tail(merge.order, -2L)) {
                 merge.tree <- list(merge.tree, i)
             }
+        } else {
+            merge.tree <- merge.order
         }
+
+        # Checking validity.
+        leaves <- unlist(merge.tree)
+        if (!is.numeric(leaves)) {
+            leaves <- match(leaves, names(batch))
+        } else {
+            leaves <- as.integer(leaves)
+        }
+        if (any(is.na(leaves)) || anyDuplicated(leaves) || any(leaves < 1) || any(leaves > length(batches))) {
+            stop("invalid leaf nodes specified in 'merge.order'")
+        }
+        merge.tree <- relist(leaves, merge.tree)
+
         merge.tree <- .fill_tree(merge.tree, batches, restrict)
-        .fast_mnn_core(merge.tree, k=k, restrict=restrict, ndist=ndist,
+        output <- .fast_mnn_core(merge.tree, k=k, restrict=restrict, ndist=ndist,
             min.batch.skip=min.batch.skip, BNPARAM=BNPARAM, BPPARAM=BPPARAM,
             NEXT=.get_next_merge, UPDATE=.update_tree)
     } else {
@@ -409,17 +440,23 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
             NEXT=merge_chooser, UPDATE=.update_remainders)
     }
 
-    if (!is.null(names(batch))) {
-        m <- 
-        L <- metadata(output)$merge.info$left 
-        metadata(output)$merge.info$left <- relist(names(batch)[unlist(L)], L)
-        R <- metadata(output)$merge.info$right 
-        metadata(output)$merge.info$right <- relist(names(batch)[unlist(R)], R)
+    if (!is.null(names(batches))) {
+        if (anyDuplicated(names(batches))) {
+            stop("names of batches should be unique")
+        }
+        L1 <- metadata(output)$merge.info$left 
+        R1 <- metadata(output)$merge.info$right 
+        L2 <- R2 <- List()
+        for (i in seq_along(L)) {
+            L2[[i]] <- names(batches)[L1[[i]]]
+            R2[[i]] <- names(batches)[R1[[i]]]
+        }
+        metadata(output)$merge.info$left <- L2
+        metadata(output)$merge.info$right <- R2
     } 
 
     output
 }
-
 
 #' @importFrom BiocParallel SerialParam
 #' @importFrom S4Vectors DataFrame metadata<- 
