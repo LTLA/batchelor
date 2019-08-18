@@ -52,24 +52,18 @@
 #' @importFrom BiocParallel SerialParam bpstart bpstop bpisup register
 #' @importClassesFrom S4Vectors DataFrame
 reducedMNN <- function (..., batch=NULL, k=20, restrict=NULL, ndist=3,
-    merge.order=NULL, auto.merge=FALSE, auto.order=FALSE, min.batch.skip=0,
+    merge.order=NULL, auto.merge=FALSE, auto.order=NULL, min.batch.skip=0,
     BNPARAM=KmknnParam(), BPPARAM=SerialParam())
 {
     batches <- list(...)
-    if (is.null(names(batches))) {
-        names(batches) <- seq_along(batches)
-    } else if (anyDuplicated(names(batches))) {
-        stop("names of '...' are not unique")
-    }
-
     is.df <- vapply(batches, is, class2="DataFrame", FUN.VALUE=TRUE)
     if (any(is.df)) {
         .Deprecated(msg="re-use of 'fastMNN' outputs is deprecated")
         batches[is.df] <- lapply(batches[is.df], FUN=function(x) x$corrected)
     }
 
-    checkBatchConsistency(for.checking, cells.in.columns=FALSE)
-    restrict <- checkRestrictions(for.checking, restrict, cells.in.columns=FALSE)
+    checkBatchConsistency(batches, cells.in.columns=FALSE)
+    restrict <- checkRestrictions(batches, restrict, cells.in.columns=FALSE)
 
     # Setting up the parallelization environment.
     old <- bpparam()

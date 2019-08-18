@@ -281,8 +281,8 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
     }
 
     # Batch consistency checks.
-    checkBatchConsistency(for.checking, cells.in.columns=TRUE)
-    restrict <- checkRestrictions(for.checking, restrict, cells.in.columns=TRUE)
+    checkBatchConsistency(batches, cells.in.columns=TRUE)
+    restrict <- checkRestrictions(batches, restrict, cells.in.columns=TRUE)
 
     # Setting up the parallelization environment.
     old <- bpparam()
@@ -447,7 +447,7 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
         L1 <- metadata(output)$merge.info$left 
         R1 <- metadata(output)$merge.info$right 
         L2 <- R2 <- List()
-        for (i in seq_along(L)) {
+        for (i in seq_along(L1)) {
             L2[[i]] <- names(batches)[L1[[i]]]
             R2[[i]] <- names(batches)[R1[[i]]]
         }
@@ -649,10 +649,13 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
     data
 }
 
+#' @importFrom DelayedMatrixStats colVars
+#' @importFrom DelayedArray DelayedArray
 .compute_perbatch_var <- function(data, index, origin) {
     ref.var <- numeric(length(index))
     for (i in seq_along(index)) {
-        ref.var[i] <- .compute_solo_var(data, rows=(origin==index[i]))
+        rows <- origin==index[i]
+        ref.var[i] <- sum(colVars(DelayedArray(data), rows=rows))
     }
     ref.var
 }

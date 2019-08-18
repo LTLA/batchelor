@@ -15,10 +15,15 @@ MNN_treenode <- function(index, data, restrict, origin=rep(index, nrow(data)), e
 
 .get_node_extras <- function(node) node@extras
 
+############################################
+
 .fill_tree <- function(merge.tree, batches, restrict) {
     if (!is.list(merge.tree)) {
         val <- batches[[merge.tree]]
         return(MNN_treenode(index=merge.tree, data=val, restrict=restrict[[merge.tree]]))
+    }
+    if (length(merge.tree)!=2L) {
+        stop("merge tree structure should contain two children per node")
     }
     merge.tree[[1]] <- .fill_tree(merge.tree[[1]], batches, restrict)
     merge.tree[[2]] <- .fill_tree(merge.tree[[2]], batches, restrict)
