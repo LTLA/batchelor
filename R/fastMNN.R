@@ -372,20 +372,7 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
     # Reordering by the input order.        
     d.reo <- divided$reorder
     output <- output[d.reo,,drop=FALSE]
-
-    rev.order <- integer(length(d.reo))
-    rev.order[d.reo] <- seq_along(d.reo)
-    pairings <- metadata(output)$merge.info$pairs
-    for (x in seq_along(pairings)) {
-        pairings[[x]][,1] <- rev.order[pairings[[x]][,1]]
-        pairings[[x]][,2] <- rev.order[pairings[[x]][,2]]
-    }
-    metadata(output)$merge.info$pairs <- pairings
-
-    if (!pc.input) {
-        output <- .convert_to_SCE(output, mat)
-    }
-    output
+    .convert_to_SCE(output, mat)
 }
 
 ############################################
@@ -417,26 +404,36 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
             .search_for_merge(remainders, k1=k, k2=k, BNPARAM=BNPARAM, BPPARAM=BPPARAM)
         }
 
-        .fast_mnn_core(remainders, k=k, restrict=restrict, ndist=ndist,
+        output <- .fast_mnn_core(remainders, k=k, restrict=restrict, ndist=ndist,
             min.batch.skip=min.batch.skip, BNPARAM=BNPARAM, BPPARAM=BPPARAM,
             NEXT=merge_chooser, UPDATE=.update_remainders)
     }
+
+    if (!is.null(names(batch))) {
+        m <- 
+        L <- metadata(output)$merge.info$left 
+        metadata(output)$merge.info$left <- relist(names(batch)[unlist(L)], L)
+        R <- metadata(output)$merge.info$right 
+        metadata(output)$merge.info$right <- relist(names(batch)[unlist(R)], R)
+    } 
+
+    output
 }
+
 
 #' @importFrom BiocParallel SerialParam
 #' @importFrom S4Vectors DataFrame metadata<- 
 #' @importFrom BiocNeighbors KmknnParam
 #' @importClassesFrom S4Vectors List
 #' @importFrom methods as
-#' @importFrom utils tail
 .fast_mnn_core <- function(merge.tree, k=20, restrict=NULL, ndist=3, 
     min.batch.skip=0, BNPARAM=KmknnParam(), BPPARAM=SerialParam(),
-    nbatches, NEXT, UPDATE)
+    NEXT, UPDATE)
 {
     # Filling in output containers.
     nbatches <- length(unlist(merge.tree))
     nmerges <- nbatches - 1L
-    mnn.pairings <- batch.vec <- left.set <- right.set <- vector("list", nmerges)
+    mnn.pairings <- left.set <- right.set <- vector("list", nmerges)
     batch.size <- rep(NA_real_, nmerges)
     skipped <- logical(nmerges)
     var.kept <- matrix(1, nmerges, nbatches) 
@@ -507,8 +504,7 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
         var.kept[mdx,left.index] <- left.new.var/left.old.var
         var.kept[mdx,right.index] <- right.new.var/right.old.var
 
-        batch.vec[[mdx]] <- overall.batch
-        mnn.pairings[[mdx]] <- DataFrame(first=mnn.sets$first, second=mnn.sets$second + nrow(left.data))
+        mnn.pairings[[mdx]] <- DataFrame(left=mnn.sets$first, right=mnn.sets$second)
         merge.tree <- UPDATE(merge.tree, next.step$chosen, 
             data=rbind(left.data, right.data),  
             index=c(left.index, right.index),
@@ -535,8 +531,7 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
         left=I(as(left.set, "List")),
         right=I(as(right.set, "List")),
         pairs=I(as(mnn.pairings, "List")), 
-        batch.vector=I(as(batch.vec, "List")),
-        batch.size=batch.size,
+        batch=batch.size,
         skipped=skipped,
         lost.var=I(1 - var.kept)
     )
