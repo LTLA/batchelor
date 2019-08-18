@@ -586,6 +586,22 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
     }
 }
 
+#' @importFrom BiocNeighbors queryKNN KmknnParam
+#' @importFrom BiocParallel SerialParam
+.tricube_weighted_correction <- function(curdata, correction, in.mnn, k=20, ndist=3, BNPARAM=KmknnParam(), BPPARAM=SerialParam())
+# Computing tricube-weighted correction vectors for individual cells,
+# using the nearest neighbouring cells _involved in MNN pairs_.
+{
+    cur.uniq <- curdata[in.mnn,,drop=FALSE]
+    safe.k <- min(k, nrow(cur.uniq))
+    closest <- queryKNN(query=curdata, X=cur.uniq, k=safe.k, BNPARAM=BNPARAM, BPPARAM=BPPARAM)
+    weighted.correction <- .compute_tricube_average(correction, closest$index, closest$distance, ndist=ndist)
+    curdata + weighted.correction
+}
+
+############################################
+# Orthogonalization-related functions.
+
 .center_along_batch_vector <- function(mat, batch.vec, restrict=NULL) 
 # Projecting along the batch vector, and shifting all cells to the center _within_ each batch.
 # This removes any variation along the overall batch vector within each matrix.
@@ -602,116 +618,11 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
     mat + outer(central.loc - batch.loc, batch.vec, FUN="*")
 }
 
-#' @importFrom BiocNeighbors queryKNN KmknnParam
-#' @importFrom BiocParallel SerialParam
-.tricube_weighted_correction <- function(curdata, correction, in.mnn, k=20, ndist=3, BNPARAM=KmknnParam(), BPPARAM=SerialParam())
-# Computing tricube-weighted correction vectors for individual cells,
-# using the nearest neighbouring cells _involved in MNN pairs_.
-{
-    cur.uniq <- curdata[in.mnn,,drop=FALSE]
-    safe.k <- min(k, nrow(cur.uniq))
-    closest <- queryKNN(query=curdata, X=cur.uniq, k=safe.k, BNPARAM=BNPARAM, BPPARAM=BPPARAM)
-    weighted.correction <- .compute_tricube_average(correction, closest$index, closest$distance, ndist=ndist)
-    curdata + weighted.correction
-}
-
-############################################
-# Reorthogonalization-related functions.
-
-#' @importFrom methods is
-#' @importClassesFrom S4Vectors DataFrame
-.orthogonalize_inputs <- function(batches, restrict) { 
-    # Pulling out information from DataFrames.
-    orth <- vector("list", length(batches))
-    for (i in seq_along(batches)) {
-        current <- batches[[i]]
-        if (is(current, "DataFrame")) {
-            curmeta <- metadata(current) 
-            curmerge <- curmeta$merge.info
-            orth[[i]] <- c(as.list(curmeta$pre.orthog$batch.vector), as.list(curmerge$batch.vector[!curmerge$skipped]))
-            batches[[i]] <- current$corrected
-        }
-    }
-
-    # Orthogonalizing each batch with respect to all of the input batch vectors.
-    # This includes its own (effectively repeated orthogonalization) to ensure
-    # that all batches have been projected and centred in the same way.
-    orth <- unlist(orth, recursive=FALSE)
-    more.var.kept <- matrix(1, length(orth), length(batches))
-    for (i in seq_along(batches)) {
-        curdata <- batches[[i]]
-        curvar <- .compute_solo_var(curdata)
-        currestrict <- restrict[[i]]
-
-        for (j in seq_along(orth)) {
-            olddata <- curdata
-            oldvar <- curvar
-            curdata <- .center_along_batch_vector(curdata, orth[[j]], restrict=currestrict)
-            curvar <- .compute_solo_var(curdata) 
-
-            # The same orthogonalization vector applied to a freshly orthogonalized batch 
-            # will exhibit no loss of variance; min() protects against numerical imprecision
-            # to guarantee that 'more.kept.var' values lie in [0, 1].
-            more.var.kept[j,i] <- min(1, curvar/oldvar)
-        }
-
-        batches[[i]] <- curdata
-    }
-
-    list(batches=batches, vectors=orth, var=more.var.kept) 
-}
-
-.orthogonalize_remainders <- function(store, batch.vec) 
-# Ensures that 'batch' is orthogonal to every 'vectors'.
-{
-    all.batches <- .get_batches(store)
-    all.restrict <- .get_restrict(store)
-    leftovers <- setdiff(seq_along(all.batches), c(.get_reference_index(store), .get_current_index(store)))
-    var.kept <- rep(1, length(all.batches))
-
-    for (i in leftovers) {
-        olddata <- curdata <- all.batches[[i]]
-        curdata <- .center_along_batch_vector(curdata, batch.vec, restrict=all.restrict[[i]])
-        store <- .update_batch(store, i, curdata)
-
-        old.var <- .compute_solo_var(olddata) 
-        new.var <- .compute_solo_var(curdata) 
-        var.kept[i] <- new.var/old.var
-    }
-
-    list(store=store, var=var.kept)
-}
-
 .orthogonalize_other <- function(data, restrict, vectors) {
     for (vec in vectors) {
         data <- .center_along_batch_vector(data, vec, restrict=restrict)
     }
     data
-}
-
-############################################
-# Variance calculation functions.
-
-#' @importFrom DelayedMatrixStats colVars
-#' @importFrom DelayedArray DelayedArray
-.compute_solo_var <- function(mat, rows=NULL) {
-    sum(colVars(DelayedArray(mat), rows=rows))
-}
-
-.compute_reference_var <- function(reference, store) {
-    ri <- .get_reference_index(store)
-    batches <- .get_batches(store)
-    ref.var <- numeric(length(ri))
-
-    last <- 0L
-    for (i in seq_along(ri)) {
-        cur.ncells <- nrow(batches[[ri[i]]])
-        chosen <- last + seq_len(cur.ncells)
-        ref.var[i] <- .compute_solo_var(reference, rows=chosen)
-        last <- last + cur.ncells
-    }
-
-    ref.var
 }
 
 .compute_perbatch_var <- function(data, index, origin) {
@@ -721,7 +632,6 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
     }
     ref.var
 }
-
 
 ############################################
 # Output formatting functions.
