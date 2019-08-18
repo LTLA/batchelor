@@ -440,25 +440,50 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
 ############################################
 # Internal main function, to separate the input handling from the actual calculations.
 
+.fast_mnn <- function(batches, k=20, restrict=NULL, ndist=3, merge.tree=NULL, auto.merge=FALSE,
+    min.batch.skip=0, BNPARAM=KmknnParam(), BPPARAM=SerialParam()) 
+{
+    args <- list(k=k, restrict=restrict, ndist=ndist,
+        min.batch.skip=min.batch.skip, BNPARAM=BNPARAM, BPPARAM=BPPARAM)
+
+    if (!auto.merge) {
+        if (is.null(merge.tree)) {
+            merge.tree <- list(1L, 2L)
+            for (i in tail(seq_along(batches), -2L)) {
+                merge.tree <- list(merge.tree, i)
+            }
+        }
+        merge.tree <- .fill_tree(merge.tree, batches, restrict)
+        .fast_mnn_core(merge.tree, k=k, restrict=restrict, ndist=ndist,
+            min.batch.skip=min.batch.skip, BNPARAM=BNPARAM, BPPARAM=BPPARAM,
+            NEXT=.get_next_merge, UPDATE=.update_tree)
+    } else {
+        remainders <- lapply(seq_along(batches), function(i) {
+            MNN_treenode(index=i, data=batches[[i]], restrict=restrict[[i]])
+        })
+
+        merge_chooser <- function(remainders) {
+            .search_for_merge(remainders, k1=k, k2=k, BNPARAM=BNPARAM, BPPARAM=BPPARAM)
+        }
+
+        .fast_mnn_core(remainders, k=k, restrict=restrict, ndist=ndist,
+            min.batch.skip=min.batch.skip, BNPARAM=BNPARAM, BPPARAM=BPPARAM,
+            NEXT=merge_chooser, UPDATE=.update_remainders)
+    }
+}
+
 #' @importFrom BiocParallel SerialParam
 #' @importFrom S4Vectors DataFrame metadata<- 
 #' @importFrom BiocNeighbors KmknnParam
 #' @importClassesFrom S4Vectors List
 #' @importFrom methods as
 #' @importFrom utils tail
-.fast_mnn <- function(batches, k=20, restrict=NULL, ndist=3, merge.tree=NULL, 
-    min.batch.skip=0, BNPARAM=KmknnParam(), BPPARAM=SerialParam()) 
+.fast_mnn_core <- function(merge.tree, k=20, restrict=NULL, ndist=3, 
+    min.batch.skip=0, BNPARAM=KmknnParam(), BPPARAM=SerialParam(),
+    nbatches, NEXT, UPDATE)
 {
-    if (is.null(merge.tree)) {
-        merge.tree <- list(1L, 2L)
-        for (i in tail(seq_along(batches), -2L)) {
-            merge.tree <- list(merge.tree, i)
-        }
-    }
-    merge.tree <- .fill_tree(merge.tree, batches, restrict)
-
     # Filling in output containers.
-    nbatches <- length(batches)
+    nbatches <- length(unlist(merge.tree))
     nmerges <- nbatches - 1L
     mnn.pairings <- batch.vec <- left.set <- right.set <- vector("list", nmerges)
     batch.size <- rep(NA_real_, nmerges)
@@ -467,7 +492,7 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
 
     for (mdx in seq_len(nmerges)) {
         # Traversing the merge tree to find the next two batches to merge.
-        next.step <- .get_next_merge(merge.tree) 
+        next.step <- NEXT(merge.tree) 
         left <- next.step$left
         right <- next.step$right
 
@@ -490,12 +515,8 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
         right.set[[mdx]] <- right.index
 
         # Orthogonalizing and obtaining all MNNs.
-        for (vec in left.extras) {
-            right.data <- .center_along_batch_vector(right.data, vec, restrict=left.restrict)
-        }
-        for (vec in right.extras) {
-            left.data <- .center_along_batch_vector(left.data, vec, restrict=left.restrict)
-        }
+        right.data <- .orthogonalize_other(right.data, right.restrict, left.extras)
+        left.data <- .orthogonalize_other(left.data, left.restrict, right.extras)
         mnn.sets <- .restricted_mnn(left.data, left.restrict, right.data, right.restrict, 
             k1=k, k2=k, BNPARAM=BNPARAM, BPPARAM=BPPARAM)
 
@@ -537,7 +558,7 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
 
         batch.vec[[mdx]] <- overall.batch
         mnn.pairings[[mdx]] <- DataFrame(first=mnn.sets$first, second=mnn.sets$second + nrow(left.data))
-        merge.tree <- .update_tree(merge.tree, next.step$path, 
+        merge.tree <- UPDATE(merge.tree, next.step$chosen, 
             data=rbind(left.data, right.data),  
             index=c(left.index, right.index),
             restrict=c(left.restrict, right.restrict + nrow(left.data)),
@@ -551,11 +572,10 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
 
     # Adjusting the output back to the input order in 'batches'.
     if (is.unsorted(full.order)) {
-        ncells.per.batch <- vapply(batches, nrow, 0L)
+        ncells.per.batch <- tabulate(full.origin)
         ordering <- .restore_original_order(full.order, ncells.per.batch)
         full.data <- full.data[ordering,,drop=FALSE]
         full.origin <- full.origin[ordering]
-        mnn.pairings <- .reindex_pairings(mnn.pairings, ordering)
     }
     
     # Formatting the output.
@@ -573,6 +593,12 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
     metadata(output)$merge.info <- mdf
     output
 }
+
+
+
+
+
+
 
 ############################################
 # Correction-related functions.
@@ -701,6 +727,13 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
     }
 
     list(store=store, var=var.kept)
+}
+
+.orthogonalize_other <- function(data, restrict, vectors) {
+    for (vec in vectors) {
+        data <- .center_along_batch_vector(data, vec, restrict=restrict)
+    }
+    data
 }
 
 ############################################
