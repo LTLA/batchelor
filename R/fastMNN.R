@@ -280,6 +280,9 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
     } else if (all(is.sce)) {
         pc.input <- !is.null(use.dimred)
     }
+    if (pc.input) {
+        .Deprecated(msg="'pc.input=TRUE' and 'use.dimred=TRUE' are deprecated.\nUse 'auto.order=' to perform hierarchical merges instead.")
+    }
 
     # Extracting information from SCEs.
     if (any(is.sce)) {
@@ -358,7 +361,7 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
 }
 
 ############################################
-# Internal main function, to separate the input handling from the actual calculations.
+# Function to prepare data from a list or a single batch.
 
 #' @importFrom BiocSingular ExactParam 
 #' @importFrom BiocParallel SerialParam
@@ -434,44 +437,71 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
     output
 }
 
+############################################
+# Internal main function, to separate the input handling from the actual calculations.
+
 #' @importFrom BiocParallel SerialParam
 #' @importFrom S4Vectors DataFrame metadata<- 
 #' @importFrom BiocNeighbors KmknnParam
 #' @importClassesFrom S4Vectors List
 #' @importFrom methods as
-.fast_mnn <- function(batches, k=20, restrict=NULL, ndist=3, auto.order=FALSE, 
+#' @importFrom utils tail
+.fast_mnn <- function(batches, k=20, restrict=NULL, ndist=3, merge.tree=NULL, 
     min.batch.skip=0, BNPARAM=KmknnParam(), BPPARAM=SerialParam()) 
 {
-    nbatches <- length(batches)
-
-    # Defining ordering vectors.
-    if (!is.logical(auto.order)) {
-        re.order <- as.integer(auto.order)
-        if (!identical(sort(re.order), seq_len(nbatches))) {
-            stop("integer 'auto.order' must contain a permutation of 1:nbatches") 
+    if (is.null(merge.tree)) {
+        merge.tree <- list(1L, 2L)
+        for (i in tail(seq_along(batches), -2L)) {
+            merge.tree <- list(merge.tree, i)
         }
-        mnn.store <- MNN_supplied_order(batches, restrict, re.order)
-    } else if (auto.order) {
-        mnn.store <- MNN_auto_order(batches, restrict)
-    } else {
-        mnn.store <- MNN_supplied_order(batches, restrict)
     }
 
+    merge.tree <- .fill_tree(merge.tree, batches)
+
+    # Filling in output containers.
+    nbatches <- length(batches)
     nmerges <- nbatches - 1L
-    mnn.pairings <- vector("list", nmerges)
+    mnn.pairings <- batch.vec <- left.set <- right.set <- vector("list", nmerges)
     batch.size <- rep(NA_real_, nmerges)
-    batch.vec <- vector("list", nmerges)
     skipped <- logical(nmerges)
     var.kept <- matrix(1, nmerges, nbatches) 
 
     for (mdx in seq_len(nmerges)) {
-        mnn.store <- .advance(mnn.store, k=k, BNPARAM=BNPARAM, BPPARAM=BPPARAM)
-        refdata <- .get_reference(mnn.store)
-        curdata <- .get_current(mnn.store)
+        # Traversing the merge tree to find the next two batches to merge.
+        next.step <- .get_next_merge(merge.tree) 
+        left <- next.step$left
+        right <- next.step$right
+
+        left.data <- .get_node_data(left)
+        left.restrict <- .get_node_restrict(left)
+        left.indices <- .get_node_indices(left)
+        left.origin <- .get_node_origin(left)
+        left.extras <- .get_node_extras(left)
+
+        right.data <- .get_node_data(right)
+        right.restrict <- .get_node_restrict(right)
+        right.indices <- .get_node_indices(right)
+        right.origin <- .get_node_origin(right)
+        right.extras <- .get_node_extras(right)
+
+        # Computing the variance *before* attempting the merge.
+        left.old.var <- .compute_perbatch_var(left.data, left.indices, left.origin)
+        right.old.var <- .compute_perbatch_var(right.data, right.indices, right.origin)
+        left.set[[mdx]] <- left.indices
+        right.set[[mdx]] <- right.indices
+
+        # Orthogonalizing and obtaining all MNNs.
+        for (vec in left.extras) {
+            right.data <- .center_along_batch_vector(right.data, vec, restrict=left.restrict)
+        }
+        for (vec in right.extras) {
+            left.data <- .center_along_batch_vector(left.data, vec, restrict=left.restrict)
+        }
+        mnn.sets <- .restricted_mnn(left.data, left.restrict, right.data, right.restrict, 
+            k1=k, k2=k, BNPARAM=BNPARAM, BPPARAM=BPPARAM)
 
         # Estimate the overall batch vector (implicitly 'restrict'd by definition of MNNs).
-        mnn.sets <- .get_mnn_result(mnn.store) 
-        ave.out <- .average_correction(refdata, mnn.sets$first, curdata, mnn.sets$second)
+        ave.out <- .average_correction(left.data, mnn.sets$first, right.data, mnn.sets$second)
         overall.batch <- colMeans(ave.out$averaged)
 
         do.correct <- TRUE 
@@ -488,63 +518,60 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
         if (do.correct) {
             # Remove variation along the batch vector, which responds to 'restrict'.
             # Also recording the lost variation if desired, which does not respond to 'restrict'.
-            ref.var.before <- .compute_reference_var(refdata, mnn.store)
-            cur.var.before <- .compute_solo_var(curdata)
+            left.data <- .center_along_batch_vector(left.data, overall.batch, restrict=left.restrict)
+            right.data <- .center_along_batch_vector(right.data, overall.batch, restrict=right.restrict)
 
-            refdata <- .center_along_batch_vector(refdata, overall.batch, restrict=.get_reference_restrict(mnn.store))
-            curdata <- .center_along_batch_vector(curdata, overall.batch, restrict=.get_current_restrict(mnn.store))
-
-            ref.var.after <- .compute_reference_var(refdata, mnn.store)
-            cur.var.after <- .compute_solo_var(curdata)
-            var.kept[mdx,.get_reference_indices(mnn.store)] <- ref.var.after/ref.var.before
-            var.kept[mdx,.get_current_index(mnn.store)] <- cur.var.after/cur.var.before
+            left.new.var <- .compute_perbatch_var(left.data, left.indices, left.origin)
+            right.new.var <- .compute_perbatch_var(right.data, right.indices, right.origin)
 
             # Recompute correction vectors and apply them to all cells (hence, no restriction).
             re.ave.out <- .average_correction(refdata, mnn.sets$first, curdata, mnn.sets$second)
             curdata <- .tricube_weighted_correction(curdata, re.ave.out$averaged, re.ave.out$second, k=k, ndist=ndist, 
                 BNPARAM=BNPARAM, BPPARAM=BPPARAM)
-
-            # Applying the same orthogonalization to the remaining batches. 
-            reorth.out <- .orthogonalize_remainders(mnn.store, overall.batch) 
-
-            mnn.store <- reorth.out$store
-            var.kept[mdx,] <- var.kept[mdx,] * reorth.out$var
+        } else {
+            left.new.var <- .compute_perbatch_var(left.data, left.indices, left.origin)
+            right.new.var <- .compute_perbatch_var(right.data, right.indices, right.origin)
         }
 
+        var[mdx,left.indices] <- left.new.var/left.old.var
+        var[mdx,right.indices] <- right.new.var/right.old.var
+
         batch.vec[[mdx]] <- overall.batch
-        mnn.pairings[[mdx]] <- DataFrame(first=mnn.sets$first, second=mnn.sets$second + nrow(refdata))
-        mnn.store <- .update_reference(mnn.store, refdata)
-        mnn.store <- .compile(mnn.store, curdata)
+        mnn.pairings[[mdx]] <- DataFrame(first=mnn.sets$first, second=mnn.sets$second + nrow(left.data))
+        merge.tree <- .update_tree(merge.tree, next.step$path, 
+            data=rbind(left.data, right.data),  
+            index=c(left.index, right.index),
+            restrict=c(left.restrict, right.restrict + nrow(left.data)),
+            origin=c(left.origin, right.origin),
+            extras=c(left.extras, right.extras, list(overall.batch)))
     }
 
-    refdata <- .get_reference(mnn.store)
-    merge.order <- .get_reference_indices(mnn.store)
-
-    # Reporting the batch identities.
-    ncells.per.batch <- vapply(batches, FUN=nrow, FUN.VALUE=0L)
-    batch.names <- .create_batch_names(names(batches), ncells.per.batch)
+    full.data <- .get_node_data(merge.tree)
+    full.order <- .get_node_indices(merge.tree)
+    full.origin <- .get_node_origin(merge.tree)
 
     # Adjusting the output back to the input order in 'batches'.
-    if (is.unsorted(merge.order)) {
-        ordering <- .restore_original_order(merge.order, ncells.per.batch)
-        refdata <- refdata[ordering,,drop=FALSE]
+    if (is.unsorted(full.order)) {
+        ncells.per.batch <- vapply(batches, nrow, 0L)
+        ordering <- .restore_original_order(full.order, ncells.per.batch)
+        full.data <- full.data[ordering,,drop=FALSE]
+        full.origin <- full.origin[ordering]
         mnn.pairings <- .reindex_pairings(mnn.pairings, ordering)
     }
     
     # Formatting the output.
-    output <- DataFrame(corrected=I(refdata), batch=batch.names$ids)
-    mdf <- DataFrame(pairs=I(as(mnn.pairings, "List")), 
-         batch.vector=I(as(batch.vec, "List")),
-         batch.size=batch.size,
-         skipped=skipped
+    output <- DataFrame(corrected=I(refdata), batch=full.origin)
+    mdf <- DataFrame(
+        left=I(as(left.set, "List")),
+        right=I(as(right.set, "List")),
+        pairs=I(as(mnn.pairings, "List")), 
+        batch.vector=I(as(batch.vec, "List")),
+        batch.size=batch.size,
+        skipped=skipped,
+        lost.var=I(1 - var.kept)
     )
-    m.out <- list(merge.order=batch.names$labels[merge.order])
 
-    lost.var <- 1 - var.kept
-    mdf$lost.var <- lost.var
-
-    m.out$merge.info <- mdf
-    metadata(output) <- m.out
+    metadata(output)$merge.info <- mdf
     output
 }
 
@@ -701,6 +728,18 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
 
     ref.var
 }
+
+.compute_perbatch_var <- function(data, batch, indices) {
+    ref.var <- numeric(length(indices))
+
+    for (i in seq_along(indices)) {
+        current <- batch==indices[i]
+        ref.var[i] <- .compute_solo_var(reference, rows=current)
+    }
+
+    ref.var
+}
+
 
 ############################################
 # Output formatting functions.
