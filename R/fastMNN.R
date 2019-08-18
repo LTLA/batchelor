@@ -5,21 +5,11 @@
 #' @param ... One or more log-expression matrices where genes correspond to rows and cells correspond to columns, if \code{pc.input=FALSE}.
 #' Each matrix should contain the same number of rows, corresponding to the same genes in the same order.
 #' 
-#' Alternatively, one or more matrices of low-dimensional representations can be supplied if \code{pc.input=TRUE}, where rows are cells and columns are dimensions.
-#' Each object should contain the same number of columns, corresponding to the same dimensions.
-#'
 #' Alternatively, one or more \linkS4class{SingleCellExperiment} objects can be supplied containing a log-expression matrix in the \code{assay.type} assay.
 #' Note the same restrictions described above for gene expression matrix inputs.
 #'
-#' Alternatively, the SingleCellExperiment objects can contain reduced dimension coordinates in the \code{reducedDims} slot if \code{use.dimred} is specified.
-#' Note the same restrictions described above for low-dimensional matrix inputs.
-#' 
-#' Alternatively, one or more \linkS4class{DataFrame} objects produced by previous calls to \code{fastMNN}.
-#' This should contain a \code{corrected} field of low-dimensional corrected coordinates,
-#' along with information required for orthogonalization in the metadata.
-#' 
 #' In all cases, each object contains cells from a single batch; multiple objects represent separate batches of cells.
-#' Objects of different types can be mixed together if all or none are low-dimensional.
+#' Objects of different types can be mixed together. 
 #' @param batch A factor specifying the batch of origin for all cells when only a single object is supplied in \code{...}.
 #' This is ignored if multiple objects are present.
 #' @param restrict A list of length equal to the number of objects in \code{...}.
@@ -257,7 +247,7 @@
 #' @importFrom S4Vectors DataFrame metadata<-
 #' @importFrom methods as
 fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3, d=50, 
-    auto.order=FALSE, min.batch.skip=0,
+    merge.order=NULL, auto.merge=FALSE, auto.order=NULL, min.batch.skip=0,
     subset.row=NULL, correct.all=FALSE, pc.input=FALSE, assay.type="logcounts", get.spikes=FALSE, use.dimred=NULL, 
     BSPARAM=IrlbaParam(deferred=TRUE), BNPARAM=KmknnParam(), BPPARAM=SerialParam()) 
 {
@@ -281,7 +271,10 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
         pc.input <- !is.null(use.dimred)
     }
     if (pc.input) {
-        .Deprecated(msg="'pc.input=TRUE' and 'use.dimred=TRUE' are deprecated.\nUse 'auto.order=' to perform hierarchical merges instead.")
+        .Deprecated(msg="'pc.input=TRUE' and 'use.dimred=TRUE' are deprecated.\nUse 'reducedMNN' instead.")
+        return(reducedMNN(..., batch=batch, k=k, restrict=restrict, ndist=ndist,
+            merge.order=merge.order, auto.merge=auto.merge, auto.order=auto.order,
+            min.batch.skip=min.batch.skip, BNPARAM=KmknnParam(), BPPARAM=SerialParam()))
     }
 
     # Extracting information from SCEs.
@@ -292,27 +285,13 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
         subset.row <- .SCE_subset_genes(subset.row, sce.batches[[1]], get.spikes)
 
         # NOTE: do NOT set withDimnames=FALSE, this will break the consistency check.
-        if (pc.input) {
-            sce.batches <- lapply(sce.batches, reducedDim, type=use.dimred)
-        } else {
-            sce.batches <- lapply(sce.batches, assay, i=assay.type)
-        }
+        sce.batches <- lapply(sce.batches, assay, i=assay.type)
         batches[is.sce] <- sce.batches
     }
 
     # Batch consistency checks.
-    for.checking <- batches
-    if (needs.reorth) {
-        for.checking[is.df] <- lapply(batches[is.df], FUN=function(x) x$corrected)
-    }
-    checkBatchConsistency(for.checking, cells.in.columns=!pc.input)
-    restrict <- checkRestrictions(for.checking, restrict, cells.in.columns=!pc.input)
-
-    # Reorthogonalizing across outputs from previous fastMNN results.
-    if (needs.reorth) {
-        orth.out <- .orthogonalize_inputs(batches, restrict) 
-        batches <- orth.out$batches
-    }
+    checkBatchConsistency(for.checking, cells.in.columns=TRUE)
+    restrict <- checkRestrictions(for.checking, restrict, cells.in.columns=TRUE)
 
     # Setting up the parallelization environment.
     old <- bpparam()
@@ -325,9 +304,10 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
     }
 
     # Performing the MNN search.
-    common.args <-list(k=k, cos.norm=cos.norm, ndist=ndist, d=d, subset.row=subset.row, 
-        correct.all=correct.all, pc.input=pc.input, 
-        min.batch.skip=min.batch.skip, auto.merge=auto.order,
+    common.args <-list(k=k, cos.norm=cos.norm, ndist=ndist, 
+        d=d, subset.row=subset.row, correct.all=correct.all, 
+        min.batch.skip=min.batch.skip, 
+        merge.order=merge.order, auto.merge=auto.merge, auto.order=auto.order,
         BSPARAM=BSPARAM, BNPARAM=BNPARAM, BPPARAM=BPPARAM)
 
     if (length(batches)==1L) {
@@ -340,23 +320,12 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
     }
 
     # Adding names.
-    if (pc.input) {
-        rownames(output) <- rownames(output$corrected)
-    } else {
-        feat.names <- rownames(batches[[1]])
-        if (!is.null(subset.row)) {
-            feat.names <- feat.names[.row_subset_to_index(batches[[1]], subset.row)]
-        }
-        rownames(output) <- feat.names
+    feat.names <- rownames(batches[[1]])
+    if (!is.null(subset.row)) {
+        feat.names <- feat.names[.row_subset_to_index(batches[[1]], subset.row)]
     }
+    rownames(output) <- feat.names
  
-    # Storing information about the orthogonalization process.
-    if (needs.reorth) {
-        orth.stats <- DataFrame(batch.vector=I(as(orth.out$vectors, "List")))
-        orth.stats$lost.var <- 1 - orth.out$var
-        metadata(output)$pre.orthog <- orth.stats
-    }
-
     output
 }
 
@@ -365,37 +334,31 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
 
 #' @importFrom BiocSingular ExactParam 
 #' @importFrom BiocParallel SerialParam
-.fast_mnn_list <- function(batch.list, ..., subset.row=NULL, cos.norm=TRUE, pc.input=FALSE, d=50, correct.all=FALSE, BSPARAM=ExactParam(), BPPARAM=SerialParam()) 
+.fast_mnn_list <- function(batch.list, ..., subset.row=NULL, cos.norm=TRUE, d=50, 
+    correct.all=FALSE, BSPARAM=ExactParam(), BPPARAM=SerialParam()) 
 {
     nbatches <- length(batch.list) 
     if (nbatches < 2L) { 
         stop("at least two batches must be specified") 
     }
 
-    # Creating the PCA input, if it is not already low-dimensional.
-    if (!pc.input) {
-        if (!is.null(subset.row)) {
-            batch.list <- lapply(batch.list, "[", i=subset.row, , drop=FALSE) # Need the extra comma!
-        }
-        if (cos.norm) { 
-            batch.list <- lapply(batch.list, FUN=cosineNorm, mode="matrix")
-        }
-        pc.mat <- .multi_pca_list(batch.list, d=d, get.all.genes=correct.all, BSPARAM=BSPARAM, BPPARAM=BPPARAM)
-    } else {
-        pc.mat <- batch.list
+    if (!is.null(subset.row)) {
+        batch.list <- lapply(batch.list, "[", i=subset.row, , drop=FALSE) # Need the extra comma!
     }
+    if (cos.norm) { 
+        batch.list <- lapply(batch.list, FUN=cosineNorm, mode="matrix")
+    }
+    pc.mat <- .multi_pca_list(batch.list, d=d, get.all.genes=correct.all, BSPARAM=BSPARAM, BPPARAM=BPPARAM)
 
     out <- .fast_mnn(batches=pc.mat, ..., BPPARAM=BPPARAM)
-    if (!pc.input) {
-        out <- .convert_to_SCE(out, pc.mat)
-    }
-    out
+    .convert_to_SCE(out, pc.mat)
 }
 
 #' @importFrom BiocSingular ExactParam
 #' @importFrom BiocParallel SerialParam
 #' @importFrom S4Vectors List metadata metadata<-
-.fast_mnn_single <- function(x, batch, restrict=NULL, ..., subset.row=NULL, cos.norm=TRUE, pc.input=FALSE, d=50, correct.all=FALSE, BSPARAM=ExactParam(), BPPARAM=SerialParam()) 
+.fast_mnn_single <- function(x, batch, restrict=NULL, ..., subset.row=NULL, cos.norm=TRUE, 
+    d=50, correct.all=FALSE, BSPARAM=ExactParam(), BPPARAM=SerialParam()) 
 {
     batch <- factor(batch)
     if (nlevels(batch) < 2L) { 
@@ -403,17 +366,13 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
     }
 
     # Creating the PCA input, if it is not already low-dimensional.
-    if (!pc.input) {
-        if (!is.null(subset.row)) {
-            x <- x[subset.row,,drop=FALSE]
-        }
-        if (cos.norm) { 
-            x <- cosineNorm(x, mode="matrix")
-        }
-        mat <- .multi_pca_single(x, batch=batch, d=d, get.all.genes=correct.all, BSPARAM=BSPARAM, BPPARAM=BPPARAM)
-    } else {
-        mat <- List(x)
+    if (!is.null(subset.row)) {
+        x <- x[subset.row,,drop=FALSE]
     }
+    if (cos.norm) { 
+        x <- cosineNorm(x, mode="matrix")
+    }
+    mat <- .multi_pca_single(x, batch=batch, d=d, get.all.genes=correct.all, BSPARAM=BSPARAM, BPPARAM=BPPARAM)
 
     divided <- divideIntoBatches(mat[[1]], batch=batch, restrict=restrict, byrow=TRUE)
     output <- .fast_mnn(batches=divided$batches, restrict=divided$restricted, ..., BPPARAM=BPPARAM)
