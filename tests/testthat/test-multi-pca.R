@@ -264,8 +264,8 @@ test_that("multi-sample PCA works with deferred operations", {
 
     # Testing the output of the matrix processor.        
     everything <- list(test1, test2, test3)
-    ref <- batchelor:::.process_listed_matrices_for_pca(everything, NULL, deferred=FALSE)
-    out <- batchelor:::.process_listed_matrices_for_pca(everything, NULL, deferred=TRUE)
+    ref <- batchelor:::.process_listed_matrices_for_pca(everything, NULL, NULL, deferred=FALSE)
+    out <- batchelor:::.process_listed_matrices_for_pca(everything, NULL, NULL, deferred=TRUE)
     expect_equal(as.matrix(ref$scaled), as.matrix(out$scaled))
     expect_equal(lapply(ref$centered, as.matrix), lapply(out$centered, as.matrix))
 
@@ -290,8 +290,8 @@ test_that("multi-sample PCA works with deferred operations", {
     # Also works with single inputs.
     everything <- cbind(test1, test2, test3)
     b <- rep(LETTERS[1:3], c(ncol(test1), ncol(test2), ncol(test3)))
-    ref <- batchelor:::.process_single_matrix_for_pca(everything, b, NULL, deferred=FALSE)
-    out <- batchelor:::.process_single_matrix_for_pca(everything, b, NULL, deferred=TRUE)
+    ref <- batchelor:::.process_single_matrix_for_pca(everything, b, NULL, NULL, deferred=FALSE)
+    out <- batchelor:::.process_single_matrix_for_pca(everything, b, NULL, NULL, deferred=TRUE)
     expect_equal(as.matrix(ref$scaled), as.matrix(out$scaled))
     expect_equal(as.matrix(ref$centered), as.matrix(out$centered))
 
@@ -299,3 +299,35 @@ test_that("multi-sample PCA works with deferred operations", {
     out <- multiBatchPCA(everything, batch=b, d=20, BSPARAM=BiocSingular::ExactParam(deferred=TRUE))
     expect_equal(ref, out)
 })
+
+set.seed(1200006)
+test_that("multi-sample PCA works with additional weights", {
+              library(testthat); library(batchelor)
+    test1 <- matrix(rnorm(1000), nrow=10)
+    test2 <- matrix(rnorm(2000), nrow=10)
+
+    ref <- multiBatchPCA(test1, test2, d=5)
+    reweighted <- multiBatchPCA(test1, test1, test2, d=5, weights=c(0.5, 0.5, 1))
+    expect_equal(ref[[1]], reweighted[[1]])
+    expect_equal(ref[[2]], reweighted[[3]])
+
+    # Recovering PCA by weighting with the number of cells.
+    reweighted <- multiBatchPCA(test1, test2, d=5, weights=c(ncol(test1), ncol(test2)))
+    ref <- prcomp(t(cbind(test1, test2)), rank.=5)
+    expect_equal_besides_sign(rbind(reweighted[[1]], reweighted[[2]]), unname(ref$x))
+
+    # Works within a single batch as well.
+    combined <- cbind(test1, test2, test2)
+    batch <- rep(1:3, c(ncol(test1), ncol(test2), ncol(test2)))
+
+    o <- sample(length(batch))
+    single <- multiBatchPCA(combined[,o], batch=batch[o], d=5, weights=c(`1`=1, `2`=0.5, `3`=0.5), preserve.single=TRUE)
+    ref <- multiBatchPCA(test1, test2, test2, d=5, weights=c(1, 0.5, 0.5))
+    expect_equal_besides_sign(single[[1]], rbind(ref[[1]], ref[[2]], ref[[3]])[o,])
+
+    # Throwing all the safety errors.
+    expect_error(multiBatchPCA(test1, test2, d=5, weights=c(1), "same as number of entries"))
+    expect_error(multiBatchPCA(A=test1, B=test2, d=5, weights=c(A=1, B=0.5), "same as names"))
+    expect_error(multiBatchPCA(combined, batch=batch, d=5, weights=c(A=1), "should be named"))
+})
+

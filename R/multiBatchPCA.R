@@ -11,10 +11,12 @@
 #' This requires \code{batch} to also be specified.
 #' @param batch A factor specifying the batch identity of each cell in the input data.
 #' Ignored if \code{...} contains more than one argument.
+#' @param weights Numeric vector of length equal to the number of entries in \code{...}, specifying the scaling of the weight of each batch.
+#' This defaults to 1 for all batches.
 #' @param d An integer scalar specifying the number of dimensions to keep from the initial multi-sample PCA.
 #' @param subset.row A vector specifying which features to use for correction. 
 #' @param assay.type A string or integer scalar specifying the assay containing the expression values, if SingleCellExperiment objects are present in \code{...}.
-#' @param get.spikes A logical scalar indicating whether to retain rows corresponding to spike-in transcripts.
+#' @param get.spikes Deprecated, a logical scalar indicating whether to retain rows corresponding to spike-in transcripts.
 #' Only used for SingleCellExperiment inputs.
 #' @param get.all.genes A logical scalar indicating whether the reported rotation vectors should include genes 
 #' that are excluded by a non-\code{NULL} value of \code{subset.row}.
@@ -34,6 +36,11 @@
 #' This ensures that the low-dimensional space can distinguish subpopulations in smaller batches.
 #' Otherwise, batches with a large number of cells would dominate the PCA, i.e., the definition of the mean vector and covariance matrix.
 #' This may reduce resolution of unique subpopulations in smaller batches that differ in a different dimension to the subspace of the larger batches.
+#' 
+#' When \code{weights} is set, this will scale the weight of each batch by the specified value. 
+#' For example, each batch may represent one replicate, with multiple replicates per study.
+#' In such cases, it may be more appropriate to ensure that each \emph{study} has equal weight.
+#' This is done by assigning a value of \code{weights} to each replicate that is inversely proportional to the number of replicates in the same study - see Examples.
 #' 
 #' If \code{...} contains SingleCellExperiment objects, any spike-in transcripts should be the same across all batches.
 #' These will be removed prior to PCA unless \code{get.spikes=TRUE}.
@@ -70,10 +77,17 @@
 #' 
 #' out <- multiBatchPCA(d1, d2)
 #' 
+#' # Examining results.
 #' xlim <- range(c(out[[1]][,1], out[[2]][,1]))
 #' ylim <- range(c(out[[1]][,2], out[[2]][,2]))
 #' plot(out[[1]][,1], out[[1]][,2], col="red", xlim=xlim, ylim=ylim)
 #' points(out[[2]][,1], out[[2]][,2], col="blue") 
+#'
+#' # Using the weighting scheme, assuming that 'd2' and 'd3'
+#' # are replicates and should contribute the same combined
+#' # weight as 'd1'.
+#' d3 <- d2 + 5
+#' out <- multiBatchPCA(d1, d2, d3, weights=c(1, 0.5, 0.5))
 #' 
 #' @export
 #' @importFrom BiocParallel SerialParam
@@ -82,8 +96,8 @@
 #' @importClassesFrom S4Vectors List
 #' @importFrom BiocGenerics colnames<- rownames<- colnames rownames
 #' @importFrom BiocSingular ExactParam
-multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, get.all.genes=FALSE, 
-    rotate.all=FALSE, get.variance=FALSE, preserve.single=FALSE, 
+multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, weights=NULL,
+    get.all.genes=FALSE, rotate.all=FALSE, get.variance=FALSE, preserve.single=FALSE, 
     assay.type="logcounts", get.spikes=FALSE, BSPARAM=ExactParam(), BPPARAM=SerialParam()) 
 # Performs a multi-sample PCA (i.e., batches).
 # Each batch is weighted inversely by the number of cells when computing the gene-gene covariance matrix.
@@ -113,7 +127,7 @@ multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, get.all.genes=
 
     # Different function calls for different input modes.
     common.args <- list(subset.row=subset.row, d=d, get.all.genes=get.all.genes, 
-        get.variance=get.variance, BSPARAM=BSPARAM, BPPARAM=BPPARAM) 
+        weights=weights, get.variance=get.variance, BSPARAM=BSPARAM, BPPARAM=BPPARAM) 
     if (length(mat.list)==1L) {
         if (is.null(batch)) { 
             stop("'batch' must be specified if '...' has only one object")
@@ -160,13 +174,13 @@ multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, get.all.genes=
 #' @importClassesFrom S4Vectors List
 #' @importFrom S4Vectors metadata<- 
 #' @importFrom Matrix crossprod
-.multi_pca_list <- function(mat.list, subset.row=NULL, d=50, get.all.genes=FALSE, get.variance=FALSE, 
-    BSPARAM=ExactParam(), BPPARAM=SerialParam()) 
+.multi_pca_list <- function(mat.list, subset.row=NULL, d=50, weights=NULL,
+    get.all.genes=FALSE, get.variance=FALSE, BSPARAM=ExactParam(), BPPARAM=SerialParam()) 
 # Internal function that uses DelayedArray to do the centering and scaling,
 # to avoid actually realizing the matrices in memory.
 {
     FUN <- function(keep) {
-        .process_listed_matrices_for_pca(mat.list, subset.row=keep, deferred=bsdeferred(BSPARAM))
+        .process_listed_matrices_for_pca(mat.list, weights=weights, subset.row=keep, deferred=bsdeferred(BSPARAM))
     }
     processed <- FUN(subset.row)
     centered <- processed$centered
@@ -206,7 +220,19 @@ multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, get.all.genes=
 #' @importFrom DelayedArray DelayedArray
 #' @importFrom BiocSingular DeferredMatrix
 #' @importFrom Matrix t rowMeans
-.process_listed_matrices_for_pca <- function(mat.list, subset.row, deferred=FALSE) {
+.process_listed_matrices_for_pca <- function(mat.list, weights, subset.row, deferred=FALSE) {
+    if (is.null(weights)) {
+        weights <- rep(1, length(mat.list))
+    } else {
+        if (!is.null(names(weights)) && !identical(names(mat.list), names(weights))) {
+            stop("'names(weights)' should be the same as names of '...'")
+        } else if (length(mat.list)!=length(weights)) {
+            stop("'length(weights)' should be the same as number of entries in '...'")
+        }
+    }
+
+    # Computing the grand average of centers, and using that to center each batch.
+    # (Not using batch-specific centers, which makes compositional assumptions.)
     grand.centers <- 0
     for (idx in seq_along(mat.list)) {
         current <- mat.list[[idx]]
@@ -215,24 +241,25 @@ multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, get.all.genes=
         }
 
         centers <- rowMeans(current)
-        grand.centers <- grand.centers + centers
+        grand.centers <- grand.centers + centers * weights[idx]
         mat.list[[idx]] <- current
     }
+    grand.centers <- grand.centers/sum(weights)
 
-    # Computing the grand average of centers, and using that to center each batch.
-    # (Not using batch-specific centers, which makes compositional assumptions.)
-    grand.centers <- grand.centers/length(mat.list) 
-    centered <- mat.list
+    # Creating a dummy list but with the same names.
+    # Ensures that we catch errors from not centering.
+    centered <- lapply(mat.list, function(x) NULL)
 
     if (deferred) {
-        transposed <- lapply(mat.list, t)
+        transposed <- all.scale <- vector("list", length(mat.list))
         for (idx in seq_along(mat.list)) {
-            current <- transposed[[idx]]
+            current <- t(mat.list[[idx]]) 
+            transposed[[idx]] <- current
             current <- DeferredMatrix(current, center=grand.centers)
             centered[[idx]] <- t(current)
+            w <- sqrt(nrow(current) / weights[idx])
+            all.scale[[idx]] <- rep(w, nrow(current))
         } 
-
-        all.scale <- lapply(mat.list, function(x) rep(sqrt(ncol(x)), ncol(x)))
 
         # (Deferred) scaling to implicitly downweight samples with many cells.
         tmp <- DeferredMatrix(do.call(rbind, transposed), center=grand.centers)
@@ -246,10 +273,11 @@ multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, get.all.genes=
         }
 
         # (Delayed) scaling to implicitly downweight samples with many cells.
-        scaled <- centered 
-        for (idx in seq_along(scaled)) {
+        scaled <- vector("list", length(mat.list))
+        for (idx in seq_along(centered)) {
             current <- centered[[idx]] 
-            current <- current/sqrt(ncol(current)) 
+            w <- sqrt(ncol(current) / weights[idx])
+            current <- current/w
             scaled[[idx]] <- current
         }
         scaled <- do.call(cbind, scaled)
@@ -314,13 +342,14 @@ multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, get.all.genes=
 #' @importFrom BiocParallel SerialParam
 #' @importFrom BiocSingular ExactParam bsdeferred
 #' @importFrom Matrix crossprod
-.multi_pca_single <- function(mat, batch, subset.row=NULL, d=50, get.all.genes=FALSE, get.variance=FALSE, BSPARAM=ExactParam(), BPPARAM=SerialParam()) 
+.multi_pca_single <- function(mat, batch, subset.row=NULL, weights=NULL, d=50, 
+    get.all.genes=FALSE, get.variance=FALSE, BSPARAM=ExactParam(), BPPARAM=SerialParam()) 
 # Similar to .multi_pca_list, but avoids the unnecessary
 # overhead of splitting 'mat' into batch-specific matrices
 # when you end up having to put them back together again anyway.
 {
     FUN <- function(keep) {
-        .process_single_matrix_for_pca(mat, batch=batch, subset.row=keep, deferred=bsdeferred(BSPARAM))
+        .process_single_matrix_for_pca(mat, batch=batch, weights=weights, subset.row=keep, deferred=bsdeferred(BSPARAM))
     }
     processed <- FUN(subset.row)
     centered <- processed$centered
@@ -343,10 +372,22 @@ multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, get.all.genes=
 #' @importFrom DelayedArray DelayedArray
 #' @importFrom BiocSingular DeferredMatrix
 #' @importFrom Matrix t rowMeans
-.process_single_matrix_for_pca <- function(x, batch, subset.row, deferred=FALSE) {
+.process_single_matrix_for_pca <- function(x, batch, weights, subset.row, deferred=FALSE) {
     batch <- factor(batch)
     tab <- table(batch)
-    w <- sqrt(as.numeric(tab[batch]))
+    nms <- names(tab)
+    tab <- as.numeric(tab) 
+    names(tab) <- nms
+
+    if (!is.null(weights)) {
+        weights <- weights[levels(batch)]
+        if (any(is.na(weights))) {
+            stop("'weights' should be named with all levels of 'batch'")
+        }
+    } else {
+        weights <- tab
+        weights[] <- 1
+    }
 
     if (!is.null(subset.row)) {
         x <- x[subset.row,,drop=FALSE]
@@ -356,11 +397,12 @@ multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, get.all.genes=
     centers <- 0
     for (b in levels(batch)) {
         current <- x[,batch==b,drop=FALSE]
-        centers <- centers + rowMeans(current)
+        centers <- centers + rowMeans(current) * weights[b]
     }
-    centers <- centers/length(tab)
+    centers <- centers/sum(weights)
 
     # Applying the centering and scaling.
+    w <- sqrt(tab[batch] / weights[batch])
     if (deferred) {
         centered <- t(DeferredMatrix(t(x), center=centers))
         scaled <- DeferredMatrix(centered, scale=w)
