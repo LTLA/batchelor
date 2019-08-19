@@ -28,8 +28,8 @@
     rev.order[new.order] <- seq_along(new.order)
     for (x in seq_along(pairings)) {
         current <- pairings[[x]]
-        current$first <- rev.order[current$first]
-        current$second <- rev.order[current$second]
+        current$left <- rev.order[current$left]
+        current$right <- rev.order[current$right]
         pairings[[x]] <- current
     }
     pairings

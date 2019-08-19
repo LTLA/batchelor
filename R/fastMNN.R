@@ -163,8 +163,10 @@
 #' \item \code{right}, a similar List of integer or character vectors.
 #' Each vector specifies the batches in the right set at a given merge step. 
 #' \item \code{pairs}, a List of DataFrames specifying which pairs of cells were identified as MNNs at each step.
-#' In each DataFrame, each row corresponds to a single MNN pair and specifies the indices 
-#' of the paired cells in the left and right sets, respectively.
+#' In each DataFrame, each row corresponds to a single MNN pair and specifies the
+#' paired cells that were in the left and right sets, respectively.
+#' Note that the indices refer to those paired cells in the \emph{output} ordering of cells,
+#' i.e., users can identify the paired cells at each step by column-indexing the output of the \code{fastMNN} function.
 #' \item \code{batch}, a numeric vector specifying the relative magnitude of the batch effect at each merge,
 #' see \dQuote{Orthogonalization details}.
 #' \item \code{skipped}, a logical vector indicating whether the correction was skipped 
@@ -172,12 +174,6 @@
 #' \item \code{lost.var}, a numeric matrix specifying the percentage of variance lost due to orthogonalization at each merge step.
 #' This is reported separately for each batch (columns, ordered according to the input order, \emph{not} the merge order).
 #' }
-#'
-#' For \code{pairs}, the indices refer to the cells available in the left and right sets at that merge step.
-#' For example, if \code{merge.info$left} was \code{c("A", "C", "B"} for a particular step,
-#' the left set would contain all cells from batch A, then all cells from batch C, and then all cells from B.
-#' The \code{merge.info$pairs$left} indices would then refer to cells in the left set in that specific order.
-#' The same applies for the right set and the indices in \code{merge.info$pairs$right}.
 #'
 #' @section Orthogonalization details:
 #' \code{fastMNN} will compute the percentage of variance that is lost from each batch during orthogonalization at each merge step.
@@ -371,6 +367,7 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
     # Reordering by the input order.        
     d.reo <- divided$reorder
     output <- output[d.reo,,drop=FALSE]
+    metadata(output)$merge.info$pairs <- .reindex_pairings(metadata(output)$merge.info$pairs, d.reo)
     .convert_to_SCE(output, mat)
 }
 
@@ -560,6 +557,7 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
         ordering <- .restore_original_order(full.order, ncells.per.batch)
         full.data <- full.data[ordering,,drop=FALSE]
         full.origin <- full.origin[ordering]
+        mnn.pairings <- .reindex_pairings(mnn.pairings, ordering)
     }
     
     # Formatting the output.

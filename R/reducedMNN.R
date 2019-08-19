@@ -84,9 +84,13 @@ reducedMNN <- function (..., batch=NULL, k=20, restrict=NULL, ndist=3,
         }
         divided <- divideIntoBatches(batches[[1]], batch=batch, restrict=restrict, byrow=TRUE)
         output <- do.call(.fast_mnn, c(list(batches=divided$batches, restrict=divided$restrict), args))
-        output <- output[divided$reorder,,drop=FALSE]
+
+        d.reo <- divided$reorder
+        output <- output[d.reo,,drop=FALSE]
+        metadata(output)$merge.info$pairs <- .reindex_pairings(metadata(output)$merge.info$pairs, d.reo)
     } else {
         output <- do.call(.fast_mnn, c(list(batches=batches, restrict=restrict), args))
+
     }
 
     rownames(output) <- rownames(output$corrected)
