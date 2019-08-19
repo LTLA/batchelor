@@ -167,7 +167,7 @@
 #' paired cells that were in the left and right sets, respectively.
 #' Note that the indices refer to those paired cells in the \emph{output} ordering of cells,
 #' i.e., users can identify the paired cells at each step by column-indexing the output of the \code{fastMNN} function.
-#' \item \code{batch}, a numeric vector specifying the relative magnitude of the batch effect at each merge,
+#' \item \code{batch.size}, a numeric vector specifying the relative magnitude of the batch effect at each merge,
 #' see \dQuote{Orthogonalization details}.
 #' \item \code{skipped}, a logical vector indicating whether the correction was skipped 
 #' if the magnitude of the batch effect was below \code{min.batch.skip}.
@@ -410,7 +410,7 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
         # Checking validity.
         leaves <- unlist(merge.tree)
         if (!is.numeric(leaves)) {
-            leaves <- match(leaves, names(batch))
+            leaves <- match(leaves, names(batches))
         } else {
             leaves <- as.integer(leaves)
         }
@@ -441,6 +441,7 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
         if (anyDuplicated(names(batches))) {
             stop("names of batches should be unique")
         }
+        output$batch <- names(batches)[output$batch]
         L1 <- metadata(output)$merge.info$left 
         R1 <- metadata(output)$merge.info$right 
         L2 <- R2 <- List()
@@ -450,6 +451,7 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
         }
         metadata(output)$merge.info$left <- L2
         metadata(output)$merge.info$right <- R2
+        colnames(metadata(output)$merge.info$lost.var) <- names(batches)
     } 
 
     output
@@ -525,31 +527,41 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
 
             left.new.var <- .compute_perbatch_var(left.data, left.index, left.origin)
             right.new.var <- .compute_perbatch_var(right.data, right.index, right.origin)
+            to.add <- list(overall.batch)
 
             # Recompute correction vectors and apply them to all cells (hence, no restriction).
             re.ave.out <- .average_correction(left.data, mnn.sets$first, right.data, mnn.sets$second)
             right.data <- .tricube_weighted_correction(right.data, re.ave.out$averaged, re.ave.out$second, 
                 k=k, ndist=ndist, BNPARAM=BNPARAM, BPPARAM=BPPARAM)
         } else {
+            to.add <- list()
             left.new.var <- .compute_perbatch_var(left.data, left.index, left.origin)
             right.new.var <- .compute_perbatch_var(right.data, right.index, right.origin)
         }
 
         var.kept[mdx,left.index] <- left.new.var/left.old.var
         var.kept[mdx,right.index] <- right.new.var/right.old.var
-
         mnn.pairings[[mdx]] <- DataFrame(left=mnn.sets$first, right=mnn.sets$second)
+
         merge.tree <- UPDATE(merge.tree, next.step$chosen, 
             data=rbind(left.data, right.data),  
             index=c(left.index, right.index),
-            restrict=c(left.restrict, right.restrict + nrow(left.data)),
+            restrict=.combine_restrict(left.data, left.restrict, right.data, right.restrict),
             origin=c(left.origin, right.origin),
-            extras=c(left.extras, right.extras, list(overall.batch)))
+            extras=c(left.extras, right.extras, to.add))
     }
 
     full.data <- .get_node_data(merge.tree)
     full.order <- .get_node_index(merge.tree)
     full.origin <- .get_node_origin(merge.tree)
+
+    # Re-indexing all of the pairing indices to account for the final position of each cell.
+    for (mdx in seq_along(mnn.pairings)) {
+        bonus1 <- match(left.set[[mdx]][1], full.origin) - 1L
+        mnn.pairings[[mdx]]$left <- mnn.pairings[[mdx]]$left + bonus1 
+        bonus2 <- match(right.set[[mdx]][1], full.origin) - 1L
+        mnn.pairings[[mdx]]$right <- mnn.pairings[[mdx]]$right + bonus2 
+    }
 
     # Adjusting the output back to the input order in 'batches'.
     if (is.unsorted(full.order)) {
@@ -566,7 +578,7 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
         left=I(as(left.set, "List")),
         right=I(as(right.set, "List")),
         pairs=I(as(mnn.pairings, "List")), 
-        batch=batch.size,
+        batch.size=batch.size,
         skipped=skipped,
         lost.var=I(1 - var.kept)
     )
@@ -660,6 +672,20 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
 
 ############################################
 # Output formatting functions.
+
+.combine_restrict <- function(left.data, left.restrict, right.data, right.restrict) {
+    if (is.null(left.restrict) && is.null(right.restrict)) {
+        NULL
+    } else {
+        if (is.null(left.restrict)) {
+            left.restrict <- seq_len(nrow(left.data))
+        }
+        if (is.null(right.restrict)) {
+            right.restrict <- seq_len(nrow(right.data))
+        }
+        c(left.restrict, right.restrict + nrow(left.data))
+    }
+}
 
 #' @importFrom S4Vectors metadata DataFrame
 #' @importFrom BiocSingular LowRankMatrix
