@@ -40,31 +40,70 @@ This follows the same strategy as, e.g., the `removeBatchEffect()` function in t
 Batch correction methods designed for bulk genomics data usually require knowledge of the other factors of variation.
 This is usually not known in scRNA-seq experiments where the aim is to explore unknown heterogeneity in cell populations.
 The `r Biocpkg("batchelor")` package implements batch correction methods that do not rely on _a priori_ knowledge about the population structure.
-To demonstrate, we will use a small scRNA-seq data set [@tasic2016adult] from the `r Biocpkg("scRNAseq")` package:
+
+# Setting up demonstration data
+
+To demonstrate, we will use two brain data sets [@tasic2016adult;@zeisel2015brain] from the `r Biocpkg("scRNAseq")` package.
 
 ```{r}
 library(scRNAseq)
-data(allen)
-
-library(SingleCellExperiment)
-sce1 <- as(allen, "SingleCellExperiment")
-counts(sce1) <- assay(sce1)
-
-library(scater)
-sce1 <- sce1[1:2000,] # reducing the size for demo purposes.
-sce1 <- normalize(sce1) # quick and dirty normalization.
+sce1 <- ZeiselBrainData()
+sce1
+sce2 <- TasicBrainData()[,1:500]
+sce2
 ```
 
-We artificially create a batch effect in a separate `SingleCellExperiment` object:
+For the sake of speed, we will use a randomly selected subset of 500 cells from each batch.
 
 ```{r}
-sce2 <- sce1
-logcounts(sce2) <- logcounts(sce2) + rnorm(nrow(sce2), sd=2)
+set.seed(19999)
+sce1 <- sce1[,sample(ncol(sce1), 500, replace=TRUE)]
+sce2 <- sce2[,sample(ncol(sce2), 500, replace=TRUE)]
+```
 
-combined <- cbind(sce1, sce2)
-combined$batch <- factor(rep(1:2, c(ncol(sce1), ncol(sce2))))
+Some preprocessing is required to render these two datasets comparable.
+We subset to the common subset of genes:
 
-plotPCA(combined, colour_by="batch") # checking there is a batch effect.
+```{r}
+universe <- intersect(rownames(sce1), rownames(sce2))
+sce1 <- sce1[universe,]
+sce2 <- sce2[universe,]
+```
+
+We compute log-normalized expression values, using a library size-derived size factors for simplicity.
+(More complex size factor calculation methods are available in the `r Biocpkg("scran")` package.)
+
+```{r}
+# Ignoring spike-ins with use_altexps=FALSE.
+out <- multiBatchNorm(sce1, sce2, norm.args=list(use_altexps=FALSE))
+sce1 <- out[[1]]
+sce2 <- out[[2]]
+```
+
+Finally, we identify all genes with positive biological components.
+We will use these for all high-dimensional procedures such as PCA and nearest-neighbor searching.
+
+```{r}
+library(scran)
+dec1 <- modelGeneVar(sce1)
+dec2 <- modelGeneVar(sce2)
+combined.dec <- combineVar(dec1, dec2)
+chosen.hvgs <- combined.dec$bio > 0
+summary(chosen.hvgs)
+```
+
+We evaluate the batch effect by combining the two `SingleCellExperiment` objects and creating a PCA plot:
+
+```{r}
+# TODO: replace with a no-correction convenience method.
+combined <- SingleCellExperiment(
+    list(logcounts=cbind(logcounts(sce1), logcounts(sce2)))
+)
+combined$batch <- factor(rep(1:2, each=500))
+
+library(scater)
+combined <- runPCA(combined, subset_row=chosen.hvgs)
+plotPCA(combined, colour_by="batch")
 ```
 
 # Mutual nearest neighbors
@@ -78,12 +117,13 @@ It is then straightforward to remove the batch effect and obtain a set of correc
 
 ## The new, fast method
 
-The `fastMNN()` function performs a principal components analysis (PCA) to obtain a low-dimensional representation of the input data.
+The `fastMNN()` function performs a principal components analysis (PCA) on the HVGs to obtain a low-dimensional representation of the input data.
 MNN identification and correction is performed in this low-dimensional space, which offers some advantages with respect to speed and denoising.    
 This returns a `SingleCellExperiment` containing a matrix of corrected PC scores is returned, which can be used directly for downstream analyses such as clustering and visualization.
 
 ```{r}
-f.out <- fastMNN(A=sce1, B=sce2)
+library(batchelor)
+f.out <- fastMNN(A=sce1, B=sce2, subset.row=chosen.hvgs)
 str(reducedDim(f.out, "corrected"))
 ```
 
@@ -99,11 +139,12 @@ In this case, it doesn't matter as the two batches were concatenated to created 
 but these semantics may be useful when cells from the same batch are not contiguous.
 
 ```{r}
-f.out2 <- fastMNN(combined, batch=combined$batch)
+f.out2 <- fastMNN(combined, batch=combined$batch, subset.row=chosen.hvgs)
 str(reducedDim(f.out2, "corrected"))
 ```
 
-As we can see, the batch effect is successfully removed in the PCA plot below.
+As we can see, cells from the batches are more intermingled in the PCA plot below.
+This suggests that the batch effect was removed - assuming, of course, that the intermingled cells represent the same population.
 
 ```{r}
 plotReducedDim(f.out, colour_by="batch", use_dimred="corrected")
@@ -115,11 +156,11 @@ There are, however, `r Biocpkg("simpleSingleCell", "batch.html#using-the-correct
 
 ```{r}
 cor.exp <- assay(f.out)[1,]
-hist(cor.exp, xlab="Corrected expression for gene 1") 
+hist(cor.exp, xlab="Corrected expression for gene 1", col="grey80") 
 ```
 
 While the default arguments are usually satisfactory, there are _many_ options for running `fastMNN()`, e.g., to improve speed or to achieve a particular merge order.
-Refer to `r Biocpkg("simpleSingleCell", "batch.html", "the corresponding workflow")` for more details.
+Refer to `r Biocpkg("simpleSingleCell", "multibatch.html", "the corresponding workflow")` for more details.
 
 ## The old, classic method
 
@@ -128,7 +169,9 @@ This performs the MNN identification and correction in the gene expression space
 `mnnCorrect()` is called with the same semantics as `fastMNN()`:
 
 ```{r}
-classic.out <- mnnCorrect(sce1, sce2)
+# Using fewer genes as it is much slower. 
+fewer.hvgs <- head(order(combined.dec$bio, decreasing=TRUE), 1000)
+classic.out <- mnnCorrect(sce1, sce2, subset.row=fewer.hvgs)
 ```
 
 ... but returns the corrected gene expression matrix directly, rather than using a low-dimensional representation^[Again, those readers wanting to use the corrected values for per-gene analyses should consider the `r Biocpkg("simpleSingleCell", "batch.html#using-the-corrected-values-in-downstream-analyses", "caveats")` mentioned previously.].
@@ -150,6 +193,7 @@ downscaling the counts so that the average of each batch is equal to the smalles
 This preserves sparsity by ensuring that zeroes remain so after correction, and mitigates differences in the variance when dealing with counts of varying size between batches^[Done by downscaling, which increases the shrinkage from the added pseudo-count.].
 
 Calling `rescaleBatches()` returns a corrected matrix of per-gene log-expression values, wrapped in a `SummarizedExperiment` containin batch-related metadata.
+This function operates on a per-gene basis so there is no need to perform subsetting (other than to improve speed).
 
 ```{r}
 rescale.out <- rescaleBatches(sce1, sce2)
@@ -160,22 +204,19 @@ While this method is fast and simple, it makes the strong assumption that the po
 This is usually not the case for scRNA-seq experiments in real systems that exhibit biological variation.
 Thus, `rescaleBatches()` is best suited for merging technical replicates of the same sample, e.g., that have been sequenced separately.
 
+```{r}
+rescale.out <- runPCA(rescale.out, subset_row=chosen.hvgs,
+    exprs_values="corrected")
+plotPCA(rescale.out, colour_by="batch")
+```
+
 # Using data subsets
 
 ## Selecting genes
 
-The `subset.row=` argument will only perform the correction on a subset of genes in the data set.
+As shown above, the `subset.row=` argument will only perform the correction on a subset of genes in the data set.
 This is useful for focusing on highly variable or marker genes during high-dimensional procedures like PCA or neighbor searches, mitigating noise from irrelevant genes.
 For per-gene methods, this argument provides a convenient alternative to subsetting the input.
-Functions operating on `SingleCellExperiment` inputs will also automatically remove spike-in transcripts unless `get.spikes=TRUE`.
-
-```{r}
-# Just picking a bunch of random genes:
-chosen.genes <- sample(nrow(combined), 1000)
-f.out3 <- fastMNN(combined, batch=combined$batch,
-    subset.row=chosen.genes)
-str(reducedDim(f.out2, "corrected"))
-```
 
 For some functions, it is also possible to set `correct.all=TRUE` when `subset.row=` is specified.
 This will compute corrected values for the unselected genes as well, which is possible once the per-cell statistics are obtained with the gene subset.
@@ -200,16 +241,18 @@ rescale.out <- rescaleBatches(sce1, sce2, restrict=restrict)
 
 Differences in sequencing depth between batches are an obvious cause for batch-to-batch differences.
 These can be removed by `multiBatchNorm()`, which downscales all batches to match the coverage of the least-sequenced batch.
-This function returns a list of `SingleCellExperiment` with log-transformed normalized expression values that can be directly used for further correction.
+This function returns a list of `SingleCellExperiment` objects with log-transformed normalized expression values that can be directly used for further correction.
 
 ```{r}
-normed <- multiBatchNorm(A=sce1, B=sce2)
+normed <- multiBatchNorm(A=sce1, B=sce2,
+    norm.args=list(use_altexps=FALSE))
 names(normed)
 ```
 
 Downscaling mitigates differences in variance between batches due to the mean-variance relationship of count data. 
 It is achieved using a median-based estimator to avoid problems with composition biases between batches [@lun2016pooling].
-An example usage of this function is provided in `r Biocpkg("simpleSingleCell", "batch.html#feature-selection-across-merges", "this workflow")`.
+Note that this assumes that most genes are not DE between batches,
+which we try to avoid violating by performing the rescaling on all genes rather than just the HVGs.
 
 ## Multi-batch PCA
 
@@ -219,12 +262,14 @@ The main difference is that each sample is forced to contribute equally to the i
 This allows small batches with unique subpopulations to contribute meaningfully to the definition of the low-dimensional space.
 
 ```{r}
-pca.out <- multiBatchPCA(A=sce1, B=sce2)
+# Using the same BSPARAM argument as fastMNN(), for speed.
+pca.out <- multiBatchPCA(A=sce1, B=sce2, subset.row=chosen.hvgs,
+    BSPARAM=BiocSingular::IrlbaParam(deferred=TRUE))
 names(pca.out)
 ```
 
-This function is used internally in `fastMNN()` but can be explicitly called by the user to perform hierarchical merges - 
-see `r Biocpkg("simpleSingleCell", "batch.html#controlling-the-merge-order", "here")` for details.
+This function is used internally in `fastMNN()` but can be explicitly called by the user.
+Reduced dimensions can be input into `reducedMNN()`, which is occasionally convenient as it allows different correction parameters to be repeated without having to repeat the time-consuming PCA step.
 
 # Session information
 
