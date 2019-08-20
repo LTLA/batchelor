@@ -199,13 +199,16 @@ test_that(".restore_original_order works correctly", {
 set.seed(1000011)
 test_that(".reindex_pairings works correctly", {
     S <- sample(40)
-    pairings <- list(data.frame(first=sample(10, 20, replace=TRUE), second=11:30), data.frame(first=30:1, second=sample(33:40, 30, replace=TRUE)))
+    pairings <- list(
+        data.frame(left=sample(10, 20, replace=TRUE), right=11:30), 
+        data.frame(left=30:1, right=sample(33:40, 30, replace=TRUE))
+    )
 
     out <- batchelor:::.reindex_pairings(pairings, S)
-    expect_identical(S[out[[1]]$first], pairings[[1]]$first)
-    expect_identical(S[out[[1]]$second], pairings[[1]]$second)
-    expect_identical(S[out[[2]]$first], pairings[[2]]$first)
-    expect_identical(S[out[[2]]$second], pairings[[2]]$second)
+    expect_identical(S[out[[1]]$left], pairings[[1]]$left)
+    expect_identical(S[out[[1]]$right], pairings[[1]]$right)
+    expect_identical(S[out[[2]]$left], pairings[[2]]$left)
+    expect_identical(S[out[[2]]$right], pairings[[2]]$right)
 
     # Works on empty inputs.
     empty <- lapply(pairings, "[", i=0,, drop=FALSE)

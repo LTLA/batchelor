@@ -269,7 +269,7 @@ mnnCorrect <- function(..., batch=NULL, restrict=NULL, k=20, sigma=0.1, cos.norm
         sets <- .get_mnn_result(mnn.store)
         s1 <- sets$first
         s2 <- sets$second      
-        mnn.pairings[[b-1L]] <- DataFrame(first=s1, second=s2 + nrow(ref.batch.in))
+        mnn.pairings[[b-1L]] <- DataFrame(left=s1, right=s2 + nrow(ref.batch.in))
 
         # Computing the correction vector for each cell.
         correction.in <- .compute_correction_vectors(ref.batch.in, other.batch.in, s1, s2, other.batch.in.untrans, sigma)
