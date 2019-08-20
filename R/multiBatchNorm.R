@@ -8,7 +8,6 @@
 #' @param norm.args A named list of further arguments to pass to \code{\link[scater]{normalize}}.
 #' @param min.mean A numeric scalar specifying the minimum (library size-adjusted) average count of genes to be used for normalization.
 #' @param subset.row A vector specifying which features to use for correction. 
-#' @param separate.spikes Logical scalar indicating whether spike-in size factors should be rescaled separately from endogenous genes.
 #' 
 #' @details
 #' When performing integrative analyses of multiple batches, it is often the case that different batches have large differences in coverage.
@@ -21,10 +20,11 @@
 #' By scaling downwards, we favour stronger squeezing of log-fold changes from the pseudo-count, mitigating any technical differences in variance between batches.
 #' Of course, genuine biological differences will also be shrunk, but this is less of an issue for upregulated genes with large counts.
 #' 
-#' Using \code{multiBatchNorm} may be better than running \code{\link{logNormCounts}} separately for each batch prior to correction.
+#' For comparison, consider running \code{\link{logNormCounts}} separately in each batch prior to correction.
 #' In most cases, size factors will be computed within each batch;
 #' batch-specific application in \code{\link{logNormCounts}} will not account for scaling differences between batches.
 #' In contrast, \code{multiBatchNorm} will rescale the size factors so that they are comparable across batches.
+#' This removes at least one difference between batches to facilitate easier correction.
 #' 
 #' Only genes with library size-adjusted average counts greater than \code{min.mean} will be used for computing the rescaling factors.
 #' This improves precision and avoids problems with discreteness.

@@ -20,7 +20,7 @@
 #'
 #' @details
 #' \code{reducedMNN} performs the same operations as \code{\link{fastMNN}} but assumes that the PCA has already been performed.
-#' This is useful as the PCA (via \code{\link{multiBatchPCA}} is often the most time-consuming part of the procedure.
+#' This is useful as the PCA (via \code{\link{multiBatchPCA}}) is often the most time-consuming step.
 #' By performing the PCA once, \code{reducedMNN} allows the MNN correction to be quickly repeated with different parameters.
 #'
 #' \code{reducedMNN} operates on the same principles as \code{\link{fastMNN}}, 
@@ -33,8 +33,8 @@
 #'
 #' @author Aaron Lun
 #' @examples
-#' B1 <- matrix(rnorm(10000), ncol=50) # Batch 1 
-#' B2 <- matrix(rnorm(10000), ncol=50) # Batch 2
+#' B1 <- matrix(rnorm(10000), nrow=50) # Batch 1 
+#' B2 <- matrix(rnorm(10000), nrow=50) # Batch 2
 #'
 #' # Equivalent to fastMNN().
 #' cB1 <- cosineNorm(B1)
