@@ -1,6 +1,6 @@
 Package: batchelor
-Version: 1.1.5
-Date: 2019-07-28
+Version: 1.1.6
+Date: 2019-08-19
 Title: Single-Cell Batch Correction Methods
 Authors@R: c(person("Aaron", "Lun", role = c("aut", "cre"), email = "infinite.monkeys.with.keyboards@gmail.com"),
     person("Laleh", "Haghverdi", role="ctb"))
@@ -12,6 +12,7 @@ Imports:
     Rcpp,
     stats,
     methods,
+    utils,
     BiocNeighbors,
     BiocSingular,
     Matrix,
@@ -24,6 +25,7 @@ Suggests:
     BiocStyle,
     knitr,
     beachmat,
+    scran,
     scRNAseq
 biocViews: 
     Sequencing,

@@ -5,7 +5,7 @@
 \title{Per-batch scaling normalization}
 \usage{
 multiBatchNorm(..., assay.type = "counts", norm.args = list(),
-  min.mean = 1, subset.row = NULL, separate.spikes = FALSE)
+  min.mean = 1, subset.row = NULL)
 }
 \arguments{
 \item{...}{Two or more \linkS4class{SingleCellExperiment} objects containing counts and size factors.
@@ -18,8 +18,6 @@ Each object is assumed to represent one batch.}
 \item{min.mean}{A numeric scalar specifying the minimum (library size-adjusted) average count of genes to be used for normalization.}
 
 \item{subset.row}{A vector specifying which features to use for correction.}
-
-\item{separate.spikes}{Logical scalar indicating whether spike-in size factors should be rescaled separately from endogenous genes.}
 }
 \value{
 A list of SingleCellExperiment objects with normalized log-expression values in the \code{"logcounts"} assay (depending on values in \code{norm.args}).
@@ -34,31 +32,28 @@ It does so by resaling the size factors using median-based normalization on the 
 This is roughly equivalent to the between-cluster normalization described by Lun et al. (2016).
 
 This function will adjust the size factors so that counts in high-coverage batches are scaled \emph{downwards} to match the coverage of the most shallow batch.
-The \code{\link[scater]{normalize}} function will then add the same pseudo-count to all batches before log-transformation.
+The \code{\link{logNormCounts}} function will then add the same pseudo-count to all batches before log-transformation.
 By scaling downwards, we favour stronger squeezing of log-fold changes from the pseudo-count, mitigating any technical differences in variance between batches.
 Of course, genuine biological differences will also be shrunk, but this is less of an issue for upregulated genes with large counts.
 
-This function is preferred over running \code{\link{normalize}} directly when computing log-normalized values for use in \code{\link{mnnCorrect}} or \code{\link{fastMNN}}.
+For comparison, consider running \code{\link{logNormCounts}} separately in each batch prior to correction.
 In most cases, size factors will be computed within each batch;
-their direct application in \code{\link{normalize}} will not account for scaling differences between batches.
+batch-specific application in \code{\link{logNormCounts}} will not account for scaling differences between batches.
 In contrast, \code{multiBatchNorm} will rescale the size factors so that they are comparable across batches.
+This removes at least one difference between batches to facilitate easier correction.
 
 Only genes with library size-adjusted average counts greater than \code{min.mean} will be used for computing the rescaling factors.
 This improves precision and avoids problems with discreteness.
 Users can also set \code{subset.row} to restrict the set of genes used for computing the rescaling factors.
 However, this only affects the rescaling of the size factors - normalized values for \emph{all} genes will still be returned.
 }
-\section{Handling spike-ins}{
+\section{Note about spike-ins}{
 
-Spike-in transcripts should be either absent in all batches or, if present, they should be the same across all batches.
-Rows annotated as spike-in transcripts are not used to compute the rescaling factors for endogenous genes.
-
-By default, the spike-in size factors are rescaled using the same scaling factor for the endogenous genes in the same batch.
-This preserves the abundances of the spike-in transcripts relative to the endogenous genes, 
-which is important if the returned SingleCellExperiments are to be used to model technical noise.
-
-If \code{separate.spikes=TRUE}, spike-in size factors are rescaled separately from those of the endogenous genes.
-This will eliminate differences in spike-in quantities across batches at the cost of losing the ability to compare between endogenous and spike-in transcripts within each batch.
+Rescaling is only performed on endogenous genes in each SingleCellExperiment object.
+If any spike-in transcripts are present in the \code{\link{altExps}},
+their abundances will not be rescaled here, and are no longer directly comparable to the rescaled abundances of the genes.
+This is usually not a major problem as spike-ins are rarely used during the batch correction itself -
+however, users should not attempt to perform variance modelling with the spike-ins on the output of this function.
 }
 
 \examples{
@@ -76,12 +71,12 @@ summary(sizeFactors(out[[2]]))
 
 }
 \references{
-Lun ATL, Bach K and Marioni JC (2016).
-Pooling across cells to normalize single-cell RNA sequencing data with many zero counts.
-\emph{Genome Biol.} 17:75
+Lun ATL (2018).
+Further MNN algorithm development.
+\url{https://MarioniLab.github.io/FurtherMNN2018/theory/description.html}
 }
 \seealso{
-\code{\link{mnnCorrect}} and \code{\link{fastMNN}} for methods that can benefit from rescaling.
+\code{\link{mnnCorrect}} and \code{\link{fastMNN}}, for methods that can benefit from rescaling.
 
 \code{\link[scater]{normalize}} for the calculation of log-transformed normalized expression values.
 }

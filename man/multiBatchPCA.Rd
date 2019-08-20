@@ -5,10 +5,10 @@
 \title{Multi-batch PCA}
 \usage{
 multiBatchPCA(..., batch = NULL, d = 50, subset.row = NULL,
-  get.all.genes = FALSE, rotate.all = FALSE, get.variance = FALSE,
-  preserve.single = FALSE, assay.type = "logcounts",
-  get.spikes = FALSE, BSPARAM = ExactParam(),
-  BPPARAM = SerialParam())
+  weights = NULL, get.all.genes = FALSE, rotate.all = FALSE,
+  get.variance = FALSE, preserve.single = FALSE,
+  assay.type = "logcounts", get.spikes = FALSE,
+  BSPARAM = ExactParam(), BPPARAM = SerialParam())
 }
 \arguments{
 \item{...}{Two or more matrices containing expression values (usually log-normalized).
@@ -26,6 +26,9 @@ Ignored if \code{...} contains more than one argument.}
 
 \item{subset.row}{A vector specifying which features to use for correction.}
 
+\item{weights}{Numeric vector of length equal to the number of entries in \code{...}, specifying the scaling of the weight of each batch.
+This defaults to 1 for all batches.}
+
 \item{get.all.genes}{A logical scalar indicating whether the reported rotation vectors should include genes 
 that are excluded by a non-\code{NULL} value of \code{subset.row}.}
 
@@ -37,7 +40,7 @@ that are excluded by a non-\code{NULL} value of \code{subset.row}.}
 
 \item{assay.type}{A string or integer scalar specifying the assay containing the expression values, if SingleCellExperiment objects are present in \code{...}.}
 
-\item{get.spikes}{A logical scalar indicating whether to retain rows corresponding to spike-in transcripts.
+\item{get.spikes}{Deprecated, a logical scalar indicating whether to retain rows corresponding to spike-in transcripts.
 Only used for SingleCellExperiment inputs.}
 
 \item{BSPARAM}{A \linkS4class{BiocSingularParam} object specifying the algorithm to use for PCA, see \code{\link{runSVD}} for details.}
@@ -70,6 +73,11 @@ This ensures that the low-dimensional space can distinguish subpopulations in sm
 Otherwise, batches with a large number of cells would dominate the PCA, i.e., the definition of the mean vector and covariance matrix.
 This may reduce resolution of unique subpopulations in smaller batches that differ in a different dimension to the subspace of the larger batches.
 
+When \code{weights} is set, this will scale the weight of each batch by the specified value. 
+For example, each batch may represent one replicate, with multiple replicates per study.
+In such cases, it may be more appropriate to ensure that each \emph{study} has equal weight.
+This is done by assigning a value of \code{weights} to each replicate that is inversely proportional to the number of replicates in the same study - see Examples.
+
 If \code{...} contains SingleCellExperiment objects, any spike-in transcripts should be the same across all batches.
 These will be removed prior to PCA unless \code{get.spikes=TRUE}.
 If \code{subset.row} is specified and \code{get.spikes=FALSE}, only the non-spike-in specified features will be used. 
@@ -88,10 +96,17 @@ d2[11:20,1:10] <- d2[11:20,1:10] + 2 # unique population in d2
 
 out <- multiBatchPCA(d1, d2)
 
+# Examining results.
 xlim <- range(c(out[[1]][,1], out[[2]][,1]))
 ylim <- range(c(out[[1]][,2], out[[2]][,2]))
 plot(out[[1]][,1], out[[1]][,2], col="red", xlim=xlim, ylim=ylim)
 points(out[[2]][,1], out[[2]][,2], col="blue") 
+
+# Using the weighting scheme, assuming that 'd2' and 'd3'
+# are replicates and should contribute the same combined
+# weight as 'd1'.
+d3 <- d2 + 5
+out <- multiBatchPCA(d1, d2, d3, weights=c(1, 0.5, 0.5))
 
 }
 \seealso{

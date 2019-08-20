@@ -5,31 +5,22 @@
 \title{Fast mutual nearest neighbors correction}
 \usage{
 fastMNN(..., batch = NULL, k = 20, restrict = NULL,
-  cos.norm = TRUE, ndist = 3, d = 50, auto.order = FALSE,
-  min.batch.skip = 0, subset.row = NULL, correct.all = FALSE,
-  pc.input = FALSE, assay.type = "logcounts", get.spikes = FALSE,
-  use.dimred = NULL, BSPARAM = IrlbaParam(deferred = TRUE),
-  BNPARAM = KmknnParam(), BPPARAM = SerialParam())
+  cos.norm = TRUE, ndist = 3, d = 50, merge.order = NULL,
+  auto.merge = FALSE, auto.order = NULL, min.batch.skip = 0,
+  subset.row = NULL, correct.all = FALSE, pc.input = FALSE,
+  assay.type = "logcounts", get.spikes = FALSE, use.dimred = NULL,
+  BSPARAM = IrlbaParam(deferred = TRUE), BNPARAM = KmknnParam(),
+  BPPARAM = SerialParam())
 }
 \arguments{
 \item{...}{One or more log-expression matrices where genes correspond to rows and cells correspond to columns, if \code{pc.input=FALSE}.
 Each matrix should contain the same number of rows, corresponding to the same genes in the same order.
 
-Alternatively, one or more matrices of low-dimensional representations can be supplied if \code{pc.input=TRUE}, where rows are cells and columns are dimensions.
-Each object should contain the same number of columns, corresponding to the same dimensions.
-
 Alternatively, one or more \linkS4class{SingleCellExperiment} objects can be supplied containing a log-expression matrix in the \code{assay.type} assay.
 Note the same restrictions described above for gene expression matrix inputs.
 
-Alternatively, the SingleCellExperiment objects can contain reduced dimension coordinates in the \code{reducedDims} slot if \code{use.dimred} is specified.
-Note the same restrictions described above for low-dimensional matrix inputs.
-
-Alternatively, one or more \linkS4class{DataFrame} objects produced by previous calls to \code{fastMNN}.
-This should contain a \code{corrected} field of low-dimensional corrected coordinates,
-along with information required for orthogonalization in the metadata.
-
 In all cases, each object contains cells from a single batch; multiple objects represent separate batches of cells.
-Objects of different types can be mixed together if all or none are low-dimensional.}
+Objects of different types can be mixed together.}
 
 \item{batch}{A factor specifying the batch of origin for all cells when only a single object is supplied in \code{...}.
 This is ignored if multiple objects are present.}
@@ -46,9 +37,12 @@ Each threshold is defined as a multiple of the number of median distances.}
 
 \item{d}{Number of dimensions to use for dimensionality reduction in \code{\link{multiBatchPCA}}.}
 
-\item{auto.order}{Logical scalar indicating whether re-ordering of batches should be performed to maximize the number of MNN pairs at each step.
+\item{merge.order}{An integer vector containing the linear merge order of batches in \code{...}.
+Alternatively, a list of lists representing a tree structure specifying a hierarchical merge order.}
 
-Alternatively, an integer vector containing a permutation of \code{1:N} where \code{N} is the number of batches.}
+\item{auto.merge}{Logical scalar indicating whether to automatically identify the \dQuote{best} merge order.}
+
+\item{auto.order}{Deprecated, use \code{merge.order} or \code{auto.merge} instead.}
 
 \item{min.batch.skip}{Numeric scalar specifying the minimum relative magnitude of the batch effect, 
 below which no correction will be performed at a given merge step.}
@@ -59,18 +53,14 @@ Only relevant for gene expression inputs (i.e., \code{pc.input=FALSE} and \code{
 \item{correct.all}{Logical scalar indicating whether a rotation matrix should be computed for genes not in \code{subset.row}.
 Only used for gene expression inputs, i.e., when \code{pc.input=FALSE}.}
 
-\item{pc.input}{Logical scalar indicating whether the values in \code{...} are already low-dimensional, e.g., the output of \code{\link{multiBatchPCA}}.
-Only used when \code{...} does \emph{not} contain SingleCellExperiment objects - in those cases, set \code{use.dimred} instead.
-This is also assumed to be \code{TRUE} if any element of \code{...} is a DataFrame.}
+\item{pc.input}{Deprecated, use \code{\link{reducedMNN}} instead.}
 
 \item{assay.type}{A string or integer scalar specifying the assay containing the log-expression values.
 Only used for SingleCellExperiment inputs with \code{use.dimred=NULL}.}
 
-\item{get.spikes}{A logical scalar indicating whether to retain rows corresponding to spike-in transcripts.
-Only used for SingleCellExperiment inputs with \code{use.dimred=NULL}.}
+\item{get.spikes}{Deprecated.}
 
-\item{use.dimred}{A string or integer scalar specifying which reduced dimension result to use, if any.
-Only used for SingleCellExperiment inputs.}
+\item{use.dimred}{Deprecated, use \code{\link{reducedMNN}} instead.}
 
 \item{BSPARAM}{A \linkS4class{BiocSingularParam} object specifying the algorithm to use for PCA.
 This uses a fast approximate algorithm from \pkg{irlba} by default, see \code{\link{multiBatchPCA}} for details.}
@@ -80,10 +70,7 @@ This uses a fast approximate algorithm from \pkg{irlba} by default, see \code{\l
 \item{BPPARAM}{A \linkS4class{BiocParallelParam} object specifying whether the PCA and nearest-neighbor searches should be parallelized.}
 }
 \value{
-The output of this function depends on whether a PCA is performed on the input \code{...}.
-This will be the case if \code{pc.input=FALSE} for matrix inputs or if \code{use.dimred=NULL} for SingleCellExperiment inputs.
-
-If a PCA is performed, a \linkS4class{SingleCellExperiment} is returned where each row is a gene and each column is a cell. 
+A \linkS4class{SingleCellExperiment} is returned where each row is a gene and each column is a cell. 
 This contains:
 \itemize{
 \item A \code{corrected} matrix in the \code{reducedDims} slot, containing corrected low-dimensional coordinates for each cell.
@@ -95,37 +82,16 @@ This has \code{d} columns and number of rows equal to the number of genes to rep
 This can be interpreted as per-gene corrected log-expression values (after cosine normalization, if \code{cos.norm=TRUE}) but should not be used for quantitative analyses.
 }
 
-Otherwise, a \linkS4class{DataFrame} is returned where each row corresponds to a cell.
-It contains:
-\itemize{
-\item \code{corrected}, the matrix of corrected low-dimensional coordinates for each cell.
-\item \code{batch}, the Rle specifying the batch of origin for each row. 
-}
-
 Cells in the output object are always ordered in the same manner as supplied in \code{...}.
 For a single input object, cells will be reported in the same order as they are arranged in that object.
 In cases with multiple input objects, the cell identities are simply concatenated from successive objects,
 i.e., all cells from the first object (in their provided order), then all cells from the second object, and so on.
-This is true regardless of the value of \code{auto.order}, which only affects the internal merge order of the batches.
+This is true regardless of the value of \code{merge.order} and \code{auto.merge},
+which only affects the internal merge order of the batches.
 
-The metadata of the output object contains:
-\itemize{
-\item \code{merge.order}, a vector of batch names or indices, specifying the order in which batches were merged.
-\item \code{merge.info}, a DataFrame of information about each merge step (corresponding to each row).
-This contains the following fields:
-\itemize{
-\item \code{pairs}, a \linkS4class{List} of DataFrames specifying which pairs of cells in \code{corrected} were identified as MNNs at each step. 
-\item \code{batch.vector}, a List of numeric vectors specifying the average batch vector at each step.
-\item \code{batch.size}, a numeric vector specifying the relative magnitude of the batch effect at each merge.
-\item \code{skipped}, a logical vector indicating whether the correction was skipped if the magnitude was below \code{min.batch.skip}.
-\item \code{lost.var}, a numeric matrix specifying the percentage of variance lost due to orthogonalization at each merge step.
-This is reported separately for each batch (columns, ordered according to the input order, \emph{not} the merge order).
-}
-\item \code{pre.orthog}, a DataFrame containing information about pre-correction orthogonalization.
-This is only reported if \code{...} contains one or more DataFrames.
-Each row corresponds to a vector used for orthogonalization in one of the DataFrames in \code{...}.
-The vector is stored in \code{batch.vector} and the variance lost due to orthogonalization in each batch is reported in \code{lost.var}.
-}
+The metadata of the output object contains \code{merge.info}, 
+a \linkS4class{DataFrame} of diagnostic information about each merge step.
+See the \dQuote{Merge diagnostics} section for more details.
 }
 \description{
 Correct for batch effects in single-cell expression data using a fast version of the mutual nearest neighbors (MNN) method.
@@ -158,22 +124,34 @@ In this situation, the order of input batches is defined by the order of levels 
 }
 \section{Controlling the merge order}{
 
-By default, batches are merged in the user-supplied order.
-However, if \code{auto.order=TRUE}, batches are ordered to maximize the number of MNN pairs at each step.
+By default, batches are merged in the user-supplied order, 
+i.e., the first batch is merged with the second batch, 
+the third batch is merged with the combined first-second batch,
+the fourth batch is merged with the combined first-second-third batch and so on.
+
+If \code{merge.order} is an integer vector, it is treated as an ordering permutation with which to merge batches.
+For example, if \code{auto.order=c(4,1,3,2)}, batches 4 and 1 in \code{...} are merged first;
+batch 3 is merged with the combined 4+1 batch; 
+and then batch 2 is merged with the combined 4+1+3 batch.
+This is often more convenient than changing the order manually in \code{...}, 
+which would alter the order of batches in the output \code{corrected} matrix.
+
+If \code{merge.order} is a character vector, it is treated as an ordering permutation for named batches.
+
+If \code{merge.order} is a nested list, it is treated as a tree that specifies a hierarchical merge.
+Each element of the list either specifies a batch or an internal node that should contain two children.
+For example, \code{list(list(1,2), list(3,4))} indicates that batch 1 should be merged with batch 2;
+batch 3 should be merged with batch 4; and that, finally, the combined batches 1+2 and 3+4 should be merged.
+A merge tree is useful for merging together batches that are known to be more closely related (e.g., replicates)
+before attempting difficult merges involving more dissimilar batches.
+Note that batches can be specified by name (character) or index (integer), but not both in the same tree.
+
+If \code{auto.merge=TRUE}, merge steps are chosen to maximize the number of MNN pairs at each step.
 The aim is to improve the stability of the correction by first merging more similar batches with more MNN pairs.
 This can be somewhat time-consuming as MNN pairs need to be iteratively recomputed for all possible batch pairings.
-It is often more convenient for the user to specify an appropriate ordering based on prior knowledge about the batches.
 
-If \code{auto.order} is an integer vector, it is treated as an ordering permutation with which to merge batches.
-For example, if \code{auto.order=c(4,1,3,2)}, batches 4 and 1 in \code{...} are merged first, followed by batch 3 and then batch 2.
-This is often more convenient than changing the order manually in \code{...}, which would alter the order of batches in the output \code{corrected} matrix.
-Indeed, no matter what the setting of \code{auto.order} is, the order of cells in the output corrected matrix is \emph{always} the same.
-
-Further control of the merge order can be achieved by performing the multi-sample PCA outside of this function with \code{\link{multiBatchPCA}}.
-Batches can then be progressively merged by repeated calls to \code{fastMNN} with low-dimensional inputs (see below).
-This is useful in situations where the batches need to be merged in a hierarhical manner, e.g., combining replicate samples before merging them across different conditions.
-For example, we could merge batch 1 with 4 to obtain a corrected 1+4; and then batch 2 with 3 to obtain a corrected 2+3;
-before merging the corrected 1+4 and 2+3 to obtain the final set of corrected values.
+The order of cells in the output is \emph{never} affected by the setting of \code{merge.order} or \code{auto.order}.
+It depends only on the order of elements in \code{...}.
 }
 
 \section{Choice of genes}{
@@ -181,34 +159,12 @@ before merging the corrected 1+4 and 2+3 to obtain the final set of corrected va
 All genes are used with the default setting of \code{subset.row=NULL}.
 Users can set \code{subset.row} to subset the inputs to highly variable genes or marker genes.
 This improves the quality of the PCA and identification of MNN pairs by reducing the noise from irrelevant genes.
-Note that users should not be too restrictive with subsetting, as high dimensionality is required to satisfy the orthogonality assumption in MNN detection.
-
-For \linkS4class{SingleCellExperiment} inputs, spike-in transcripts are automatically removed unless \code{get.spikes=TRUE}.
-If \code{subset.row} is specified and \code{get.spikes=FALSE}, only the non-spike-in specified features will be used. 
-All SingleCellExperiment objects should have the same set of spike-in transcripts.
+Note that users should not be too restrictive with subsetting, 
+as high dimensionality is required to satisfy the orthogonality assumption in MNN detection.
 
 By default, only the selected genes are used to compute rotation vectors and a low-rank representation of the input matrix.
 However, rotation vectors can be obtained that span all genes in the supplied input data with \code{correct.all=TRUE}.
-This will not affect the corrected low-dimension coordinates or the output for the selected genes. 
-
-Note that these settings for the choice of genes are completely ignored when using low-dimensional inputs (see below).
-}
-
-\section{Using low-dimensional inputs}{
-
-Low-dimensional inputs can be supplied directly to \code{fastMNN} if the PCA (or some other projection to low-dimensional space) is performed outside the function.
-This intructs the function to skip the \code{\link{multiBatchPCA}} step. 
-To enable this, set \code{pc.input=TRUE} for matrix-like inputs in \code{...}, or specify \code{use.dimred} with SingleCellExperiment inputs.
-
-If \code{...} contains any DataFrame objects, these are assumed to be the output of a previous \code{fastMNN} call.
-All inputs are subsequently treated as low-dimensional inputs and any other setting of \code{pc.input} is ignored.
-If any SingleCellExperiment objects are also present in \code{...}, \code{use.dimred} must be specified.
-
-Note that \code{\link{multiBatchPCA}} will not perform cosine-normalization, 
-so it is the responsibility of the user to cosine-normalize each batch beforehand with \code{\link{cosineNorm}} to recapitulate results with \code{cos.norm=TRUE}.
-In addition, \code{\link{multiBatchPCA}} must be run on all samples at once, to ensure that all cells are projected to the same low-dimensional space.
-
-Users are referred to the Examples for a demonstration of this functionality.
+This will not affect the corrected low-dimension coordinates or the output for the selected genes.
 }
 
 \section{Using restriction}{
@@ -228,7 +184,36 @@ This means that the output is always of the same dimensionality, regardless of w
 
 Note that \emph{all} cells are used to perform the PCA, regardless of whether \code{restrict} is set.
 Constructing the projection vectors with only control cells will not guarantee resolution of unique non-control populations in each batch.
-The function will only completely ignore cells that are not in \code{restrict} if \code{pc.input=TRUE} or, for SingleCellExperiment inputs, \code{use.dimred} is set.
+If this is not desirable, users can perform the PCA manually and apply \code{\link{reducedMNN}} instead.
+}
+
+\section{Merge diagnostics}{
+
+We can consider \code{fastMNN}'s operation in terms of pairwise merge steps.
+Each merge step involves two mutually exclusive sets of cells, a \dQuote{left} set and \dQuote{right} set.
+Each set may consist of cells from different batches if those batches were merged in a previous step.
+The merge will then create a new set of cells that combines the left and right sets.
+Iteratively repeating this process with the newly formed sets will eventually merge all batches together.
+
+The output metadata contains \code{merge.info}, a DataFrame where each row corresponds to a merge step.
+It contains the following fields:
+\itemize{
+\item \code{left}, a \linkS4class{List} of integer or character vectors.
+Each vector specifies the batches in the left set at a given merge step. 
+\item \code{right}, a similar List of integer or character vectors.
+Each vector specifies the batches in the right set at a given merge step. 
+\item \code{pairs}, a List of DataFrames specifying which pairs of cells were identified as MNNs at each step.
+In each DataFrame, each row corresponds to a single MNN pair and specifies the
+paired cells that were in the left and right sets, respectively.
+Note that the indices refer to those paired cells in the \emph{output} ordering of cells,
+i.e., users can identify the paired cells at each step by column-indexing the output of the \code{fastMNN} function.
+\item \code{batch.size}, a numeric vector specifying the relative magnitude of the batch effect at each merge,
+see \dQuote{Orthogonalization details}.
+\item \code{skipped}, a logical vector indicating whether the correction was skipped 
+if the magnitude of the batch effect was below \code{min.batch.skip}.
+\item \code{lost.var}, a numeric matrix specifying the percentage of variance lost due to orthogonalization at each merge step.
+This is reported separately for each batch (columns, ordered according to the input order, \emph{not} the merge order).
+}
 }
 
 \section{Orthogonalization details}{
@@ -257,15 +242,9 @@ If a large loss of variance is observed along with a small batch effect in a giv
 B1 <- matrix(rnorm(10000), ncol=50) # Batch 1 
 B2 <- matrix(rnorm(10000), ncol=50) # Batch 2
 out <- fastMNN(B1, B2)
-str(reducedDim(out)) # corrected values
 
-# An equivalent approach with PC input.
-cB1 <- cosineNorm(B1)
-cB2 <- cosineNorm(B2)
-pcs <- multiBatchPCA(cB1, cB2)
-out2 <- fastMNN(pcs[[1]], pcs[[2]], pc.input=TRUE)
-
-all.equal(reducedDim(out), out2$corrected) # should be TRUE
+# Corrected values for use in clustering, etc.
+str(reducedDim(out)) 
 
 # Extracting corrected expression values for gene 10.
 summary(assay(out)[10,])
@@ -281,7 +260,9 @@ Further MNN algorithm development.
 \url{https://MarioniLab.github.io/FurtherMNN2018/theory/description.html}
 }
 \seealso{
-\code{\link{cosineNorm}} and \code{\link{multiBatchPCA}} to obtain the values to be corrected.
+\code{\link{cosineNorm}} and \code{\link{multiBatchPCA}}, to obtain the values to be corrected.
+
+\code{\link{reducedMNN}}, for a version of the function that operates in low-dimensional space.
 
 \code{\link{mnnCorrect}} for the \dQuote{classic} version of the MNN correction algorithm.
 }

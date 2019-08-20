@@ -7,6 +7,10 @@
 
 \item Switched BSPARAM= to use IrlbaParam(deferred=TRUE) by default in fastMNN(),
 so that the default behaviour is actually fast.
+
+\item Deprecated auto.order= in favor of merge.order= and auto.merge= in fastMNN().
+Automatic merging now detects potential tree-based merges.
+Merge trees can also be specified as input.
 }}
 
 \section{Version 1.0.0}{\itemize{
