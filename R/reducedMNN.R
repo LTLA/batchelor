@@ -43,9 +43,9 @@
 #' out2 <- reducedMNN(pcs[[1]], pcs[[2]])
 #'
 #' @seealso
-#' \code{\link{cosineNorm}} and \code{\link{multiBatchPCA}}, to obtain the values to be corrected.
+#' \code{\link{multiBatchPCA}}, to obtain the values to be corrected.
 #'
-#' \code{\link{reducedMNN}}, for a version of the function that operates in low-dimensional space.
+#' \code{\link{fastMNN}}, for the version that operates on gene-expression values.
 #'
 #' @export
 #' @importFrom BiocNeighbors KmknnParam
@@ -82,7 +82,7 @@ reducedMNN <- function (..., batch=NULL, k=20, restrict=NULL, ndist=3,
         if (is.null(batch)) { 
             stop("'batch' must be specified if '...' has only one object")
         }
-        divided <- divideIntoBatches(batches[[1]], batch=batch, restrict=restrict, byrow=TRUE)
+        divided <- divideIntoBatches(batches[[1]], batch=batch, restrict=restrict[[1]], byrow=TRUE)
         output <- do.call(.fast_mnn, c(list(batches=divided$batches, restrict=divided$restrict), args))
 
         d.reo <- divided$reorder
