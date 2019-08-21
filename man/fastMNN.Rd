@@ -47,16 +47,14 @@ Alternatively, a list of lists representing a tree structure specifying a hierar
 \item{min.batch.skip}{Numeric scalar specifying the minimum relative magnitude of the batch effect, 
 below which no correction will be performed at a given merge step.}
 
-\item{subset.row}{A vector specifying which features to use for correction. 
-Only relevant for gene expression inputs (i.e., \code{pc.input=FALSE} and \code{use.dimred=NULL}).}
+\item{subset.row}{A vector specifying which features to use for correction.}
 
-\item{correct.all}{Logical scalar indicating whether a rotation matrix should be computed for genes not in \code{subset.row}.
-Only used for gene expression inputs, i.e., when \code{pc.input=FALSE}.}
+\item{correct.all}{Logical scalar indicating whether a rotation matrix should be computed for genes not in \code{subset.row}.}
 
 \item{pc.input}{Deprecated, use \code{\link{reducedMNN}} instead.}
 
 \item{assay.type}{A string or integer scalar specifying the assay containing the log-expression values.
-Only used for SingleCellExperiment inputs with \code{use.dimred=NULL}.}
+Only used for SingleCellExperiment inputs.}
 
 \item{get.spikes}{Deprecated.}
 

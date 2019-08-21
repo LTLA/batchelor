@@ -6,6 +6,7 @@
 \alias{batchCorrect,ClassicMnnParam-method}
 \alias{batchCorrect,FastMnnParam-method}
 \alias{batchCorrect,RescaleParam-method}
+\alias{batchCorrect,NoCorrectParam-method}
 \title{Batch correction methods}
 \usage{
 batchCorrect(..., batch = NULL, restrict = NULL, subset.row = NULL,
@@ -20,6 +21,10 @@ batchCorrect(..., batch = NULL, restrict = NULL, subset.row = NULL,
   assay.type = "logcounts", get.spikes = FALSE, PARAM)
 
 \S4method{batchCorrect}{RescaleParam}(..., batch = NULL,
+  restrict = NULL, subset.row = NULL, correct.all = FALSE,
+  assay.type = "logcounts", get.spikes = FALSE, PARAM)
+
+\S4method{batchCorrect}{NoCorrectParam}(..., batch = NULL,
   restrict = NULL, subset.row = NULL, correct.all = FALSE,
   assay.type = "logcounts", get.spikes = FALSE, PARAM)
 }
@@ -43,7 +48,7 @@ Used to ensure that the output is of the same dimensionality as the input.}
 \item{assay.type}{A string or integer scalar specifying the assay to use for correction.
 Only used for SingleCellExperiment inputs.}
 
-\item{get.spikes}{A logical scalar indicating whether to retain rows corresponding to spike-in transcripts.
+\item{get.spikes}{Deprecated, a logical scalar indicating whether to retain rows corresponding to spike-in transcripts.
 Only used for SingleCellExperiment inputs.}
 
 \item{PARAM}{A \linkS4class{BatchelorParam} object specifying the batch correction method to dispatch to.
@@ -83,6 +88,7 @@ B2 <- matrix(rnorm(10000), ncol=50) # Batch 2
 m.out <- batchCorrect(B1, B2, PARAM=ClassicMnnParam())
 f.out <- batchCorrect(B1, B2, PARAM=FastMnnParam(d=20))
 r.out <- batchCorrect(B1, B2, PARAM=RescaleParam(pseudo.count=0))
+n.out <- batchCorrect(B1, B2, PARAM=NoCorrectParam())
 
 }
 \seealso{
