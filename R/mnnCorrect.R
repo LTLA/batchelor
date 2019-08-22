@@ -20,9 +20,10 @@
 #' @param var.adj A logical scalar indicating whether variance adjustment should be performed on the correction vectors.
 #' @param subset.row A vector specifying which features to use for correction. 
 #' @param correct.all A logical scalar specifying whether correction should be applied to all genes, even if only a subset is used for the MNN calculations.
-#' @param auto.order Logical scalar indicating whether re-ordering of batches should be performed to maximize the number of MNN pairs at each step.
-#' 
-#' Alternatively, an integer vector containing a permutation of \code{1:N} where \code{N} is the number of batches.
+#' @param merge.order An integer vector containing the linear merge order of batches in \code{...}.
+#' Alternatively, a list of lists representing a tree structure specifying a hierarchical merge order.
+#' @param auto.merge Logical scalar indicating whether to automatically identify the \dQuote{best} merge order.
+#' @param auto.order Deprecated, use \code{merge.order} or \code{auto.merge} instead.
 #' @param assay.type A string or integer scalar specifying the assay containing the log-expression values, if SingleCellExperiment objects are present in \code{...}.
 #' @param get.spikes A logical scalar indicating whether to retain rows corresponding to spike-in transcripts.
 #' Only used for SingleCellExperiment inputs.
@@ -32,7 +33,7 @@
 #' 
 #' @return
 #' A \linkS4class{SingleCellExperiment} object containing the \code{corrected} assay.
-#' This contains corrected (log-)expression values for each gene (row) in each cell (column) in each batch.
+#' This contains corrected expression values for each gene (row) in each cell (column) in each batch.
 #' A \code{batch} field is present in the column data, specifying the batch of origin for each cell.
 #'
 #' Cells in the output object are always ordered in the same manner as supplied in \code{...}.
@@ -40,13 +41,9 @@
 #' In cases with multiple input objects, the cell identities are simply concatenated from successive objects,
 #' i.e., all cells from the first object (in their provided order), then all cells from the second object, and so on.
 #'
-#' The metadata of the SingleCellExperiment contains:
-#' \itemize{
-#' \item{\code{merge.order}: a vector of batch names or indices, specifying the order in which batches were merged.}
-#' \item \code{merge.info}, a DataFrame of information about each merge step (corresponding to each row).
-#' This contains \code{pairs}, a \linkS4class{List} of DataFrames specifying which pairs of cells in \code{corrected} were identified as MNNs at each step. 
-#' }
-#' 
+#' The metadata of the SingleCellExperiment contains \code{merge.info}, a DataFrame where each row corresponds to a merge step.
+#' See \dQuote{Merge diagnostics} for more information.
+#'
 #' @details
 #' This function is designed for batch correction of single-cell RNA-seq data where the batches are partially confounded with biological conditions of interest.
 #' It does so by identifying pairs of mutual nearest neighbors (MNN) in the high-dimensional log-expression space.
@@ -71,10 +68,6 @@
 #' This may provide more meaningful identification of MNN pairs by reducing the noise from irrelevant genes.
 #' Note that users should not be too restrictive with subsetting, as high dimensionality is required to satisfy the orthogonality assumption in MNN detection.
 #'
-#' For \linkS4class{SingleCellExperiment} inputs, spike-in transcripts are automatically removed unless \code{get.spikes=TRUE}.
-#' If \code{subset.row} is specified and \code{get.spikes=FALSE}, only the non-spike-in specified features will be used. 
-#' All SingleCellExperiment objects should have the same set of spike-in transcripts.
-#' 
 #' If \code{subset.row} is specified and \code{correct.all=TRUE}, corrected values are returned for \emph{all} genes.
 #' This is possible as \code{subset.row} is only used to identify the MNN pairs and other cell-based distance calculations.
 #' Correction vectors between MNN pairs can then be computed in for all genes in the supplied matrices.
@@ -91,19 +84,8 @@
 #' }
 #' The cosine normalization is achieved using the \code{\link{cosineNorm}} function.
 #' 
-#' @section Controlling the merge order:
-#' The order in which batches are corrected will affect the final results.
-#' The first batch in \code{auto.order} is used as the reference batch against which the second batch is corrected.
-#' Corrected values of the second batch are added to the reference batch, against which the third batch is corrected, and so on.
-#' This strategy maximizes the chance of detecting sufficient MNN pairs for stable calculation of correction vectors in subsequent batches.
+#' @inheritSection fastMNN Controlling the merge order
 #'
-#' If \code{auto.order=TRUE}, batches are ordered to maximize the number of MNN pairs at each step.
-#' The aim is to improve the stability of the correction by first merging more similar batches with more MNN pairs.
-#' This can be somewhat time-consuming as MNN pairs need to be iteratively recomputed for all possible batch pairings.
-#' It is often more convenient for the user to specify an appropriate ordering based on prior knowledge about the batches.
-#' 
-#' Note that, no matter what the setting of \code{auto.order} is, the order of cells in the output corrected matrix is \emph{always} the same.
-#' 
 #' @section Further options:
 #' The function depends on a shared biological manifold, i.e., one or more cell types/states being present in multiple batches.
 #' If this is not true, MNNs may be incorrectly identified, resulting in over-correction and removal of interesting biology.
@@ -132,6 +114,21 @@
 #' However, it will apply the correction to all cells in each batch - hence the extrapolation.
 #' This means that the output is always of the same dimensionality, regardless of whether \code{restrict} is specified.
 #'
+#' @section Merge diagnostics:
+#' Each merge step combines two mutually exclusive sets of cells, a \dQuote{left} set and \dQuote{right} set.
+#' The metadata thus contains the following fields:
+#' \itemize{
+#' \item \code{left}, a \linkS4class{List} of integer or character vectors.
+#' Each vector specifies the batches in the left set at a given merge step. 
+#' \item \code{right}, a similar List of integer or character vectors.
+#' Each vector specifies the batches in the right set at a given merge step. 
+#' \item \code{pairs}, a List of DataFrames specifying which pairs of cells were identified as MNNs at each step.
+#' In each DataFrame, each row corresponds to a single MNN pair and specifies the
+#' paired cells that were in the left and right sets, respectively.
+#' Note that the indices refer to those paired cells in the \emph{output} ordering of cells,
+#' i.e., users can identify the paired cells at each step by column-indexing the output of the \code{mnnCorrect} function.
+#' }
+#'
 #' @author
 #' Laleh Haghverdi,
 #' with modifications by Aaron Lun
@@ -155,8 +152,9 @@
 #' @importFrom SummarizedExperiment assay
 #' @importFrom BiocSingular ExactParam
 #' @importFrom BiocNeighbors KmknnParam
-mnnCorrect <- function(..., batch=NULL, restrict=NULL, k=20, sigma=0.1, cos.norm.in=TRUE, cos.norm.out=TRUE, svd.dim=0L, var.adj=TRUE, 
-    subset.row=NULL, correct.all=FALSE, auto.order=FALSE, 
+mnnCorrect <- function(..., batch=NULL, restrict=NULL, k=20, sigma=0.1, 
+    cos.norm.in=TRUE, cos.norm.out=TRUE, svd.dim=0L, var.adj=TRUE, 
+    subset.row=NULL, correct.all=FALSE, merge.order=NULL, auto.merge=FALSE, auto.order=NULL, 
     assay.type="logcounts", get.spikes=FALSE, BSPARAM=ExactParam(), BNPARAM=KmknnParam(), BPPARAM=SerialParam())
 {
     original <- batches <- list(...)
@@ -208,18 +206,14 @@ mnnCorrect <- function(..., batch=NULL, restrict=NULL, k=20, sigma=0.1, cos.norm
 ####################################
 # Internal main function, to separate data handling from the actual calculations.
 
-#' @importFrom S4Vectors DataFrame 
-#' @importFrom BiocParallel SerialParam
-#' @importFrom BiocGenerics rbind
 #' @importFrom Matrix t
-#' @importFrom DelayedArray DelayedArray
-#' @importFrom SingleCellExperiment SingleCellExperiment
+#' @importFrom BiocParallel SerialParam
 #' @importFrom BiocSingular ExactParam
 #' @importFrom BiocNeighbors KmknnParam
-#' @importFrom methods as
-#' @importClassesFrom S4Vectors List
 .mnn_correct <- function(..., k=20, sigma=0.1, cos.norm.in=TRUE, cos.norm.out=TRUE, svd.dim=0L, var.adj=TRUE, 
-    subset.row=NULL, correct.all=FALSE, restrict=NULL, auto.order=FALSE, BSPARAM=ExactParam(), BNPARAM=KmknnParam(), BPPARAM=SerialParam())
+    subset.row=NULL, correct.all=FALSE, restrict=NULL, 
+    merge.order=NULL, auto.merge=FALSE, auto.order=NULL, 
+    BSPARAM=ExactParam(), BNPARAM=KmknnParam(), BPPARAM=SerialParam())
 {
     batches <- list(...) 
     nbatches <- length(batches) 
@@ -228,118 +222,200 @@ mnnCorrect <- function(..., batch=NULL, restrict=NULL, k=20, sigma=0.1, cos.norm
     }
     
     # Setting up the variables.
-    prep.out <- .prepare_input_data(batches, cos.norm.in=cos.norm.in, cos.norm.out=cos.norm.out, subset.row=subset.row, correct.all=correct.all)
+    prep.out <- .prepare_input_data(batches, cos.norm.in=cos.norm.in, cos.norm.out=cos.norm.out, 
+        subset.row=subset.row, correct.all=correct.all)
     in.batches <- prep.out$In
     out.batches <- prep.out$Out
     subset.row <- prep.out$Subset
     same.set <- prep.out$Same
 
-    in.batches.trans <- lapply(in.batches, t)
-    if (!is.logical(auto.order)) {
-        re.order <- as.integer(auto.order)
-        if (!identical(sort(re.order), seq_len(nbatches))) {
-            stop("integer 'auto.order' must contain a permutation of 1:nbatches") 
-        }
-        mnn.store <- MNN_supplied_order(in.batches.trans, restrict, re.order)
-    } else if (auto.order) {
-        mnn.store <- MNN_auto_order(in.batches.trans, restrict)
-    } else {
-        mnn.store <- MNN_supplied_order(in.batches.trans, restrict)
+    in.batches <- lapply(in.batches, t)
+    if (!same.set) {
+        out.batches <- lapply(out.batches, t)
     }
- 
-    mnn.pairings <- vector("list", nbatches-1L)
-    ref.batch.out <- NULL
 
-    # Looping through the batches.
-    for (b in 2:nbatches) {
-        mnn.store <- .advance(mnn.store, k=k, BNPARAM=BNPARAM, BPPARAM=BPPARAM)
-        ref.batch.in <- .get_reference(mnn.store)
-        target <- .get_current_index(mnn.store)
-
-        other.batch.in.untrans <- in.batches[[target]]
-        other.batch.in <- in.batches.trans[[target]]
-        if (!same.set) { 
-            if (b==2L) {
-                ref.batch.out <- t(out.batches[[.get_reference_indices(mnn.store)]])
-            }
-            other.batch.out.untrans <- out.batches[[target]]
-            other.batch.out <- t(other.batch.out.untrans)
+    # Choosing the merge order.
+    if (!is.null(auto.order)) {
+        .Deprecated(old="auto.order", new="auto.merge")
+        if (isTRUE(auto.order)) {
+            auto.merge <- TRUE
+        } else if (is.numeric(auto.order)) {
+            merge.order <- auto.order
         }
-        
-        sets <- .get_mnn_result(mnn.store)
-        s1 <- sets$first
-        s2 <- sets$second      
-        mnn.pairings[[b-1L]] <- DataFrame(left=s1, right=s2 + nrow(ref.batch.in))
+    }
+
+    if (!auto.merge) {
+        merge.tree <- .create_tree_predefined(in.batches, restrict, merge.order)
+        NEXT <- .get_next_merge
+        UPDATE <- .update_tree
+    } else {
+        merge.tree <- lapply(seq_along(in.batches), function(i) {
+            MNN_treenode(index=i, data=in.batches[[i]], restrict=restrict[[i]])
+        })
+
+        NEXT <- function(remainders) {
+            .search_for_merge(remainders, k1=k, k2=k, BNPARAM=BNPARAM, BPPARAM=BPPARAM, orthogonalize=FALSE)
+        }
+
+        UPDATE <- .update_remainders
+    }
+
+    # Adding the 'out.batches', if necessary.
+    merge.tree <- .add_out_batches_to_tree(merge.tree, if (same.set) NULL else out.batches)
+
+    output <- .mnn_correct_core(merge.tree, NEXT=NEXT, UPDATE=UPDATE, k=k, sigma=sigma,
+        same.set=same.set, svd.dim=svd.dim, var.adj=var.adj, subset.row=subset.row, 
+        BSPARAM=BSPARAM, BNPARAM=BNPARAM, BPPARAM=BPPARAM)
+
+    .add_batch_names(output, batches)
+}
+
+.add_out_batches_to_tree <- function(merge.tree, out.batches) {
+    if (!is.list(merge.tree)) {
+        merge.tree@extras <- list(out.batches[[.get_node_index(merge.tree)]])
+        return(merge.tree)
+    }
+    merge.tree[[1]] <- .add_out_batches_to_tree(merge.tree[[1]], out.batches)
+    merge.tree[[2]] <- .add_out_batches_to_tree(merge.tree[[2]], out.batches)
+    merge.tree
+}
+
+#' @importFrom BiocParallel SerialParam
+#' @importFrom BiocSingular ExactParam
+#' @importFrom BiocNeighbors KmknnParam
+#' @importFrom S4Vectors DataFrame
+#' @importFrom SingleCellExperiment SingleCellExperiment 
+#' @importFrom Matrix t
+.mnn_correct_core <- function(merge.tree, NEXT, UPDATE,
+    same.set=FALSE, k=20, sigma=0.1, svd.dim=0L, var.adj=TRUE, subset.row=NULL,
+    BSPARAM=ExactParam(), BNPARAM=KmknnParam(), BPPARAM=SerialParam()) 
+{
+    nbatches <- length(unlist(merge.tree))
+    nmerges <- nbatches - 1L
+    mnn.pairings <- left.set <- right.set <- vector("list", nmerges)
+
+    for (mdx in seq_len(nmerges)) {
+        # Traversing the merge tree to find the next two batches to merge.
+        next.step <- NEXT(merge.tree) 
+        left <- next.step$left
+        right <- next.step$right
+
+        left.data <- .get_node_data(left)
+        left.restrict <- .get_node_restrict(left)
+        left.index <- .get_node_index(left)
+        left.origin <- .get_node_origin(left)
+        left.extras <- .get_node_extras(left)[[1]]
+
+        right.data <- .get_node_data(right)
+        right.restrict <- .get_node_restrict(right)
+        right.index <- .get_node_index(right)
+        right.origin <- .get_node_origin(right)
+        right.extras <- .get_node_extras(right)[[1]]
 
         # Computing the correction vector for each cell.
-        correction.in <- .compute_correction_vectors(ref.batch.in, other.batch.in, s1, s2, other.batch.in.untrans, sigma)
+        mnn.sets <- .restricted_mnn(left.data, left.restrict, right.data, right.restrict,
+            k1=k, k2=k, BNPARAM=BNPARAM, BPPARAM=BPPARAM)
+        s1 <- mnn.sets$first
+        s2 <- mnn.sets$second
+
+        mnn.pairings[[mdx]] <- DataFrame(left=s1, right=s2)
+        left.set[[mdx]] <- left.index
+        right.set[[mdx]] <- right.index
+
+        trans.right <- t(right.data)
+        correction.in <- .compute_correction_vectors(left.data, right.data, s1, s2, trans.right, sigma)
         if (!same.set) {
-            correction.out <- .compute_correction_vectors(ref.batch.out, other.batch.out, s1, s2, other.batch.in.untrans, sigma)
-            # NOTE: use of 'other.batch.in.untrans' here is intentional, as the distances used for the kernel weighting should be 
-            # comparable to 'sigma'; this protects against the case where cos.in=TRUE and cos.out=FALSE.
+            # NOTE: use of 'trans.right' here is intentional, as the distances
+            # used for the kernel weighting should be comparable to 'sigma';
+            # this protects against the case where cos.in=TRUE and cos.out=FALSE.
+            correction.out <- .compute_correction_vectors(left.extras, right.extras, s1, s2, trans.right, sigma)
         }
 
-        # Removing any component of the correction vector that's parallel to the biological basis vectors in either batch.
-        # Only using cells involved in MNN pairs, to avoid undercorrection in directions that weren't problematic anyway
-        # (given that using SVDs was intended to mitigate the effect of identifying the wrong MNN pairs).
+        # Removing any component of the correction vector that's parallel to
+        # the biological basis vectors in either batch.  Only using cells
+        # involved in MNN pairs, to avoid undercorrection in directions that
+        # weren't problematic anyway (given that using SVDs was intended to
+        # mitigate the effect of identifying the wrong MNN pairs).
         if (svd.dim>0) {
             u1 <- unique(s1)
             u2 <- unique(s2)
 
             # Computing the biological subspace in both batches, and subtract it from the batch correction vector.
-            in.span1 <- .get_bio_span(t(ref.batch.in[u1,,drop=FALSE]), ndim=svd.dim, BSPARAM=BSPARAM, BPPARAM=BPPARAM)
-            in.span2 <- .get_bio_span(other.batch.in.untrans[,u2,drop=FALSE], ndim=svd.dim, BSPARAM=BSPARAM, BPPARAM=BPPARAM)
+            in.span1 <- .get_bio_span(t(left.data[u1,,drop=FALSE]), ndim=svd.dim, BSPARAM=BSPARAM, BPPARAM=BPPARAM)
+            in.span2 <- .get_bio_span(t(right.data[u2,,drop=FALSE]), ndim=svd.dim, BSPARAM=BSPARAM, BPPARAM=BPPARAM)
             correction.in <- .subtract_bio(correction.in, in.span1, in.span2)
 
-            # Repeating for the output values.
             if (!same.set) { 
-                out.span1 <- .get_bio_span(t(ref.batch.out[u1,,drop=FALSE]), subset.row=subset.row, ndim=svd.dim, BSPARAM=BSPARAM, BPPARAM=BPPARAM)
-                out.span2 <- .get_bio_span(other.batch.out.untrans[,u2,drop=FALSE], subset.row=subset.row, ndim=svd.dim, BSPARAM=BSPARAM, BPPARAM=BPPARAM)
+                out.span1 <- .get_bio_span(t(left.extras[u1,,drop=FALSE]), subset.row=subset.row, 
+                    ndim=svd.dim, BSPARAM=BSPARAM, BPPARAM=BPPARAM)
+                out.span2 <- .get_bio_span(t(right.extras[,u2,drop=FALSE]), subset.row=subset.row, 
+                    ndim=svd.dim, BSPARAM=BSPARAM, BPPARAM=BPPARAM)
                 correction.out <- .subtract_bio(correction.out, out.span1, out.span2, subset.row=subset.row)
             }
         } 
        
-        # Adjusting the shift variance; done after any SVD so that variance along the correction vector is purely technical.
+        # Adjusting the shift variance; done after any SVD so that variance
+        # along the correction vector is purely technical.
         if (var.adj) {
-            ref.restrict <- .get_reference_restrict(mnn.store)
-            cur.restrict <- .get_current_restrict(mnn.store)
-            args <- list(sigma=sigma, restrict1=ref.restrict, restrict2=cur.restrict)
+            args <- list(sigma=sigma, restrict1=left.restrict, restrict2=right.restrict)
 
-            correction.in <- do.call(.adjust_shift_variance, c(list(t(ref.batch.in), other.batch.in.untrans, correction.in), args)) 
+            correction.in <- do.call(.adjust_shift_variance, 
+                c(list(t(left.data), t(right.data), correction.in), args)
+            ) 
             if (!same.set) {
-                correction.out <- do.call(.adjust_shift_variance, c(list(t(ref.batch.out), other.batch.out.untrans, correction.out, subset.row=subset.row), args))
+                correction.out <- do.call(.adjust_shift_variance, 
+                    c(list(t(left.extras), t(right.extras), correction.out, subset.row=subset.row), args)
+                )
             }
         }
 
         # Applying the correction and expanding the reference batch. 
-        other.batch.in <- other.batch.in + correction.in
-        mnn.store <- .compile(mnn.store, other.batch.in)
+        right.data <- right.data + correction.in
         if (!same.set) {
-            other.batch.out <- other.batch.out + correction.out
-            ref.batch.out <- rbind(ref.batch.out, other.batch.out)
+            right.extras <- right.extras + correction.out
         }
+
+        merge.tree <- UPDATE(merge.tree, next.step$chosen, 
+            data=rbind(left.data, right.data),  
+            index=c(left.index, right.index),
+            restrict=.combine_restrict(left.data, left.restrict, right.data, right.restrict),
+            origin=c(left.origin, right.origin),
+            extras=list(rbind(left.extras, right.extras)))
     }
 
+    full.order <- .get_node_index(merge.tree)
+    full.origin <- .get_node_origin(merge.tree)
     if (same.set) {
-        ref.batch.out <- .get_reference(mnn.store)
+        full.data <- .get_node_data(merge.tree)
+    } else {
+        full.data <- .get_node_extras(merge.tree)[[1]]
     }
-    merge.order <- .get_reference_indices(mnn.store)
 
-    # Formatting the output. Restoring to the input order in '...', if necessary.
-    ncells.per.batch <- vapply(batches, FUN=ncol, FUN.VALUE=0L)
-    batch.names <- .create_batch_names(names(batches), ncells.per.batch)
+    # Re-indexing all of the pairing indices to account for the final position of each cell.
+    for (mdx in seq_along(mnn.pairings)) {
+        bonus1 <- match(left.set[[mdx]][1], full.origin) - 1L
+        mnn.pairings[[mdx]]$left <- mnn.pairings[[mdx]]$left + bonus1
+        bonus2 <- match(right.set[[mdx]][1], full.origin) - 1L
+        mnn.pairings[[mdx]]$right <- mnn.pairings[[mdx]]$right + bonus2
+    }
 
-    if (is.unsorted(merge.order)) {
-        ordering <- .restore_original_order(merge.order, ncells.per.batch)
-        ref.batch.out <- ref.batch.out[ordering,,drop=FALSE]
+    # Adjusting the output back to the input order in 'batches'.
+    if (is.unsorted(full.order)) {
+        ncells.per.batch <- tabulate(full.origin)
+        ordering <- .restore_original_order(full.order, ncells.per.batch)
+        full.data <- full.data[ordering,,drop=FALSE]
+        full.origin <- full.origin[ordering]
         mnn.pairings <- .reindex_pairings(mnn.pairings, ordering)
     }
-   
-	SingleCellExperiment(list(corrected=t(ref.batch.out)), 
-        colData=DataFrame(batch=batch.names$ids),
+
+	SingleCellExperiment(list(corrected=t(full.data)), 
+        colData=DataFrame(batch=full.origin),
         metadata=list(
-            merge.order=batch.names$labels[merge.order],
-            merge.info=DataFrame(pairs=I(as(mnn.pairings, "List"))) 
+            merge.info=DataFrame(
+                left=I(as(left.set, "List")),
+                right=I(as(right.set, "List")),
+                pairs=I(as(mnn.pairings, "List"))
+            ) 
         )
     )
 }
@@ -391,20 +467,21 @@ mnnCorrect <- function(..., batch=NULL, restrict=NULL, k=20, sigma=0.1, cos.norm
         same.set <- FALSE
     }
 
-    return(list(In=in.batches, Out=out.batches, Subset=subset.row, Same=same.set))
+    list(In=in.batches, Out=out.batches, Subset=subset.row, Same=same.set)
 }
 
 ####################################
 # Internal functions for correction.
 
-.compute_correction_vectors <- function(data1, data2, mnn1, mnn2, original2, sigma) 
+#' @importFrom Matrix t
+.compute_correction_vectors <- function(data1, data2, mnn1, mnn2, tdata2, sigma) 
 # Computes the batch correction vector for each cell in 'data2'.
-# 'original2' should also be supplied to compute distances 
+# 'tdata2' should also be supplied to compute distances 
 # (this may not be the same as 't(data2)' due to normalization, subsetting).
 {      
     vect <- data1[mnn1,,drop=FALSE] - data2[mnn2,,drop=FALSE]    
-    cell.vect <- .Call(cxx_smooth_gaussian_kernel, vect, mnn2-1L, original2, sigma)
-    return(t(cell.vect)) 
+    cell.vect <- .Call(cxx_smooth_gaussian_kernel, vect, mnn2-1L, tdata2, sigma)
+    t(cell.vect)
 }
 
 .adjust_shift_variance <- function(data1, data2, correction, sigma, subset.row=NULL, restrict1=NULL, restrict2=NULL) 
