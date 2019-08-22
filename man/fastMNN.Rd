@@ -5,12 +5,12 @@
 \title{Fast mutual nearest neighbors correction}
 \usage{
 fastMNN(..., batch = NULL, k = 20, restrict = NULL,
-  cos.norm = TRUE, ndist = 3, d = 50, merge.order = NULL,
-  auto.merge = FALSE, auto.order = NULL, min.batch.skip = 0,
-  subset.row = NULL, correct.all = FALSE, pc.input = FALSE,
-  assay.type = "logcounts", get.spikes = FALSE, use.dimred = NULL,
-  BSPARAM = IrlbaParam(deferred = TRUE), BNPARAM = KmknnParam(),
-  BPPARAM = SerialParam())
+  cos.norm = TRUE, ndist = 3, d = 50, weights = NULL,
+  merge.order = NULL, auto.merge = FALSE, auto.order = NULL,
+  min.batch.skip = 0, subset.row = NULL, correct.all = FALSE,
+  pc.input = FALSE, assay.type = "logcounts", get.spikes = FALSE,
+  use.dimred = NULL, BSPARAM = IrlbaParam(deferred = TRUE),
+  BNPARAM = KmknnParam(), BPPARAM = SerialParam())
 }
 \arguments{
 \item{...}{One or more log-expression matrices where genes correspond to rows and cells correspond to columns, if \code{pc.input=FALSE}.
@@ -36,6 +36,8 @@ Each entry of the list corresponds to one batch and specifies the cells to use w
 Each threshold is defined as a multiple of the number of median distances.}
 
 \item{d}{Number of dimensions to use for dimensionality reduction in \code{\link{multiBatchPCA}}.}
+
+\item{weights}{Numeric scalar of weights to use in \code{\link{multiBatchPCA}}.}
 
 \item{merge.order}{An integer vector containing the linear merge order of batches in \code{...}.
 Alternatively, a list of lists representing a tree structure specifying a hierarchical merge order.}

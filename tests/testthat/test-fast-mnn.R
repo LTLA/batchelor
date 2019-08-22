@@ -514,6 +514,31 @@ test_that("fastMNN works correctly with restriction", {
     expect_identical(out2$batch, as.character(ref$batch)[shuffle])
 })
 
+set.seed(12000054)
+test_that("fastMNN works correctly with weighting of PCs", {
+    B1 <- matrix(rnorm(10000, 0), nrow=100) # Batch 1
+    B2 <- matrix(rnorm(20000, 1), nrow=100) # Batch 2
+
+    pcs <- multiBatchPCA(B1, B2, d=10, weights=c(5, 1))
+    out.pre <- reducedMNN(pcs[[1]], pcs[[2]])
+    out.norm <- fastMNN(B1, B2, d=10, weights=c(5, 1), cos.norm=FALSE, BSPARAM=BiocSingular::ExactParam())
+
+    expect_equal(metadata(pcs)$rotation, rowData(out.norm)$rotation)
+    expect_equal(out.pre$corrected, reducedDim(out.norm))
+    expect_equal(out.pre$batch, out.norm$batch)
+
+    # Also trying with a single batch.
+    DY <- cbind(B1, B2)
+    batch <- rep(LETTERS[1:2], c(ncol(B1), ncol(B2)))
+    pcs <- multiBatchPCA(DY, batch=batch, d=10, weights=c(A=5, B=1))
+    out.pre <- reducedMNN(A=pcs[[1]], B=pcs[[2]])
+    out.norm <- fastMNN(DY, batch=batch, d=10, weights=c(A=5, B=1), cos.norm=FALSE, BSPARAM=BiocSingular::ExactParam())
+
+    expect_equal(metadata(pcs)$rotation, rowData(out.norm)$rotation)
+    expect_equal(out.pre$corrected, reducedDim(out.norm))
+    expect_equal(out.pre$batch, out.norm$batch)
+})
+
 set.seed(1200006)
 test_that("fastMNN fails on silly inputs", {
     B1 <- matrix(rnorm(10000), nrow=100) # Batch 1 

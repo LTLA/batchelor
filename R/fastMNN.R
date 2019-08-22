@@ -19,6 +19,7 @@
 #' @param ndist A numeric scalar specifying the threshold beyond which neighbours are to be ignored when computing correction vectors.
 #' Each threshold is defined as a multiple of the number of median distances.
 #' @param d Number of dimensions to use for dimensionality reduction in \code{\link{multiBatchPCA}}.
+#' @param weights Numeric scalar of weights to use in \code{\link{multiBatchPCA}}.
 #' @param merge.order An integer vector containing the linear merge order of batches in \code{...}.
 #' Alternatively, a list of lists representing a tree structure specifying a hierarchical merge order.
 #' @param auto.merge Logical scalar indicating whether to automatically identify the \dQuote{best} merge order.
@@ -231,7 +232,7 @@
 #' @importClassesFrom S4Vectors List
 #' @importFrom S4Vectors DataFrame metadata<-
 #' @importFrom methods as
-fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3, d=50, 
+fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3, d=50, weights=NULL,
     merge.order=NULL, auto.merge=FALSE, auto.order=NULL, min.batch.skip=0,
     subset.row=NULL, correct.all=FALSE, pc.input=FALSE, assay.type="logcounts", get.spikes=FALSE, use.dimred=NULL, 
     BSPARAM=IrlbaParam(deferred=TRUE), BNPARAM=KmknnParam(), BPPARAM=SerialParam()) 
@@ -290,7 +291,7 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
 
     # Performing the MNN search.
     common.args <-list(k=k, cos.norm=cos.norm, ndist=ndist, 
-        d=d, subset.row=subset.row, correct.all=correct.all, 
+        d=d, weights=weights, subset.row=subset.row, correct.all=correct.all, 
         min.batch.skip=min.batch.skip, 
         merge.order=merge.order, auto.merge=auto.merge, auto.order=auto.order,
         BSPARAM=BSPARAM, BNPARAM=BNPARAM, BPPARAM=BPPARAM)
@@ -319,7 +320,7 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
 
 #' @importFrom BiocSingular ExactParam 
 #' @importFrom BiocParallel SerialParam
-.fast_mnn_list <- function(batch.list, ..., subset.row=NULL, cos.norm=TRUE, d=50, 
+.fast_mnn_list <- function(batch.list, ..., subset.row=NULL, cos.norm=TRUE, d=50, weights=NULL,
     correct.all=FALSE, BSPARAM=ExactParam(), BPPARAM=SerialParam()) 
 {
     nbatches <- length(batch.list) 
@@ -333,7 +334,7 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
     if (cos.norm) { 
         batch.list <- lapply(batch.list, FUN=cosineNorm, mode="matrix")
     }
-    pc.mat <- .multi_pca_list(batch.list, d=d, get.all.genes=correct.all, BSPARAM=BSPARAM, BPPARAM=BPPARAM)
+    pc.mat <- .multi_pca_list(batch.list, d=d, weights=weights, get.all.genes=correct.all, BSPARAM=BSPARAM, BPPARAM=BPPARAM)
 
     out <- .fast_mnn(batches=pc.mat, ..., BPPARAM=BPPARAM)
     .convert_to_SCE(out, pc.mat)
@@ -343,7 +344,7 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
 #' @importFrom BiocParallel SerialParam
 #' @importFrom S4Vectors List metadata metadata<-
 .fast_mnn_single <- function(x, batch, restrict=NULL, ..., subset.row=NULL, cos.norm=TRUE, 
-    d=50, correct.all=FALSE, BSPARAM=ExactParam(), BPPARAM=SerialParam()) 
+    d=50, weights=NULL, correct.all=FALSE, BSPARAM=ExactParam(), BPPARAM=SerialParam()) 
 {
     batch <- factor(batch)
     if (nlevels(batch) < 2L) { 
@@ -357,7 +358,7 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
     if (cos.norm) { 
         x <- cosineNorm(x, mode="matrix")
     }
-    mat <- .multi_pca_single(x, batch=batch, d=d, get.all.genes=correct.all, BSPARAM=BSPARAM, BPPARAM=BPPARAM)
+    mat <- .multi_pca_single(x, batch=batch, d=d, weights=weights, get.all.genes=correct.all, BSPARAM=BSPARAM, BPPARAM=BPPARAM)
 
     divided <- divideIntoBatches(mat[[1]], batch=batch, restrict=restrict, byrow=TRUE)
     output <- .fast_mnn(batches=divided$batches, restrict=divided$restricted, ..., BPPARAM=BPPARAM)
