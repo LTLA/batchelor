@@ -157,5 +157,5 @@ rescaleBatches <- function(..., batch=NULL, restrict=NULL, log.base=2, pseudo.co
     batch.names <- rep(batch.labels, ncells.per.batch)
 
     SingleCellExperiment(list(corrected=do.call(cbind, batches)), 
-        colData=DataFrame(batch=batch.names$ids)) 
+        colData=DataFrame(batch=batch.names)) 
 }
