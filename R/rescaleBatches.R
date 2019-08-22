@@ -147,8 +147,15 @@ rescaleBatches <- function(..., batch=NULL, restrict=NULL, log.base=2, pseudo.co
         batches[[b]] <- .Call(cxx_unlog_exprs_scaled, batches[[b]], log.base, pseudo.count, subset.row.m1, rescale)
     }
 
+    batch.labels <- names(batches)
+    if (is.null(batch.labels)) {
+        batch.labels <- seq_along(batches)
+    } else if (anyDuplicated(batch.labels)) {
+        stop("names of batches should be unique")
+    }
     ncells.per.batch <- vapply(batches, ncol, FUN.VALUE=0L)
-    batch.names <- .create_batch_names(names(batches), ncells.per.batch)
+    batch.names <- rep(batch.labels, ncells.per.batch)
+
     SingleCellExperiment(list(corrected=do.call(cbind, batches)), 
-        colData=DataFrame(batch=batch.names$ids)) 
+        colData=DataFrame(batch=batch.names)) 
 }

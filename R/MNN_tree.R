@@ -16,6 +16,7 @@ MNN_treenode <- function(index, data, restrict, origin=rep(index, nrow(data)), e
 .get_node_extras <- function(node) node@extras
 
 ############################################
+# Methods for creating a tree with a pre-defined structure.
 
 .fill_tree <- function(merge.tree, batches, restrict) {
     if (!is.list(merge.tree)) {
@@ -48,6 +49,34 @@ MNN_treenode <- function(index, data, restrict, origin=rep(index, nrow(data)), e
     merge.tree
 }
 
+.create_tree_predefined <- function(batches, restrict, merge.order) {
+    if (is.null(merge.order)) {
+        merge.order <- seq_along(batches)
+    }
+    if (!is.list(merge.order) && length(merge.order) > 1L) {
+        merge.tree <- list(merge.order[1], merge.order[2])
+        for (i in tail(merge.order, -2L)) {
+            merge.tree <- list(merge.tree, i)
+        }
+    } else {
+        merge.tree <- merge.order
+    }
+
+    # Checking validity.
+    leaves <- unlist(merge.tree)
+    if (!is.numeric(leaves)) {
+        leaves <- match(leaves, names(batches))
+    } else {
+        leaves <- as.integer(leaves)
+    }
+    if (any(is.na(leaves)) || anyDuplicated(leaves) || any(leaves < 1) || any(leaves > length(batches))) {
+        stop("invalid leaf nodes specified in 'merge.order'")
+    }
+
+    merge.tree <- relist(leaves, merge.tree)
+    .fill_tree(merge.tree, batches, restrict)
+}
+
 ############################################
 
 .restricted_mnn <- function(left.data, left.restrict, right.data, right.restrict, ...) {
@@ -73,7 +102,7 @@ MNN_treenode <- function(index, data, restrict, origin=rep(index, nrow(data)), e
 # Tree searching for fastMNN(). This requires some care as the
 # search has to orthogonalize each batch before comparing them.
 
-.search_for_merge <- function(remainders, ...) {
+.search_for_merge <- function(remainders, ..., orthogonalize=TRUE) {
     left.idx <- right.idx <- n <- list()
     counter <- 1L
 
@@ -89,8 +118,10 @@ MNN_treenode <- function(index, data, restrict, origin=rep(index, nrow(data)), e
             right.restrict <- .get_node_restrict(right)
             right.extras <- .get_node_extras(right)
 
-            right.data <- .orthogonalize_other(right.data, right.restrict, left.extras)
-            left.data <- .orthogonalize_other(left.data, left.restrict, right.extras)
+            if (orthogonalize) {
+                right.data <- .orthogonalize_other(right.data, right.restrict, left.extras)
+                left.data <- .orthogonalize_other(left.data, left.restrict, right.extras)
+            }
             collected <- .restricted_mnn(left.data, left.restrict, right.data, right.restrict, ...)
 
             left.idx[[counter]] <- i
@@ -117,3 +148,5 @@ MNN_treenode <- function(index, data, restrict, origin=rep(index, nrow(data)), e
         val # Return node directly to indicate completion.
     }
 }
+
+

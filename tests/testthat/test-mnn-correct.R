@@ -131,7 +131,8 @@ test_that("Variance shift adjustment is correctly performed", {
     }
 
     TEST <- function(data1, data2, cell.vect, sigma) {
-        .Call(batchelor:::cxx_adjust_shift_variance, data1, data2, cell.vect, sigma, seq_len(ncol(data1))-1L, seq_len(ncol(data2))-1L)
+        .Call(batchelor:::cxx_adjust_shift_variance, data1, data2, cell.vect, 
+            sigma, seq_len(ncol(data1))-1L, seq_len(ncol(data2))-1L)
     }
 
     ref <- REF(data1, data2, corvect, 1)
@@ -181,7 +182,7 @@ test_that("mnnCorrect behaves consistently with subsetting", {
     keep <- 1:5 
     ref <- mnnCorrect(alpha[keep,], bravo[keep,], charlie[keep,])
     out <- mnnCorrect(alpha, bravo, charlie, subset.row=keep)
-    expect_equal(ref, out)    
+    expect_equal(ref, out)
 
     # Now correcting everything.
     ref <- mnnCorrect(alpha[keep,], bravo[keep,], charlie[keep,])
@@ -191,7 +192,8 @@ test_that("mnnCorrect behaves consistently with subsetting", {
     expect_equal(ref[2:4,], out[length(keep)+2:4-1,])
 
     # Duplicated genes should have no effect.
-    out <- mnnCorrect(rbind(alpha, alpha), rbind(bravo, bravo), rbind(charlie, charlie), subset.row=1:nrow(alpha), correct.all=TRUE, svd.dim=2)
+    out <- mnnCorrect(rbind(alpha, alpha), rbind(bravo, bravo), rbind(charlie, charlie), 
+        subset.row=1:nrow(alpha), correct.all=TRUE, svd.dim=2)
     ref1 <- out[1:nrow(alpha),]
     ref2 <- out[nrow(alpha)+1:nrow(alpha),]
     expect_equal(ref1, ref2) 
@@ -255,7 +257,7 @@ test_that("mnnCorrect behaves correctly with an alternative order", {
     charlie <- matrix(rnorm(3000), ncol=300)
 
     new.order <- c(2, 3, 1)
-    out <- mnnCorrect(alpha, bravo, charlie, auto.order=new.order)
+    out <- mnnCorrect(alpha, bravo, charlie, merge.order=new.order)
     expect_false(is.unsorted(out$batch))
 
     ref <- mnnCorrect(bravo, charlie, alpha)
@@ -279,9 +281,12 @@ test_that("mnnCorrect behaves correctly with an alternative order", {
     }
 
     # Works with automatic ordering.
-    auto <- mnnCorrect(A=alpha, B=bravo, C=charlie, auto.order=TRUE)
+    auto <- mnnCorrect(A=alpha, B=bravo, C=charlie, auto.merge=TRUE)
     expect_identical(auto$batch, LETTERS[out$batch])
-    expect_identical(metadata(auto)$merge.order, c("C","B","A")) # charlie and bravo would have most MNNs.
+    expect_identical(metadata(auto)$merge.info$left[[1]], "C") # charlie and bravo would have most MNNs.
+    expect_identical(metadata(auto)$merge.info$right[[1]], "B") 
+    expect_identical(metadata(auto)$merge.info$left[[2]], c("C", "B"))
+    expect_identical(metadata(auto)$merge.info$right[[2]], "A")
 })
 
 set.seed(100043)
@@ -295,22 +300,6 @@ test_that("mnnCorrect behaves with SingleCellExperiment inputs", {
     sceB <- SingleCellExperiment(bravo)
     sceC <- SingleCellExperiment(charlie)
     out <- mnnCorrect(sceA, sceB, sceC, assay.type=1)
-    expect_equal(ref, out)
-
-    # Behaves with spikes as input.
-    isp <- sample(nrow(alpha), nrow(alpha)/2)
-    isSpike(sceA, "ERCC") <- isp
-    isSpike(sceB, "ERCC") <- isp
-    isSpike(sceC, "ERCC") <- isp
-    out <- mnnCorrect(sceA, sceB, sceC, assay.type=1)
-    ref <- mnnCorrect(alpha[-isp,], bravo[-isp,], charlie[-isp,])
-    expect_equal(ref, out)
-
-    # Spikes and subsetting interact correctly
-    i <- rbinom(nrow(alpha), 1, 0.5)==1L
-    out <- mnnCorrect(sceA, sceB, sceC, assay.type=1, subset.row=i)
-    keep <- setdiff(which(i), isp)
-    ref <- mnnCorrect(alpha[keep,], bravo[keep,], charlie[keep,], assay.type=1)
     expect_equal(ref, out)
 })
 

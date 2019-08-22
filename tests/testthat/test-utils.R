@@ -35,16 +35,6 @@ test_that(".rename_output works correctly", {
     expect_identical(output3, output2) # no effect!
 })
 
-set.seed(1000005)
-test_that(".create_batch_names works correctly", {
-    out <- batchelor:::.create_batch_names(LETTERS[1:3], c(10, 20, 30))
-    expect_identical(out$labels, LETTERS[1:3])
-    expect_identical(out$ids, rep(out$labels, c(10, 20, 30)))
-    
-    out <- batchelor:::.create_batch_names(NULL, c(10, 20, 30))
-    expect_identical(out$ids, rep(out$labels, c(10, 20, 30)))
-})
-
 set.seed(1000006)
 test_that(".row_subset_to_index works correctly", {
     A <- matrix(runif(1000), ncol=1)

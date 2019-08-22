@@ -141,6 +141,10 @@ test_that("rescaleBatches reports names correctly", {
     out <- rescaleBatches(B1, B2)
     expect_identical(colnames(out), c(colnames(B1), colnames(B2)))
 
+    # Handles names of batches.
+    out2 <- rescaleBatches(A=B1, B=B2)
+    expect_identical(LETTERS[out$batch], out2$batch)
+
     # Works correctly upon subsetting.
     out <- rescaleBatches(B1, B2, subset.row=1:10)
     ref <- rescaleBatches(B1[1:10,], B2[1:10,])

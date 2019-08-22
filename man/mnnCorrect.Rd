@@ -7,7 +7,8 @@
 mnnCorrect(..., batch = NULL, restrict = NULL, k = 20, sigma = 0.1,
   cos.norm.in = TRUE, cos.norm.out = TRUE, svd.dim = 0L,
   var.adj = TRUE, subset.row = NULL, correct.all = FALSE,
-  auto.order = FALSE, assay.type = "logcounts", get.spikes = FALSE,
+  merge.order = NULL, auto.merge = FALSE, auto.order = NULL,
+  assay.type = "logcounts", get.spikes = FALSE,
   BSPARAM = ExactParam(), BNPARAM = KmknnParam(),
   BPPARAM = SerialParam())
 }
@@ -41,9 +42,12 @@ Each entry of the list corresponds to one batch and specifies the cells to use w
 
 \item{correct.all}{A logical scalar specifying whether correction should be applied to all genes, even if only a subset is used for the MNN calculations.}
 
-\item{auto.order}{Logical scalar indicating whether re-ordering of batches should be performed to maximize the number of MNN pairs at each step.
+\item{merge.order}{An integer vector containing the linear merge order of batches in \code{...}.
+Alternatively, a list of lists representing a tree structure specifying a hierarchical merge order.}
 
-Alternatively, an integer vector containing a permutation of \code{1:N} where \code{N} is the number of batches.}
+\item{auto.merge}{Logical scalar indicating whether to automatically identify the \dQuote{best} merge order.}
+
+\item{auto.order}{Deprecated, use \code{merge.order} or \code{auto.merge} instead.}
 
 \item{assay.type}{A string or integer scalar specifying the assay containing the log-expression values, if SingleCellExperiment objects are present in \code{...}.}
 
@@ -58,7 +62,7 @@ Only used for SingleCellExperiment inputs.}
 }
 \value{
 A \linkS4class{SingleCellExperiment} object containing the \code{corrected} assay.
-This contains corrected (log-)expression values for each gene (row) in each cell (column) in each batch.
+This contains corrected expression values for each gene (row) in each cell (column) in each batch.
 A \code{batch} field is present in the column data, specifying the batch of origin for each cell.
 
 Cells in the output object are always ordered in the same manner as supplied in \code{...}.
@@ -66,12 +70,8 @@ For a single input object, cells will be reported in the same order as they are 
 In cases with multiple input objects, the cell identities are simply concatenated from successive objects,
 i.e., all cells from the first object (in their provided order), then all cells from the second object, and so on.
 
-The metadata of the SingleCellExperiment contains:
-\itemize{
-\item{\code{merge.order}: a vector of batch names or indices, specifying the order in which batches were merged.}
-\item \code{merge.info}, a DataFrame of information about each merge step (corresponding to each row).
-This contains \code{pairs}, a \linkS4class{List} of DataFrames specifying which pairs of cells in \code{corrected} were identified as MNNs at each step. 
-}
+The metadata of the SingleCellExperiment contains \code{merge.info}, a DataFrame where each row corresponds to a merge step.
+See \dQuote{Merge diagnostics} for more information.
 }
 \description{
 Correct for batch effects in single-cell expression data using the mutual nearest neighbors method.
@@ -101,10 +101,6 @@ Users can set \code{subset.row} to subset the inputs to highly variable genes or
 This may provide more meaningful identification of MNN pairs by reducing the noise from irrelevant genes.
 Note that users should not be too restrictive with subsetting, as high dimensionality is required to satisfy the orthogonality assumption in MNN detection.
 
-For \linkS4class{SingleCellExperiment} inputs, spike-in transcripts are automatically removed unless \code{get.spikes=TRUE}.
-If \code{subset.row} is specified and \code{get.spikes=FALSE}, only the non-spike-in specified features will be used. 
-All SingleCellExperiment objects should have the same set of spike-in transcripts.
-
 If \code{subset.row} is specified and \code{correct.all=TRUE}, corrected values are returned for \emph{all} genes.
 This is possible as \code{subset.row} is only used to identify the MNN pairs and other cell-based distance calculations.
 Correction vectors between MNN pairs can then be computed in for all genes in the supplied matrices.
@@ -122,21 +118,6 @@ This can be turned off when there are no scaling differences between data sets.
 This can be turned off to obtain corrected values on the log-scale, similar to the input data.
 }
 The cosine normalization is achieved using the \code{\link{cosineNorm}} function.
-}
-
-\section{Controlling the merge order}{
-
-The order in which batches are corrected will affect the final results.
-The first batch in \code{auto.order} is used as the reference batch against which the second batch is corrected.
-Corrected values of the second batch are added to the reference batch, against which the third batch is corrected, and so on.
-This strategy maximizes the chance of detecting sufficient MNN pairs for stable calculation of correction vectors in subsequent batches.
-
-If \code{auto.order=TRUE}, batches are ordered to maximize the number of MNN pairs at each step.
-The aim is to improve the stability of the correction by first merging more similar batches with more MNN pairs.
-This can be somewhat time-consuming as MNN pairs need to be iteratively recomputed for all possible batch pairings.
-It is often more convenient for the user to specify an appropriate ordering based on prior knowledge about the batches.
-
-Note that, no matter what the setting of \code{auto.order} is, the order of cells in the output corrected matrix is \emph{always} the same.
 }
 
 \section{Further options}{
@@ -169,6 +150,55 @@ In situations where one input object contains multiple batches, \code{restrict} 
 \code{mnnCorrect} will only use the restricted subset of cells in each batch to identify MNN pairs (and to perform variance adjustment, if \code{var.adj=TRUE}).
 However, it will apply the correction to all cells in each batch - hence the extrapolation.
 This means that the output is always of the same dimensionality, regardless of whether \code{restrict} is specified.
+}
+
+\section{Merge diagnostics}{
+
+Each merge step combines two mutually exclusive sets of cells, a \dQuote{left} set and \dQuote{right} set.
+The metadata thus contains the following fields:
+\itemize{
+\item \code{left}, a \linkS4class{List} of integer or character vectors.
+Each vector specifies the batches in the left set at a given merge step. 
+\item \code{right}, a similar List of integer or character vectors.
+Each vector specifies the batches in the right set at a given merge step. 
+\item \code{pairs}, a List of DataFrames specifying which pairs of cells were identified as MNNs at each step.
+In each DataFrame, each row corresponds to a single MNN pair and specifies the
+paired cells that were in the left and right sets, respectively.
+Note that the indices refer to those paired cells in the \emph{output} ordering of cells,
+i.e., users can identify the paired cells at each step by column-indexing the output of the \code{mnnCorrect} function.
+}
+}
+
+\section{Controlling the merge order}{
+
+By default, batches are merged in the user-supplied order, 
+i.e., the first batch is merged with the second batch, 
+the third batch is merged with the combined first-second batch,
+the fourth batch is merged with the combined first-second-third batch and so on.
+
+If \code{merge.order} is an integer vector, it is treated as an ordering permutation with which to merge batches.
+For example, if \code{merge.order=c(4,1,3,2)}, batches 4 and 1 in \code{...} are merged first;
+batch 3 is merged with the combined 4+1 batch; 
+and then batch 2 is merged with the combined 4+1+3 batch.
+This is often more convenient than changing the order manually in \code{...}, 
+which would alter the order of batches in the output \code{corrected} matrix.
+
+If \code{merge.order} is a character vector, it is treated as an ordering permutation for named batches.
+
+If \code{merge.order} is a nested list, it is treated as a tree that specifies a hierarchical merge.
+Each element of the list either specifies a batch or an internal node that should contain two children.
+For example, \code{list(list(1,2), list(3,4))} indicates that batch 1 should be merged with batch 2;
+batch 3 should be merged with batch 4; and that, finally, the combined batches 1+2 and 3+4 should be merged.
+A merge tree is useful for merging together batches that are known to be more closely related (e.g., replicates)
+before attempting difficult merges involving more dissimilar batches.
+Note that batches can be specified by name (character) or index (integer), but not both in the same tree.
+
+If \code{auto.merge=TRUE}, merge steps are chosen to maximize the number of MNN pairs at each step.
+The aim is to improve the stability of the correction by first merging more similar batches with more MNN pairs.
+This can be somewhat time-consuming as MNN pairs need to be iteratively recomputed for all possible batch pairings.
+
+The order of cells in the output is \emph{never} affected by the setting of \code{merge.order} or \code{auto.order}.
+It depends only on the order of elements in \code{...}.
 }
 
 \examples{
