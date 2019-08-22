@@ -96,7 +96,7 @@
 #' the fourth batch is merged with the combined first-second-third batch and so on.
 #'
 #' If \code{merge.order} is an integer vector, it is treated as an ordering permutation with which to merge batches.
-#' For example, if \code{auto.order=c(4,1,3,2)}, batches 4 and 1 in \code{...} are merged first;
+#' For example, if \code{merge.order=c(4,1,3,2)}, batches 4 and 1 in \code{...} are merged first;
 #' batch 3 is merged with the combined 4+1 batch; 
 #' and then batch 2 is merged with the combined 4+1+3 batch.
 #' This is often more convenient than changing the order manually in \code{...}, 
@@ -375,7 +375,6 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
 # Internal main function, to separate the input handling from the actual calculations.
 
 #' @importFrom BiocParallel SerialParam
-#' @importFrom S4Vectors DataFrame metadata<- metadata List
 #' @importFrom BiocNeighbors KmknnParam
 #' @importFrom utils tail relist
 .fast_mnn <- function(batches, k=20, restrict=NULL, ndist=3, 
@@ -395,31 +394,7 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
     }
 
     if (!auto.merge) {
-        if (is.null(merge.order)) {
-            merge.order <- seq_along(batches)
-        }
-        if (!is.list(merge.order) && length(merge.order) > 1L) {
-            merge.tree <- list(merge.order[1], merge.order[2])
-            for (i in tail(merge.order, -2L)) {
-                merge.tree <- list(merge.tree, i)
-            }
-        } else {
-            merge.tree <- merge.order
-        }
-
-        # Checking validity.
-        leaves <- unlist(merge.tree)
-        if (!is.numeric(leaves)) {
-            leaves <- match(leaves, names(batches))
-        } else {
-            leaves <- as.integer(leaves)
-        }
-        if (any(is.na(leaves)) || anyDuplicated(leaves) || any(leaves < 1) || any(leaves > length(batches))) {
-            stop("invalid leaf nodes specified in 'merge.order'")
-        }
-        merge.tree <- relist(leaves, merge.tree)
-
-        merge.tree <- .fill_tree(merge.tree, batches, restrict)
+        merge.tree <- .create_tree_predefined(batches, restrict, merge.order)
         output <- .fast_mnn_core(merge.tree, k=k, restrict=restrict, ndist=ndist,
             min.batch.skip=min.batch.skip, BNPARAM=BNPARAM, BPPARAM=BPPARAM,
             NEXT=.get_next_merge, UPDATE=.update_tree)
@@ -437,24 +412,7 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
             NEXT=merge_chooser, UPDATE=.update_remainders)
     }
 
-    if (!is.null(names(batches))) {
-        if (anyDuplicated(names(batches))) {
-            stop("names of batches should be unique")
-        }
-        output$batch <- names(batches)[output$batch]
-        L1 <- metadata(output)$merge.info$left 
-        R1 <- metadata(output)$merge.info$right 
-        L2 <- R2 <- List()
-        for (i in seq_along(L1)) {
-            L2[[i]] <- names(batches)[L1[[i]]]
-            R2[[i]] <- names(batches)[R1[[i]]]
-        }
-        metadata(output)$merge.info$left <- L2
-        metadata(output)$merge.info$right <- R2
-        colnames(metadata(output)$merge.info$lost.var) <- names(batches)
-    } 
-
-    output
+    .add_batch_names(output, batches)
 }
 
 #' @importFrom BiocParallel SerialParam
