@@ -128,7 +128,7 @@ the third batch is merged with the combined first-second batch,
 the fourth batch is merged with the combined first-second-third batch and so on.
 
 If \code{merge.order} is an integer vector, it is treated as an ordering permutation with which to merge batches.
-For example, if \code{auto.order=c(4,1,3,2)}, batches 4 and 1 in \code{...} are merged first;
+For example, if \code{merge.order=c(4,1,3,2)}, batches 4 and 1 in \code{...} are merged first;
 batch 3 is merged with the combined 4+1 batch; 
 and then batch 2 is merged with the combined 4+1+3 batch.
 This is often more convenient than changing the order manually in \code{...}, 
