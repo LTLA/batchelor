@@ -15,7 +15,7 @@
 #' Used to ensure that the output is of the same dimensionality as the input.
 #' @param assay.type A string or integer scalar specifying the assay to use for correction.
 #' Only used for SingleCellExperiment inputs.
-#' @param get.spikes A logical scalar indicating whether to retain rows corresponding to spike-in transcripts.
+#' @param get.spikes Deprecated, a logical scalar indicating whether to retain rows corresponding to spike-in transcripts.
 #' Only used for SingleCellExperiment inputs.
 #' @param PARAM A \linkS4class{BatchelorParam} object specifying the batch correction method to dispatch to.
 #' \linkS4class{ClassicMnnParam} will dispatch to \code{\link{mnnCorrect}};
@@ -56,6 +56,7 @@
 #' m.out <- batchCorrect(B1, B2, PARAM=ClassicMnnParam())
 #' f.out <- batchCorrect(B1, B2, PARAM=FastMnnParam(d=20))
 #' r.out <- batchCorrect(B1, B2, PARAM=RescaleParam(pseudo.count=0))
+#' n.out <- batchCorrect(B1, B2, PARAM=NoCorrectParam())
 #'
 #' @rdname batchCorrect
 #' @export
@@ -80,4 +81,12 @@ setMethod("batchCorrect", "RescaleParam", function(..., batch=NULL, restrict=NUL
     if (correct.all) subset.row <- NULL
     combined <- c(list(..., batch=batch, restrict=restrict, subset.row=subset.row, assay.type=assay.type, get.spikes=get.spikes), as.list(PARAM))
     do.call(rescaleBatches, combined)
+})
+
+#' @rdname batchCorrect
+#' @export
+setMethod("batchCorrect", "NoCorrectParam", function(..., batch=NULL, restrict=NULL, subset.row=NULL, correct.all=FALSE, assay.type="logcounts", get.spikes=FALSE, PARAM) {
+    if (correct.all) subset.row <- NULL
+    combined <- c(list(..., batch=batch, subset.row=subset.row, assay.type=assay.type), as.list(PARAM))
+    do.call(noCorrect, combined)
 })

@@ -58,3 +58,11 @@ FastMnnParam <- function(...) {
 RescaleParam <- function(...) {
     new("RescaleParam", SimpleList(...))
 }
+
+#' @rdname BatchelorParam
+#' @export
+#' @importFrom S4Vectors SimpleList
+#' @importFrom methods new
+NoCorrectParam <- function(...) {
+    new("NoCorrectParam", SimpleList(...))
+}

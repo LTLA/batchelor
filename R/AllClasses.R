@@ -16,6 +16,10 @@ setClass("FastMnnParam", contains="BatchelorParam")
 #' @rdname BatchelorParam
 setClass("RescaleParam", contains="BatchelorParam")
 
+#' @export
+#' @rdname BatchelorParam
+setClass("NoCorrectParam", contains="BatchelorParam")
+
 #####################################################
 # Internal classes for MNN ordering.
 

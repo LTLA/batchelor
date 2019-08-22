@@ -6,9 +6,11 @@
 \alias{ClassicMnnParam-class}
 \alias{FastMnnParam-class}
 \alias{RescaleParam-class}
+\alias{NoCorrectParam-class}
 \alias{ClassicMnnParam}
 \alias{FastMnnParam}
 \alias{RescaleParam}
+\alias{NoCorrectParam}
 \title{BatchelorParam methods}
 \usage{
 ClassicMnnParam(...)
@@ -16,6 +18,8 @@ ClassicMnnParam(...)
 FastMnnParam(...)
 
 RescaleParam(...)
+
+NoCorrectParam(...)
 }
 \arguments{
 \item{...}{Named arguments to pass to individual methods upon dispatch.
