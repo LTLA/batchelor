@@ -262,14 +262,19 @@ mnnCorrect <- function(..., batch=NULL, restrict=NULL, k=20, sigma=0.1,
         UPDATE <- .update_remainders
     }
 
-    # Adding the 'out.batches', if necessary.
-    merge.tree <- .add_out_batches_to_tree(merge.tree, if (same.set) NULL else out.batches)
-
     output <- .mnn_correct_core(merge.tree, NEXT=NEXT, UPDATE=UPDATE, k=k, sigma=sigma,
         same.set=same.set, svd.dim=svd.dim, var.adj=var.adj, subset.row=subset.row, 
         BSPARAM=BSPARAM, BNPARAM=BNPARAM, BPPARAM=BPPARAM)
 
-    .add_batch_names(output, batches)
+    nms <- names(batches)
+    if (!is.null(nms)) {
+        if (anyDuplicated(nms)) {
+            stop("names of batches should be unique")
+        }
+        output$batch <- nms[output$batch]
+        output <- .fix_names_in_merge_info(output, nms)
+    }
+    output
 }
 
 .add_out_batches_to_tree <- function(merge.tree, out.batches) {

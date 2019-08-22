@@ -32,12 +32,17 @@
     output
 }
 
-.create_batch_names <- function(batch.labels, ncells.per.batch) 
-# Creates batch names if they aren't already available.
-{
-    if (is.null(batch.labels)) {
-        batch.labels <- seq_along(ncells.per.batch)
+#' @importFrom S4Vectors metadata<- metadata List
+.fix_names_in_merge_info <- function(output, names) {
+    L1 <- metadata(output)$merge.info$left
+    R1 <- metadata(output)$merge.info$right
+    L2 <- R2 <- List()
+    for (i in seq_along(L1)) {
+        L2[[i]] <- names[L1[[i]]]
+        R2[[i]] <- names[R1[[i]]]
     }
-    batch.ids <- rep(batch.labels, ncells.per.batch)
-    list(labels=batch.labels, ids=batch.ids)
+    metadata(output)$merge.info$left <- L2
+    metadata(output)$merge.info$right <- R2
+
+    output
 }

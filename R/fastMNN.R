@@ -410,7 +410,16 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
             NEXT=merge_chooser, UPDATE=.update_remainders)
     }
 
-    .add_batch_names(output, batches)
+    nms <- names(batches)
+    if (!is.null(nms)) {
+        if (anyDuplicated(nms)) {
+            stop("names of batches should be unique")
+        }
+        output$batch <- nms[output$batch]
+        output <- .fix_names_in_merge_info(output, nms)
+        colnames(metadata(output)$merge.info$lost.var) <- nms
+    }
+    output
 }
 
 #' @importFrom BiocParallel SerialParam
