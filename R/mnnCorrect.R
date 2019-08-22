@@ -191,7 +191,8 @@ mnnCorrect <- function(..., batch=NULL, restrict=NULL, k=20, sigma=0.1,
     output <- do.call(.mnn_correct, c(batches, 
         list(k=k, sigma=sigma, cos.norm.in=cos.norm.in, cos.norm.out=cos.norm.out, svd.dim=svd.dim, 
             var.adj=var.adj, subset.row=subset.row, correct.all=correct.all, restrict=restrict,
-            auto.order=auto.order, BSPARAM=BSPARAM, BNPARAM=BNPARAM, BPPARAM=BPPARAM)))
+            merge.order=merge.order, auto.merge=auto.merge, auto.order=auto.order, 
+            BSPARAM=BSPARAM, BNPARAM=BNPARAM, BPPARAM=BPPARAM)))
 
     # Reordering the output for correctness.
     if (do.split) {
@@ -248,9 +249,10 @@ mnnCorrect <- function(..., batch=NULL, restrict=NULL, k=20, sigma=0.1,
         merge.tree <- .create_tree_predefined(in.batches, restrict, merge.order)
         NEXT <- .get_next_merge
         UPDATE <- .update_tree
+        merge.tree <- .add_out_batches_to_tree(merge.tree, if (same.set) NULL else out.batches)
     } else {
         merge.tree <- lapply(seq_along(in.batches), function(i) {
-            MNN_treenode(index=i, data=in.batches[[i]], restrict=restrict[[i]])
+            MNN_treenode(index=i, data=in.batches[[i]], restrict=restrict[[i]], extras=list(NULL))
         })
 
         NEXT <- function(remainders) {
@@ -348,7 +350,7 @@ mnnCorrect <- function(..., batch=NULL, restrict=NULL, k=20, sigma=0.1,
             if (!same.set) { 
                 out.span1 <- .get_bio_span(t(left.extras[u1,,drop=FALSE]), subset.row=subset.row, 
                     ndim=svd.dim, BSPARAM=BSPARAM, BPPARAM=BPPARAM)
-                out.span2 <- .get_bio_span(t(right.extras[,u2,drop=FALSE]), subset.row=subset.row, 
+                out.span2 <- .get_bio_span(t(right.extras[u2,,drop=FALSE]), subset.row=subset.row, 
                     ndim=svd.dim, BSPARAM=BSPARAM, BPPARAM=BPPARAM)
                 correction.out <- .subtract_bio(correction.out, out.span1, out.span2, subset.row=subset.row)
             }
