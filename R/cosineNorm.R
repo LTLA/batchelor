@@ -53,11 +53,7 @@ cosineNorm <- function(x, mode=c("matrix", "all", "l2norm"), subset.row=NULL) {
         return(l2)
     }
 
-    if (!is.null(subset.row)) {
-        x <- x[subset.row,,drop=FALSE]
-    }
-
-    mat <- .apply_cosine_norm(x, pmax(1e-8, l2)) # protect against zero-length.
+    mat <- .apply_cosine_norm(x, pmax(1e-8, l2), subset.row=subset.row) # protect against zero-L2.
     if (mode=="matrix") {
         mat
     } else {
@@ -65,7 +61,7 @@ cosineNorm <- function(x, mode=c("matrix", "all", "l2norm"), subset.row=NULL) {
     }
 }
 
-#' @importFrom Matrix t
-.apply_cosine_norm <- function(x, l2) {
-    t(t(x)/l2)
+#' @importFrom scater normalizeCounts
+.apply_cosine_norm <- function(x, l2, subset.row=NULL) {
+    normalizeCounts(x, size_factors=l2, center_size_factors=FALSE, log=FALSE, subset_row=subset.row)
 }
