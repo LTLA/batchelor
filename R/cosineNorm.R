@@ -4,6 +4,7 @@
 #'    
 #' @param x A gene expression matrix with cells as columns and genes as rows.
 #' @param mode A string specifying the output to be returned.
+#' @param subset.row A vector specifying which features to use to compute the L2 norm.
 #'
 #' @details
 #' Cosine normalization removes scaling differences between expression vectors.
@@ -43,26 +44,28 @@
 #' str(cosineNorm(A, mode="l2norm"))
 #' 
 #' @export
-#' @importClassesFrom DelayedArray DelayedMatrix
-#' @importMethodsFrom DelayedArray sweep
 #' @importFrom methods is
-cosineNorm <- function(x, mode=c("matrix", "all", "l2norm"))
-# Computes the cosine norm, with some protection from zero-length norms.
-#
-# written by Aaron Lun
-# 5 July 2018
-{
+cosineNorm <- function(x, mode=c("matrix", "all", "l2norm"), subset.row=NULL) {
+    l2 <- .Call(cxx_cosine_norm, x, .row_subset_to_index(x, subset.row) - 1L)
+
     mode <- match.arg(mode)
-    if (is(x, "DelayedMatrix")) {
-        l2 <- .Call(cxx_cosine_norm, x, FALSE)[[2]]
-        out <- list(matrix=sweep(x, 2, l2, "/", check.margin=FALSE), l2norm=l2)
-    } else {
-        out <- .Call(cxx_cosine_norm, x, mode!="l2norm")
-        names(out) <- c("matrix", "l2norm")
-        if (!is.null(out$matrix)) {
-            dimnames(out$matrix) <- dimnames(x)
-        }
+    if (mode=="l2norm") {
+        return(l2)
     }
 
-    switch(mode, all=out, matrix=out$matrix, l2norm=out$l2norm)
+    if (!is.null(subset.row)) {
+        x <- x[subset.row,,drop=FALSE]
+    }
+
+    mat <- .apply_cosine_norm(x, pmax(1e-8, l2)) # protect against zero-length.
+    if (mode=="matrix") {
+        mat
+    } else {
+        list(matrix=mat, l2norm=l2)
+    }
+}
+
+#' @importFrom Matrix t
+.apply_cosine_norm <- function(x, l2) {
+    t(t(x)/l2)
 }

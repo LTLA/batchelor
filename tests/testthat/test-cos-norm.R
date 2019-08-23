@@ -70,7 +70,14 @@ test_that("Cosine normalization preserves dimension names", {
     expect_identical(dimnames(X), dimnames(Y))
     out <- cosineNorm(Y)
     expect_identical(dimnames(Y), dimnames(out))
- })
+})
+
+set.seed(100014)
+test_that("Cosine normalization works with subsetting", {
+    X <- matrix(rnorm(2000), nrow=100)
+    expect_identical(cosineNorm(X, subset.row=1:10), cosineNorm(X[1:10,]))
+    expect_identical(cosineNorm(X, subset.row=1:10, mode="l2norm"), cosineNorm(X[1:10,], mode="l2norm"))
+})
 
 set.seed(10002)
 test_that("Cosine normalization behaves with silly inputs", {
