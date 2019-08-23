@@ -53,7 +53,7 @@ correctExperiments <- function(..., batch=NULL, restrict=NULL, subset.row=NULL, 
 {
     x <- list(...)
     args <- c(x, list(subset.row=subset.row, correct.all=correct.all, batch=batch))
-    merged <- do.call(batchCorrect, c(x, list(restrict=restrict, assay.type=assay.type, PARAM=PARAM)))
+    merged <- do.call(batchCorrect, c(args, list(restrict=restrict, assay.type=assay.type, PARAM=PARAM)))
 
     # Adding additional assays.
     if (is.null(combine.assays)) {
@@ -62,7 +62,7 @@ correctExperiments <- function(..., batch=NULL, restrict=NULL, subset.row=NULL, 
     merged.assays <- assayNames(merged)
     if (any(combine.assays %in% merged.assays)) {
         warning("ignoring assays with same name as 'batchCorrect' output")
-        combine.assays <- setdiff(common, merged.assays)
+        combine.assays <- setdiff(combine.assays, merged.assays)
     }
     for (nm in combine.assays) {
         nocorrect <- do.call(batchCorrect, c(args, list(assay.type=nm, PARAM=NoCorrectParam())))
@@ -75,7 +75,7 @@ correctExperiments <- function(..., batch=NULL, restrict=NULL, subset.row=NULL, 
     }
     merged.coldata <- colnames(colData(merged))
     if (any(combine.coldata %in% merged.coldata)) {
-          warning("ignoring assays with same name as 'batchCorrect' output")
+          warning("ignoring 'colData' fields overlapping 'batchCorrect' output")
           combine.coldata <- setdiff(combine.coldata, merged.coldata)
     }
 
