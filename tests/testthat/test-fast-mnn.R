@@ -185,6 +185,9 @@ test_that("fastMNN handles names correctly", {
     out <- fastMNN(B1, B2, subset.row=1:50, BSPARAM=ExactParam()) 
     expect_identical(rownames(out), rownames(B1)[1:50])
 
+    out <- fastMNN(B1, B2, subset.row=1:50, BSPARAM=ExactParam(), correct.all=TRUE) 
+    expect_identical(rownames(out), rownames(B1))
+
     # Handles column names.
     colnames(B1) <- sprintf("CELL_%i", seq_len(ncol(B1)))
     colnames(B2) <- sprintf("CELL_%i", seq_len(ncol(B2)))

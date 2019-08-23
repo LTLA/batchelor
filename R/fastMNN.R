@@ -307,7 +307,7 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
 
     # Adding names.
     feat.names <- rownames(batches[[1]])
-    if (!is.null(subset.row)) {
+    if (!is.null(subset.row) && !correct.all) {
         feat.names <- feat.names[.row_subset_to_index(batches[[1]], subset.row)]
     }
     rownames(output) <- feat.names
