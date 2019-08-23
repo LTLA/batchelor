@@ -29,9 +29,8 @@ batchCorrect(..., batch = NULL, restrict = NULL, subset.row = NULL,
   assay.type = "logcounts", get.spikes = FALSE, PARAM)
 }
 \arguments{
-\item{...}{Named data-dependent parameters to pass to the dispatched batch correction methods.
-This should contain one or more matrix-like objects containing single-cell gene expression matrices.
-Alternatively, one or more \linkS4class{SingleCellExperiment} objects can be supplied.}
+\item{...}{Two or more matrix-like objects containing single-cell gene expression matrices.
+Alternatively, two or more \linkS4class{SingleCellExperiment} objects can be supplied.}
 
 \item{batch}{A factor specifying the batch of origin for each cell if only one batch is supplied.
 This will be ignored if two or more batches are supplied.}
@@ -51,7 +50,7 @@ Only used for SingleCellExperiment inputs.}
 \item{get.spikes}{Deprecated, a logical scalar indicating whether to retain rows corresponding to spike-in transcripts.
 Only used for SingleCellExperiment inputs.}
 
-\item{PARAM}{A \linkS4class{BatchelorParam} object specifying the batch correction method to dispatch to.
+\item{PARAM}{A \linkS4class{BatchelorParam} object specifying the batch correction method to dispatch to, and the parameters with which it should be run.
 \linkS4class{ClassicMnnParam} will dispatch to \code{\link{mnnCorrect}};
 \linkS4class{FastMnnParam} will dispatch to \code{\link{fastMNN}};
 and \linkS4class{RescaleParam} will dispatch to \code{\link{rescaleBatches}}.}

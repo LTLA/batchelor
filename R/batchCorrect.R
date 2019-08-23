@@ -2,9 +2,8 @@
 #'
 #' A common interface for single-cell batch correction methods.
 #'
-#' @param ... Named data-dependent parameters to pass to the dispatched batch correction methods.
-#' This should contain one or more matrix-like objects containing single-cell gene expression matrices.
-#' Alternatively, one or more \linkS4class{SingleCellExperiment} objects can be supplied.
+#' @param ... Two or more matrix-like objects containing single-cell gene expression matrices.
+#' Alternatively, two or more \linkS4class{SingleCellExperiment} objects can be supplied.
 #' @param batch A factor specifying the batch of origin for each cell if only one batch is supplied.
 #' This will be ignored if two or more batches are supplied.
 #' @param restrict A list of length equal to the number of objects in \code{...}.
@@ -17,7 +16,7 @@
 #' Only used for SingleCellExperiment inputs.
 #' @param get.spikes Deprecated, a logical scalar indicating whether to retain rows corresponding to spike-in transcripts.
 #' Only used for SingleCellExperiment inputs.
-#' @param PARAM A \linkS4class{BatchelorParam} object specifying the batch correction method to dispatch to.
+#' @param PARAM A \linkS4class{BatchelorParam} object specifying the batch correction method to dispatch to, and the parameters with which it should be run.
 #' \linkS4class{ClassicMnnParam} will dispatch to \code{\link{mnnCorrect}};
 #' \linkS4class{FastMnnParam} will dispatch to \code{\link{fastMNN}};
 #' and \linkS4class{RescaleParam} will dispatch to \code{\link{rescaleBatches}}.
