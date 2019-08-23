@@ -29,10 +29,10 @@ batchCorrect(..., batch = NULL, restrict = NULL, subset.row = NULL,
   assay.type = "logcounts", get.spikes = FALSE, PARAM)
 }
 \arguments{
-\item{...}{Two or more matrix-like objects containing single-cell gene expression matrices.
-Alternatively, two or more \linkS4class{SingleCellExperiment} objects can be supplied.}
+\item{...}{One or more matrix-like objects containing single-cell gene expression matrices.
+Alternatively, one or more \linkS4class{SingleCellExperiment} objects can be supplied.}
 
-\item{batch}{A factor specifying the batch of origin for each cell if only one batch is supplied.
+\item{batch}{A factor specifying the batch of origin for each cell if only one batch is supplied in \code{...}.
 This will be ignored if two or more batches are supplied.}
 
 \item{restrict}{A list of length equal to the number of objects in \code{...}.

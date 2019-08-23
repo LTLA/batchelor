@@ -8,9 +8,13 @@
 \item Switched BSPARAM= to use IrlbaParam(deferred=TRUE) by default in fastMNN(),
 so that the default behaviour is actually fast.
 
-\item Deprecated auto.order= in favor of merge.order= and auto.merge= in fastMNN().
+\item Deprecated auto.order= in favor of merge.order= and auto.merge= in fastMNN() and mnnCorrect().
 Automatic merging now detects potential tree-based merges.
 Merge trees can also be specified as input.
+
+\item Added the correctExperiments() function to cbind the original assays alongside the merged values.
+
+\item Added the subset.row= argument to cosineNorm() for in-place subsetting.
 }}
 
 \section{Version 1.0.0}{\itemize{
