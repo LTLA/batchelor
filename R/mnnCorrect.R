@@ -432,10 +432,10 @@ mnnCorrect <- function(..., batch=NULL, restrict=NULL, k=20, sigma=0.1,
 
 .prepare_input_data <- function(batches, cos.norm.in, cos.norm.out, subset.row, correct.all) {
     nbatches <- length(batches)
-
-    # Subsetting to the desired subset of genes.
     in.batches <- out.batches <- batches
     same.set <- TRUE
+
+    # Subsetting to the desired subset of genes.
     if (!is.null(subset.row)) { 
         subset.row <- .row_subset_to_index(batches[[1]], subset.row)
         if (identical(subset.row, seq_len(nrow(batches[[1]])))) { 
@@ -466,10 +466,9 @@ mnnCorrect <- function(..., batch=NULL, restrict=NULL, k=20, sigma=0.1,
         if (!cos.norm.in) { 
             norm.scaling <- lapply(in.batches, cosineNorm, mode="l2norm")
         }
-        for (b in seq_len(nbatches)) { 
-            out.batches[[b]] <- sweep(out.batches[[b]], 2, norm.scaling[[b]], "/")
-        }
+        out.batches <- mapply(FUN=.apply_cosine_norm, out.batches, norm.scaling, SIMPLIFY=FALSE)
     }
+
     if (cos.norm.out!=cos.norm.in) { 
         same.set <- FALSE
     }

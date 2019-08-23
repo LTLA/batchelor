@@ -330,7 +330,7 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
 
     if (cos.norm) { 
         all.l2s <- lapply(batch.list, FUN=cosineNorm, mode="l2norm", subset.row=subset.row)
-        batch.list <- mapply(FUN=.apply_cosine_norm, batch.list, all.l2s, SIMPLIFY=FALSE, USE.NAMES=FALSE)
+        batch.list <- mapply(FUN=.apply_cosine_norm, batch.list, all.l2s, SIMPLIFY=FALSE) 
     }
 
     pc.mat <- .multi_pca_list(batch.list, d=d, weights=weights, subset.row=subset.row,
