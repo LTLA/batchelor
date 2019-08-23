@@ -18,7 +18,11 @@ test_that("correctExperiments works properly", {
     expect_identical(colData(merged)[,-1], rbind(colData(sce1), colData(sce2)))
 
     # Also works with a single batch... though this is less meaningful.
+    b <- rep(1:2, c(ncol(sce1), ncol(sce2)))
+    merged2 <- correctExperiments(cbind(sce1, sce2), batch=b,
+        PARAM=FastMnnParam(BSPARAM=BiocSingular::ExactParam()))
 
+    expect_identical(reducedDim(merged), reducedDim(merged2))
 })
 
 test_that("correctExperiments responds to combining arguments for assays", {
