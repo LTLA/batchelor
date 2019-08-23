@@ -144,6 +144,12 @@ test_that("fastMNN works as expected for two batches", {
     nB2 <- t(t(B2)/ sqrt(colSums(B2^2)))
     out.ncos <- fastMNN(nB1, nB2, cos.norm=FALSE, d=50, BSPARAM=ExactParam())
     expect_equal(out.ncos, out)
+})
+
+set.seed(120000401)
+test_that("fastMNN subsets correctly", {
+    B1 <- matrix(rnorm(10000, 0), nrow=100) # Batch 1 
+    B2 <- matrix(rnorm(20000, 1), nrow=100) # Batch 2
 
     # Subset.row behaves correctly.
     i <- sample(nrow(B1), 50)
@@ -151,6 +157,14 @@ test_that("fastMNN works as expected for two batches", {
     out.s <- fastMNN(X=B1, Y=B2, d=50, subset.row=i, BSPARAM=ExactParam())
     expect_identical(reducedDim(out.s), reducedDim(ref))
     expect_equal(out.s, ref)
+
+    # Correct.all behaves correctly.
+    i <- c(1:nrow(B1), 1:10)
+    ref <- fastMNN(X=B1, Y=B2, d=50, BSPARAM=ExactParam())
+    out <- fastMNN(X=B1[i,], Y=B2[i,], subset.row=1:nrow(B1), d=50, BSPARAM=ExactParam(), correct.all=TRUE)
+    expect_identical(nrow(out), length(i))
+    expect_identical(reducedDim(ref), reducedDim(out))
+    expect_equal(as.matrix(assay(ref)[1:10,]), as.matrix(assay(out)[1:10+nrow(B1),]))
 })
 
 set.seed(12000041)
@@ -429,6 +443,34 @@ test_that("fastMNN works with within-object batches", {
             curout[order(curout[,1], curout[,2]),]
         )
     }
+})
+
+set.seed(120000521)
+test_that("fastMNN works with within-object batches and subsetting", {
+    B1 <- matrix(rnorm(10000, 0), nrow=100) # Batch 1 
+    B2 <- matrix(rnorm(20000, 1), nrow=100) # Batch 2
+    B3 <- matrix(rnorm(15000, 2), nrow=100) # Batch 2
+    combined <- cbind(B1, B2, B3)
+    batches <- rep(1:3, c(ncol(B1), ncol(B2), ncol(B3)))
+
+    shuffle <- sample(ncol(combined))
+    combined <- combined[,shuffle]
+    batches <- batches[shuffle]
+
+    # Subset.row behaves correctly.
+    i <- sample(nrow(B1), 50)
+    ref <- fastMNN(combined[i,], batch=batches, d=50, BSPARAM=ExactParam())
+    out.s <- fastMNN(combined, batch=batches, d=50, subset.row=i, BSPARAM=ExactParam())
+    expect_identical(reducedDim(out.s), reducedDim(ref))
+    expect_equal(out.s, ref)
+
+    # Correct.all behaves correctly.
+    i <- c(1:nrow(B1), 1:10)
+    ref <- fastMNN(combined, batch=batches, d=50, BSPARAM=ExactParam())
+    out <- fastMNN(combined[i,], batch=batches, subset.row=1:nrow(B1), d=50, BSPARAM=ExactParam(), correct.all=TRUE)
+    expect_identical(nrow(out), length(i))
+    expect_identical(reducedDim(ref), reducedDim(out))
+    expect_equal(as.matrix(assay(ref)[1:10,]), as.matrix(assay(out)[1:10+nrow(B1),]))
 })
 
 set.seed(120000522)

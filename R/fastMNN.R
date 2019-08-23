@@ -328,13 +328,13 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
         stop("at least two batches must be specified") 
     }
 
-    if (!is.null(subset.row)) {
-        batch.list <- lapply(batch.list, "[", i=subset.row, , drop=FALSE) # Need the extra comma!
-    }
     if (cos.norm) { 
-        batch.list <- lapply(batch.list, FUN=cosineNorm, mode="matrix")
+        all.l2s <- lapply(batch.list, FUN=cosineNorm, mode="l2norm", subset.row=subset.row)
+        batch.list <- mapply(FUN=.apply_cosine_norm, batch.list, all.l2s, SIMPLIFY=FALSE, USE.NAMES=FALSE)
     }
-    pc.mat <- .multi_pca_list(batch.list, d=d, weights=weights, get.all.genes=correct.all, BSPARAM=BSPARAM, BPPARAM=BPPARAM)
+
+    pc.mat <- .multi_pca_list(batch.list, d=d, weights=weights, subset.row=subset.row,
+        get.all.genes=correct.all, BSPARAM=BSPARAM, BPPARAM=BPPARAM)
 
     out <- .fast_mnn(batches=pc.mat, ..., BPPARAM=BPPARAM)
     .convert_to_SCE(out, pc.mat)
@@ -351,14 +351,13 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
         stop("at least two batches must be specified") 
     }
 
-    # Creating the PCA input, if it is not already low-dimensional.
-    if (!is.null(subset.row)) {
-        x <- x[subset.row,,drop=FALSE]
-    }
     if (cos.norm) { 
-        x <- cosineNorm(x, mode="matrix")
+        l2 <- cosineNorm(x, mode="l2norm", subset.row=subset.row)
+        x <- .apply_cosine_norm(x, l2)
     }
-    mat <- .multi_pca_single(x, batch=batch, d=d, weights=weights, get.all.genes=correct.all, BSPARAM=BSPARAM, BPPARAM=BPPARAM)
+
+    mat <- .multi_pca_single(x, batch=batch, d=d, weights=weights, subset.row=subset.row,
+        get.all.genes=correct.all, BSPARAM=BSPARAM, BPPARAM=BPPARAM)
 
     divided <- divideIntoBatches(mat[[1]], batch=batch, restrict=restrict, byrow=TRUE)
     output <- .fast_mnn(batches=divided$batches, restrict=divided$restricted, ..., BPPARAM=BPPARAM)
