@@ -2,9 +2,9 @@
 #'
 #' A common interface for single-cell batch correction methods.
 #'
-#' @param ... Two or more matrix-like objects containing single-cell gene expression matrices.
-#' Alternatively, two or more \linkS4class{SingleCellExperiment} objects can be supplied.
-#' @param batch A factor specifying the batch of origin for each cell if only one batch is supplied.
+#' @param ... One or more matrix-like objects containing single-cell gene expression matrices.
+#' Alternatively, one or more \linkS4class{SingleCellExperiment} objects can be supplied.
+#' @param batch A factor specifying the batch of origin for each cell if only one batch is supplied in \code{...}.
 #' This will be ignored if two or more batches are supplied.
 #' @param restrict A list of length equal to the number of objects in \code{...}.
 #' Each entry of the list corresponds to one batch and specifies the cells to use when computing the correction.

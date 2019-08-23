@@ -3,7 +3,7 @@
 #' Apply a correction to multiple \linkS4class{SingleCellExperiment} objects,
 #' while also combining the assay data and column metadata for easy use.
 #'
-#' @param ... Two or more \linkS4class{SingleCellExperiment} objects.
+#' @param ... One or more \linkS4class{SingleCellExperiment} objects.
 #' @param assay.type A string or integer scalar specifying the assay to use for correction.
 #' @inheritParams batchCorrect
 #' @param combine.assays Character vector specifying the assays from each entry of \code{...} to combine together without correction.
