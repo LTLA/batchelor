@@ -49,6 +49,7 @@ MNN_treenode <- function(index, data, restrict, origin=rep(index, nrow(data)), e
     merge.tree
 }
 
+#' @importFrom utils tail relist
 .create_tree_predefined <- function(batches, restrict, merge.order) {
     if (is.null(merge.order)) {
         merge.order <- seq_along(batches)
