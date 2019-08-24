@@ -40,7 +40,7 @@
 #' @importFrom S4Vectors SimpleList
 #' @importFrom methods new
 ClassicMnnParam <- function(...) {
-    new("ClassicMnnParam", SimpleList(...))
+    new("ClassicMnnParam", SimpleList(list(...)))
 }
 
 #' @rdname BatchelorParam
@@ -48,7 +48,7 @@ ClassicMnnParam <- function(...) {
 #' @importFrom S4Vectors SimpleList
 #' @importFrom methods new
 FastMnnParam <- function(...) {
-    new("FastMnnParam", SimpleList(...))
+    new("FastMnnParam", SimpleList(list(...)))
 }
 
 #' @rdname BatchelorParam
@@ -56,7 +56,7 @@ FastMnnParam <- function(...) {
 #' @importFrom S4Vectors SimpleList
 #' @importFrom methods new
 RescaleParam <- function(...) {
-    new("RescaleParam", SimpleList(...))
+    new("RescaleParam", SimpleList(list(...)))
 }
 
 #' @rdname BatchelorParam
@@ -64,5 +64,5 @@ RescaleParam <- function(...) {
 #' @importFrom S4Vectors SimpleList
 #' @importFrom methods new
 NoCorrectParam <- function(...) {
-    new("NoCorrectParam", SimpleList(...))
+    new("NoCorrectParam", SimpleList(list(...)))
 }
