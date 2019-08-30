@@ -216,6 +216,22 @@ This is reported separately for each batch (columns, ordered according to the in
 }
 }
 
+\section{Specifying the number of neighbors}{
+
+The threshold to define nearest neighbors is defined by \code{k}, which is passed to \code{\link{findMutualNN}} to identify MNN pairs.
+The size of \code{k} can be roughly interpreted as the anticipated minimum size of a shared subpopulation in each batch.
+If a batch has fewer than \code{k} cells of a shared subpopulation, there is an increased risk that its counterparts in other batches will form incorrect MNN pairs.
+
+From the perspective of the algorithm, larger values allow for more MNN pairs to be obtained, which improves the stability of the correction vectors.
+Larger values also increase robustness against non-orthogonality, by ignoring a certain level of biological variation when identifying pairs.
+This can be used to avoid the kissing problem where MNN pairs are only detected on the \dQuote{surface} of the distribution.
+However, values of \code{k} should not be too large, as this would result in MNN pairs being inappropriately identified between biologically distinct populations.
+
+In practice, increasing \code{k} will generally result in more aggressive merging as the algorithm is more generous in matching subpopulations across batches.
+We suggest starting with the default \code{k} and increasing it if one is confident that the same cell types are not adequately merged across batches.
+This is better than starting with a large \code{k} as incorrect merging is much harder to diagnose than insufficient merging.
+}
+
 \section{Orthogonalization details}{
 
 \code{fastMNN} will compute the percentage of variance that is lost from each batch during orthogonalization at each merge step.

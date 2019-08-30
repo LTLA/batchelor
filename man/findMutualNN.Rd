@@ -32,11 +32,6 @@ The concept of a MNN pair can be explained by considering cells in each of two d
 For each cell in data set 1, the set of \code{k2} nearest cells in data set 2 is identified, based on the Euclidean distance in expression space.
 For each cell in data set 2, the set of \code{k1} nearest cells in data set 1 is similarly identified.
 Two cells in different batches are considered to be MNNs if each cell is in the other's set.
-
-The value of \code{k} can be interpreted as the minimum size of a subpopulation in each batch.
-Larger values allow for more MNN pairs to be obtained, which improves the stability of batch correction in \code{\link{fastMNN}} and \code{\link{mnnCorrect}}.
-It also increases robustness against non-orthogonality, which would otherwise result in MNN pairs being detected on the \dQuote{surface} of the distribution.
-Obviously, though, values of \code{k} should not be too large, as this would result in MNN pairs being inappropriately identified between biologically distinct populations.
 }
 \examples{
 B1 <- matrix(rnorm(10000), ncol=50) # Batch 1 
@@ -48,6 +43,8 @@ head(out$second)
 }
 \seealso{
 \code{\link{queryKNN}} for the underlying neighbor search code.
+
+\code{\link{fastMNN}} and \code{\link{mnnCorrect}}, which call this function to identify MNNs.
 }
 \author{
 Aaron Lun
