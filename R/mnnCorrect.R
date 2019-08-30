@@ -50,11 +50,6 @@
 #' Each MNN pair represents cells in different batches that are of the same cell type/state, assuming that batch effects are mostly orthogonal to the biological manifold.
 #' Correction vectors are calculated from the pairs of MNNs and corrected (log-)expression values are returned for use in clustering and dimensionality reduction.
 #' 
-#' The threshold to define nearest neighbors is defined by \code{k}, which is passed to \code{\link{findMutualNN}} to identify MNN pairs.
-#' The size of \code{k} can be interpreted as the minimum size of a subpopulation in each batch.
-#' Values that are too small will not yield enough MNN pairs, while values that are too large will ignore substructure within each batch.
-#' The algorithm is generally robust to various choices of \code{k}.
-#' 
 #' For each MNN pair, a pairwise correction vector is computed based on the difference in the log-expression profiles.
 #' The correction vector for each cell is computed by applying a Gaussian smoothing kernel with bandwidth \code{sigma} is the pairwise vectors.
 #' This stabilizes the vectors across many MNN pairs and extends the correction to those cells that do not have MNNs.
@@ -83,6 +78,8 @@
 #' This can be turned off to obtain corrected values on the log-scale, similar to the input data.
 #' }
 #' The cosine normalization is achieved using the \code{\link{cosineNorm}} function.
+#' 
+#' @inheritSection fastMNN Specifying the number of neighbors
 #' 
 #' @inheritSection fastMNN Controlling the merge order
 #'
