@@ -388,7 +388,6 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
 
 #' @importFrom BiocParallel SerialParam
 #' @importFrom BiocNeighbors KmknnParam
-#' @importFrom utils tail relist
 .fast_mnn <- function(batches, k=20, restrict=NULL, ndist=3, 
     merge.order=NULL, auto.merge=FALSE, auto.order=NULL, 
     min.batch.skip=0, BNPARAM=KmknnParam(), BPPARAM=SerialParam()) 
