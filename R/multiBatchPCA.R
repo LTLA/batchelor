@@ -216,7 +216,7 @@ multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, weights=NULL,
     output
 }
 
-#' @importFrom BiocGenerics ncol
+#' @importFrom BiocGenerics ncol rbind
 #' @importFrom DelayedArray DelayedArray
 #' @importFrom BiocSingular DeferredMatrix
 #' @importFrom Matrix t rowMeans
