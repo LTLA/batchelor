@@ -50,17 +50,17 @@ test_that("multiBatchNorm size factor centering logic is correct", {
     # Centers of new size factors are correct.
     out <- multiBatchNorm(X, X2, min.mean=0)
     expect_equal(mean(sizeFactors(out[[1]])), 1)
-    expect_equal(sizeFactors(scater::centreSizeFactors(X)), sizeFactors(out[[1]]))
+    expect_equal(sizeFactors(X)/mean(sizeFactors(X)), sizeFactors(out[[1]]))
 
-    ave1 <- scater::calcAverage(X)
-    ave2 <- scater::calcAverage(X2)
+    ave1 <- scater::calculateAverage(X)
+    ave2 <- scater::calculateAverage(X2)
     M <- median(ave2/ave1)
     expect_equal(mean(sizeFactors(out[[2]])), M)
-    expect_equal(sizeFactors(scater::centreSizeFactors(X2)), sizeFactors(out[[2]]) / M)
+    expect_equal(sizeFactors(X2)/mean(sizeFactors(X2)), sizeFactors(out[[2]]) / M)
 
-    # RelogNormCountsd values have no composition biases.
-    ave1 <- scater::calcAverage(out[[1]])
-    ave2 <- scater::calcAverage(out[[2]]) / M # as calcAverage automatically centers out[[2]'s SFs.
+    # Normalized values have no composition biases.
+    ave1 <- scater::calculateAverage(out[[1]])
+    ave2 <- scater::calculateAverage(out[[2]]) / M # as calculateAverage automatically centers out[[2]]'s SFs.
     expect_equal(1, median(ave2/ave1))
 })
 
@@ -72,19 +72,18 @@ test_that("multiBatchNorm behaves correctly with gene filtering", {
     X2 <- SingleCellExperiment(list(counts=dummy2))
     sizeFactors(X2) <- runif(ncol(X2))
 
-    # Creating a reference function using calcAverage() explicitly.
+    # Creating a reference function using calculateAverage() explicitly.
     library(scater)
     REFFUN <- function(..., min.mean=1) {
 	    batches <- list(...)
 	    nbatches <- length(batches)
-        batches <- lapply(batches, centreSizeFactors)
-	    collected.ave <- lapply(batches, calcAverage, use_size_factors=TRUE)
+	    collected.ave <- lapply(batches, calculateAverage)
 
     	collected.ratios <- rep(1, nbatches)
 	    first.ave <- collected.ave[[1]]
         for (second in 2:nbatches) {
 	        second.ave <- collected.ave[[second]]
-            keep <- calcAverage(cbind(first.ave, second.ave)) >= min.mean
+            keep <- calculateAverage(cbind(first.ave, second.ave)) >= min.mean
             collected.ratios[second] <- median(second.ave[keep]/first.ave[keep]) 
 		}
 		collected.ratios
@@ -92,15 +91,18 @@ test_that("multiBatchNorm behaves correctly with gene filtering", {
 
     out <- multiBatchNorm(X, X2, min.mean=1)
 	refA <- REFFUN(X, X2, min.mean=1)
-    expect_equal(mean(sizeFactors(out[[2]]))/mean(sizeFactors(out[[1]])), refA[2])
+    expect_equal(mean(sizeFactors(out[[1]])), 1)
+    expect_equal(mean(sizeFactors(out[[2]])), refA[2])
 
     out <- multiBatchNorm(X, X2, min.mean=10)
 	refB <- REFFUN(X, X2, min.mean=10)
-    expect_equal(mean(sizeFactors(out[[2]]))/mean(sizeFactors(out[[1]])), refB[2])
+    expect_equal(mean(sizeFactors(out[[1]])), 1)
+    expect_equal(mean(sizeFactors(out[[2]])), refB[2])
 
     out <- multiBatchNorm(X, X2, min.mean=100)
 	refC <- REFFUN(X, X2, min.mean=100)
-    expect_equal(mean(sizeFactors(out[[2]]))/mean(sizeFactors(out[[1]])), refC[2])
+    expect_equal(mean(sizeFactors(out[[1]])), 1)
+    expect_equal(mean(sizeFactors(out[[2]])), refC[2])
     
     expect_false(isTRUE(all.equal(refA, refB)))
     expect_false(isTRUE(all.equal(refA, refC)))
