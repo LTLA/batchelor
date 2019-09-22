@@ -4,12 +4,19 @@
 \alias{multiBatchNorm}
 \title{Per-batch scaling normalization}
 \usage{
-multiBatchNorm(..., assay.type = "counts", norm.args = list(),
-  min.mean = 1, subset.row = NULL)
+multiBatchNorm(..., batch = NULL, assay.type = "counts",
+  norm.args = list(), min.mean = 1, subset.row = NULL,
+  preserve.single = FALSE)
 }
 \arguments{
-\item{...}{Two or more \linkS4class{SingleCellExperiment} objects containing counts and size factors.
-Each object is assumed to represent one batch.}
+\item{...}{One or more \linkS4class{SingleCellExperiment} objects containing counts and size factors.
+Each object should contain the same number of rows, corresponding to the same genes in the same order.
+
+If multiple objects are supplied, each object is assumed to contain all and only cells from a single batch.
+If a single object is supplied, \code{batch} should also be specified.}
+
+\item{batch}{A factor specifying the batch of origin for all cells when only a single object is supplied in \code{...}.
+This is ignored if multiple objects are present.}
 
 \item{assay.type}{A string specifying which assay values contains the counts.}
 
@@ -18,9 +25,14 @@ Each object is assumed to represent one batch.}
 \item{min.mean}{A numeric scalar specifying the minimum (library size-adjusted) average count of genes to be used for normalization.}
 
 \item{subset.row}{A vector specifying which features to use for correction.}
+
+\item{preserve.single}{A logical scalar indicating whether to combine the results into a single matrix if only one object was supplied in \code{...}.}
 }
 \value{
 A list of SingleCellExperiment objects with normalized log-expression values in the \code{"logcounts"} assay (depending on values in \code{norm.args}).
+Each object contains cells from a single batch.
+
+If \code{preserve.single=TRUE} and \code{...} contains a single object, the list will only contain a single SingleCellExperiment, containing normalized log-expression values for all cells in the same order that they were supplied.
 }
 \description{
 Perform scaling normalization within each batch to provide comparable results to the lowest-coverage batch.
@@ -36,7 +48,7 @@ The \code{\link{logNormCounts}} function will then add the same pseudo-count to 
 By scaling downwards, we favour stronger squeezing of log-fold changes from the pseudo-count, mitigating any technical differences in variance between batches.
 Of course, genuine biological differences will also be shrunk, but this is less of an issue for upregulated genes with large counts.
 
-For comparison, consider running \code{\link{logNormCounts}} separately in each batch prior to correction.
+For comparison, imagine if we ran \code{\link{logNormCounts}} separately in each batch prior to correction.
 In most cases, size factors will be computed within each batch;
 batch-specific application in \code{\link{logNormCounts}} will not account for scaling differences between batches.
 In contrast, \code{multiBatchNorm} will rescale the size factors so that they are comparable across batches.

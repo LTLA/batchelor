@@ -10,7 +10,9 @@ correctExperiments(..., batch = NULL, restrict = NULL,
   combine.coldata = NULL)
 }
 \arguments{
-\item{...}{One or more \linkS4class{SingleCellExperiment} objects.}
+\item{...}{One or more \linkS4class{SingleCellExperiment} objects.
+If multiple objects are supplied, each object is assumed to contain all and only cells from a single batch.
+If a single object is supplied, \code{batch} should also be specified.}
 
 \item{batch}{A factor specifying the batch of origin for each cell if only one batch is supplied in \code{...}.
 This will be ignored if two or more batches are supplied.}

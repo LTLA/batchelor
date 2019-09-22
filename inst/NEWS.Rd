@@ -15,6 +15,8 @@ Merge trees can also be specified as input.
 \item Added the correctExperiments() function to cbind the original assays alongside the merged values.
 
 \item Added the subset.row= argument to cosineNorm() for in-place subsetting.
+
+\item Added batch= and preserve.single= arguments to multiBatchNorm().
 }}
 
 \section{Version 1.0.0}{\itemize{

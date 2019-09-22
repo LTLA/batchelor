@@ -12,9 +12,10 @@ multiBatchPCA(..., batch = NULL, d = 50, subset.row = NULL,
 }
 \arguments{
 \item{...}{Two or more matrices containing expression values (usually log-normalized).
-Each matrix is assumed to represent one batch.
+Each matrix is assumed to represent one batch and should contain the same number of rows, corresponding to the same genes (in the same order).
 
 Alternatively, two or more \linkS4class{SingleCellExperiment} objects containing these matrices.
+Note the same restrictions described above for gene expression matrix inputs.
 
 Alternatively, one matrix or SingleCellExperiment can be supplied containing cells from all batches. 
 This requires \code{batch} to also be specified.}
