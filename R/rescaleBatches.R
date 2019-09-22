@@ -3,11 +3,14 @@
 #' Scale counts so that the average count within each batch is the same for each gene.
 #'
 #' @param ... Two or more log-expression matrices where genes correspond to rows and cells correspond to columns.
-#' Each matrix should contain cells from the same batch; multiple matrices represent separate batches of cells.
 #' Each matrix should contain the same number of rows, corresponding to the same genes (in the same order).
 #' 
 #' Alternatively, one or more \linkS4class{SingleCellExperiment} objects can be supplied containing a count matrix in the \code{assay.type} assay.
-#' Note the same restrictions described above for matrix inputs.
+#' Note the same restrictions described above for gene expression matrix inputs.
+#'
+#' If multiple objects are supplied, each object is assumed to contain all and only cells from a single batch.
+#' Objects of different types can be mixed together. 
+#' If a single object is supplied, \code{batch} should also be specified.
 #' @param batch A factor specifying the batch of origin for all cells when only a single object is supplied in \code{...}.
 #' This is ignored if multiple objects are present.
 #' @param restrict A list of length equal to the number of objects in \code{...}.

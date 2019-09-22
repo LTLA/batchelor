@@ -4,6 +4,8 @@
 #' while also combining the assay data and column metadata for easy use.
 #'
 #' @param ... One or more \linkS4class{SingleCellExperiment} objects.
+#' If multiple objects are supplied, each object is assumed to contain all and only cells from a single batch.
+#' If a single object is supplied, \code{batch} should also be specified.
 #' @param assay.type A string or integer scalar specifying the assay to use for correction.
 #' @inheritParams batchCorrect
 #' @param combine.assays Character vector specifying the assays from each entry of \code{...} to combine together without correction.

@@ -4,6 +4,10 @@
 #'
 #' @param ... One or more matrix-like objects containing single-cell gene expression matrices.
 #' Alternatively, one or more \linkS4class{SingleCellExperiment} objects can be supplied.
+#'
+#' If multiple objects are supplied, each object is assumed to contain all and only cells from a single batch.
+#' Objects of different types can be mixed together.
+#' If a single object is supplied, \code{batch} should also be specified.
 #' @param batch A factor specifying the batch of origin for each cell if only one batch is supplied in \code{...}.
 #' This will be ignored if two or more batches are supplied.
 #' @param restrict A list of length equal to the number of objects in \code{...}.
