@@ -79,8 +79,10 @@ This has number of columns equal to \code{d} and number of rows equal to the tot
 \item A \code{batch} column in the \code{colData} slot, containing the batch of origin for each row (i.e., cell) in \code{corrected}.
 \item A \code{rotation} column the \code{rowData} slot, containing the rotation matrix used for the PCA.
 This has \code{d} columns and number of rows equal to the number of genes to report (see the \dQuote{Choice of genes} section).
-\item A \code{reconstructed} matrix in the \code{assays} slot, containing the low-rank reconstruction of the original expression matrix.
+\item A \code{reconstructed} matrix in the \code{assays} slot, containing the low-rank reconstruction of the expression matrix.
 This can be interpreted as per-gene corrected log-expression values (after cosine normalization, if \code{cos.norm=TRUE}) but should not be used for quantitative analyses.
+This has number of rows equal to the number of input genes if \code{subset.row=NULL} or \code{correct.all=TRUE},
+otherwise each row corresponds to a gene in \code{subset.row}.
 }
 
 Cells in the output object are always ordered in the same manner as supplied in \code{...}.
@@ -163,9 +165,10 @@ This improves the quality of the PCA and identification of MNN pairs by reducing
 Note that users should not be too restrictive with subsetting, 
 as high dimensionality is required to satisfy the orthogonality assumption in MNN detection.
 
-By default, only the selected genes are used to compute rotation vectors and a low-rank representation of the input matrix.
-However, rotation vectors can be obtained that span all genes in the supplied input data with \code{correct.all=TRUE}.
-This will not affect the corrected low-dimension coordinates or the output for the selected genes.
+By default, only the selected genes are used to compute rotation vectors and a low-rank corrected expression matrix.
+However, setting \code{correct.all=TRUE} will return rotation vectors that span all genes in the supplied input data.
+This is useful for ensuring that corrected values are returned for all input genes, e.g., in \code{\link{correctExperiments}}.
+Note that this setting will not affect the corrected low-dimension coordinates or the rotation values for the selected genes.
 }
 
 \section{Using restriction}{

@@ -19,7 +19,7 @@
 #' @param pseudo.count A numeric scalar specifying the pseudo-count used for the log-transformation.
 #' @param subset.row A vector specifying which features to use for correction.
 #' @param assay.type A string or integer scalar specifying the assay containing the log-expression values, if SingleCellExperiment objects are present in \code{...}.
-#' @param get.spikes A logical scalar indicating whether to retain rows corresponding to spike-in transcripts.
+#' @param get.spikes Deprecated, a logical scalar indicating whether to retain rows corresponding to spike-in transcripts.
 #' Only used for SingleCellExperiment inputs.
 #'
 #' @return
@@ -45,13 +45,8 @@
 #' The output values are always re-log-transformed with the same \code{log.base} and \code{pseudo.count}.
 #' These can be used directly in place of the input values for downstream operations.
 #'
-#' @section Choice of genes:
 #' All genes are used with the default setting of \code{subset.row=NULL}.
 #' Users can set \code{subset.row} to subset the inputs, though this is purely for convenience as each gene is processed independently of other genes.
-#'
-#' For \linkS4class{SingleCellExperiment} inputs, spike-in transcripts are automatically removed unless \code{get.spikes=TRUE}.
-#' If \code{subset.row} is specified and \code{get.spikes=FALSE}, only the non-spike-in specified features will be used. 
-#' All SingleCellExperiment objects should have the same set of spike-in transcripts.
 #'
 #' @section Using restriction:
 #' It is possible to compute the correction using only a subset of cells in each batch, and then extrapolate that correction to all other cells.

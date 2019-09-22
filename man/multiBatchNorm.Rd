@@ -56,6 +56,8 @@ This removes at least one difference between batches to facilitate easier correc
 
 Only genes with library size-adjusted average counts greater than \code{min.mean} will be used for computing the rescaling factors.
 This improves precision and avoids problems with discreteness.
+By default, we use \code{min.mean=1}, which is usually satisfactory but may need to be lowered for very sparse datasets. 
+
 Users can also set \code{subset.row} to restrict the set of genes used for computing the rescaling factors.
 However, this only affects the rescaling of the size factors - normalized values for \emph{all} genes will still be returned.
 }

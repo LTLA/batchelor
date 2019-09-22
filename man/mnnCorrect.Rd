@@ -99,6 +99,7 @@ Note that users should not be too restrictive with subsetting, as high dimension
 If \code{subset.row} is specified and \code{correct.all=TRUE}, corrected values are returned for \emph{all} genes.
 This is possible as \code{subset.row} is only used to identify the MNN pairs and other cell-based distance calculations.
 Correction vectors between MNN pairs can then be computed in for all genes in the supplied matrices.
+Note that setting \code{correct.all=TRUE} will not alter the corrected expression values for the subsetted genes.
 }
 
 \section{Expected type of input data}{

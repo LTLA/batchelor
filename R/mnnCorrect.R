@@ -66,6 +66,7 @@
 #' If \code{subset.row} is specified and \code{correct.all=TRUE}, corrected values are returned for \emph{all} genes.
 #' This is possible as \code{subset.row} is only used to identify the MNN pairs and other cell-based distance calculations.
 #' Correction vectors between MNN pairs can then be computed in for all genes in the supplied matrices.
+#' Note that setting \code{correct.all=TRUE} will not alter the corrected expression values for the subsetted genes.
 #' 
 #' @section Expected type of input data:
 #' The input expression values should generally be log-transformed, e.g., log-counts, see \code{\link[scater]{normalize}} for details.
