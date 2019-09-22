@@ -29,15 +29,19 @@ test_that("multiBatchNorm works properly", {
     re.out <- multiBatchNorm(X3, X, X2)
     expect_equal(out[c(3,1,2)], re.out)
 
-    # Single batch input just returns the same object as logNormCounts().
-    solo.out <- multiBatchNorm(X3)
-    expect_equal(solo.out[[1]], scater::logNormCounts(X3))
+    # Checking it returns the same object as logNormCounts().
+    solo.out <- multiBatchNorm(X3, X3)
+    ref <- scater::logNormCounts(X3)
+    expect_equal(solo.out[[1]], ref)
+    expect_equal(solo.out[[2]], ref)
 
     # Reverts to the library size correctly.
     Xtmp <- X
     sizeFactors(Xtmp) <- NULL
-    out <- multiBatchNorm(Xtmp)
-    expect_equal(sizeFactors(out[[1]]), scater::librarySizeFactors(Xtmp))
+    out <- multiBatchNorm(Xtmp, Xtmp)
+    ref <- scater::librarySizeFactors(Xtmp)
+    expect_equal(sizeFactors(out[[1]]), ref)
+    expect_equal(sizeFactors(out[[2]]), ref)
 })
 
 set.seed(200111)
@@ -113,4 +117,34 @@ test_that("multiBatchNorm behaves correctly with gene filtering", {
     ref.out <- multiBatchNorm(X[randoms,], X2[randoms,])
     expect_equal(logcounts(sub.out[[1]])[randoms,], logcounts(ref.out[[1]])) 
     expect_equal(logcounts(sub.out[[2]])[randoms,], logcounts(ref.out[[2]])) 
+})
+
+set.seed(20013)
+test_that("multiBatchNorm behaves correctly with a single batch", {
+    X2 <- X
+    counts(X2) <- counts(X2) * 2L
+    X3 <- X
+    counts(X3) <- counts(X3) * 3L
+
+    ref <- multiBatchNorm(X, X2, X3)
+    combined <- cbind(X, X2, X3)
+    alt <- multiBatchNorm(combined, batch=rep(1:3, each=ncol(X)))
+    for (i in seq_along(ref)) {
+        expect_equal(logcounts(ref[[i]]), logcounts(alt[[i]]))
+        expect_equal(sizeFactors(ref[[i]]), sizeFactors(alt[[i]]))
+    }
+    expect_identical(names(alt), as.character(1:3))
+
+    alt2 <- multiBatchNorm(combined, batch=rep(3:1, each=ncol(X)))
+    expect_equal(unname(alt2[3:1]), unname(alt))
+
+    alt3a <- multiBatchNorm(combined, batch=rep(1:3, each=ncol(X)), preserve.single=TRUE)
+    expect_equal(alt3a[[1]], do.call(cbind, alt))
+
+    alt3b <- multiBatchNorm(combined, batch=rep(3:1, each=ncol(X)), preserve.single=TRUE)
+    expect_equal(alt3a[[1]], alt3b[[1]])
+
+    o <- sample(ncol(combined))
+    alt3c <- multiBatchNorm(combined[,o], batch=rep(1:3, each=ncol(X))[o], preserve.single=TRUE)
+    expect_equal(alt3c[[1]], alt3a[[1]][,o])
 })

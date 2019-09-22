@@ -2,12 +2,18 @@
 #'
 #' Perform scaling normalization within each batch to provide comparable results to the lowest-coverage batch.
 #' 
-#' @param ... Two or more \linkS4class{SingleCellExperiment} objects containing counts and size factors.
-#' Each object is assumed to represent one batch.
+#' @param ... One or more \linkS4class{SingleCellExperiment} objects containing counts and size factors.
+#' Each object should contain the same number of rows, corresponding to the same genes in the same order.
+#'
+#' If multiple objects are supplied, each object is assumed to contain all and only cells from a single batch.
+#' If a single object is supplied, \code{batch} should also be specified.
+#' @param batch A factor specifying the batch of origin for all cells when only a single object is supplied in \code{...}.
+#' This is ignored if multiple objects are present.
 #' @param assay.type A string specifying which assay values contains the counts.
 #' @param norm.args A named list of further arguments to pass to \code{\link[scater]{normalize}}.
 #' @param min.mean A numeric scalar specifying the minimum (library size-adjusted) average count of genes to be used for normalization.
 #' @param subset.row A vector specifying which features to use for correction. 
+#' @param preserve.single A logical scalar indicating whether to combine the results into a single matrix if only one object was supplied in \code{...}.
 #' 
 #' @details
 #' When performing integrative analyses of multiple batches, it is often the case that different batches have large differences in coverage.
@@ -20,7 +26,7 @@
 #' By scaling downwards, we favour stronger squeezing of log-fold changes from the pseudo-count, mitigating any technical differences in variance between batches.
 #' Of course, genuine biological differences will also be shrunk, but this is less of an issue for upregulated genes with large counts.
 #' 
-#' For comparison, consider running \code{\link{logNormCounts}} separately in each batch prior to correction.
+#' For comparison, imagine if we ran \code{\link{logNormCounts}} separately in each batch prior to correction.
 #' In most cases, size factors will be computed within each batch;
 #' batch-specific application in \code{\link{logNormCounts}} will not account for scaling differences between batches.
 #' In contrast, \code{multiBatchNorm} will rescale the size factors so that they are comparable across batches.
@@ -28,6 +34,8 @@
 #' 
 #' Only genes with library size-adjusted average counts greater than \code{min.mean} will be used for computing the rescaling factors.
 #' This improves precision and avoids problems with discreteness.
+#' By default, we use \code{min.mean=1}, which is usually satisfactory but may need to be lowered for very sparse datasets. 
+#'
 #' Users can also set \code{subset.row} to restrict the set of genes used for computing the rescaling factors.
 #' However, this only affects the rescaling of the size factors - normalized values for \emph{all} genes will still be returned.
 #'
@@ -40,6 +48,9 @@
 #' 
 #' @return
 #' A list of SingleCellExperiment objects with normalized log-expression values in the \code{"logcounts"} assay (depending on values in \code{norm.args}).
+#' Each object contains cells from a single batch.
+#'
+#' If \code{preserve.single=TRUE} and \code{...} contains a single object, the list will only contain a single SingleCellExperiment, containing normalized log-expression values for all cells in the same order that they were supplied.
 #' 
 #' @author
 #' Aaron Lun
@@ -68,13 +79,39 @@
 #' \url{https://MarioniLab.github.io/FurtherMNN2018/theory/description.html}
 #'
 #' @export
-#' @importFrom BiocGenerics sizeFactors sizeFactors<-
+#' @importFrom BiocGenerics sizeFactors sizeFactors<- cbind
 #' @importMethodsFrom scater logNormCounts librarySizeFactors
-multiBatchNorm <- function(..., assay.type="counts", norm.args=list(), min.mean=1, subset.row=NULL) {
+multiBatchNorm <- function(..., batch=NULL, assay.type="counts", norm.args=list(), 
+    min.mean=1, subset.row=NULL, preserve.single=FALSE) 
+{
     batches <- list(...)
     checkBatchConsistency(batches)
     if (length(batches)==0L) { 
         stop("at least one SingleCellExperiment must be supplied") 
+    }
+
+    if (length(batches)==1L) {
+        if (is.null(batch)) { 
+            stop("'batch' must be specified if '...' has only one object")
+        }
+
+        # We have to split them up for calcAverage anyway,
+        # so there's no point writing special code here (unlike multiBatchPCA).
+        by.batch <- split(seq_along(batch), batch)
+        collected <- by.batch
+        for (i in seq_along(by.batch)) {
+            collected[[i]] <- batches[[1]][,by.batch[[i]],drop=FALSE]
+        }
+
+        output <- do.call(multiBatchNorm, c(collected, list(assay.type=assay.type, 
+            norm.args=norm.args, min.mean=min.mean, subset.row=subset.row)))
+
+        if (preserve.single) {
+            output <- do.call(cbind, output)
+            return(list(output[,order(unlist(by.batch))]))
+        } else {
+            return(output)
+        }
     }
 
     # Centering the endogenous size factors.
