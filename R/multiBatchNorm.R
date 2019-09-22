@@ -12,7 +12,8 @@
 #' @param assay.type A string specifying which assay values contains the counts.
 #' @param norm.args A named list of further arguments to pass to \code{\link[scater]{normalize}}.
 #' @param min.mean A numeric scalar specifying the minimum (library size-adjusted) average count of genes to be used for normalization.
-#' @param subset.row A vector specifying which features to use for correction. 
+#' @param subset.row A vector specifying which features to use for normalization.
+#' @param normalize.all A logical scalar indicating whether normalized values should be returned for all genes.
 #' @param preserve.single A logical scalar indicating whether to combine the results into a single matrix if only one object was supplied in \code{...}.
 #' 
 #' @details
@@ -37,7 +38,8 @@
 #' By default, we use \code{min.mean=1}, which is usually satisfactory but may need to be lowered for very sparse datasets. 
 #'
 #' Users can also set \code{subset.row} to restrict the set of genes used for computing the rescaling factors.
-#' However, this only affects the rescaling of the size factors - normalized values for \emph{all} genes will still be returned.
+#' By default, normalized values will only be returned for genes specified in the subset.
+#' Setting \code{normalize.all=TRUE} will return normalized values for all genes.
 #'
 #' @section Note about spike-ins:
 #' Rescaling is only performed on endogenous genes in each SingleCellExperiment object.
@@ -82,7 +84,7 @@
 #' @importFrom BiocGenerics sizeFactors sizeFactors<- cbind
 #' @importMethodsFrom scater logNormCounts librarySizeFactors
 multiBatchNorm <- function(..., batch=NULL, assay.type="counts", norm.args=list(), 
-    min.mean=1, subset.row=NULL, preserve.single=FALSE) 
+    min.mean=1, subset.row=NULL, normalize.all=FALSE, preserve.single=FALSE) 
 {
     batches <- list(...)
     checkBatchConsistency(batches)
@@ -132,6 +134,10 @@ multiBatchNorm <- function(..., batch=NULL, assay.type="counts", norm.args=list(
     nonspike.subset <- .SCE_subset_genes(subset.row, batches[[1]], get.spikes=FALSE)
     endog.rescale <- .compute_batch_rescaling(batches, subset.row=nonspike.subset, assay.type=assay.type, min.mean=min.mean)
     batches <- .rescale_size_factors(batches, endog.rescale)
+
+    if (!normalize.all && !is.null(nonspike.subset)) {
+        batches <- lapply(batches, FUN="[", i=nonspike.subset,)
+    }
 
     # Applying the normalization.   
     mapply(FUN=logNormCounts, batches, 

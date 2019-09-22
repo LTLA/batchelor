@@ -69,7 +69,7 @@ test_that("multiBatchNorm size factor centering logic is correct", {
 })
 
 set.seed(20012)
-test_that("multiBatchNorm behaves correctly with gene filtering", {
+test_that("multiBatchNorm behaves correctly with mean filtering", {
     dummy2 <- matrix(rnbinom(ngenes*ncells, mu=means * 10, size=5), ncol=ncells, nrow=ngenes)
     rownames(dummy2) <- paste0("X", seq_len(ngenes))
     
@@ -110,13 +110,27 @@ test_that("multiBatchNorm behaves correctly with gene filtering", {
     
     expect_false(isTRUE(all.equal(refA, refB)))
     expect_false(isTRUE(all.equal(refA, refC)))
+})
+
+set.seed(20013)
+test_that("multiBatchNorm behaves correctly with subsetting", {
+    dummy2 <- matrix(rnbinom(ngenes*ncells, mu=means * 10, size=5), ncol=ncells, nrow=ngenes)
+    rownames(dummy2) <- paste0("X", seq_len(ngenes))
+    
+    X2 <- SingleCellExperiment(list(counts=dummy2))
+    sizeFactors(X2) <- runif(ncol(X2))
 
     # Checking that gene subsetting works correctly.
     randoms <- sample(ngenes, 500)
-    sub.out <- multiBatchNorm(X, X2, subset.row=randoms)
     ref.out <- multiBatchNorm(X[randoms,], X2[randoms,])
-    expect_equal(logcounts(sub.out[[1]])[randoms,], logcounts(ref.out[[1]])) 
-    expect_equal(logcounts(sub.out[[2]])[randoms,], logcounts(ref.out[[2]])) 
+
+    sub.out <- multiBatchNorm(X, X2, subset.row=randoms)
+    expect_equal(logcounts(sub.out[[1]]), logcounts(ref.out[[1]]))
+    expect_equal(logcounts(sub.out[[2]]), logcounts(ref.out[[2]]))
+
+    sub.out <- multiBatchNorm(X, X2, subset.row=randoms, normalize.all=TRUE)
+    expect_equal(logcounts(sub.out[[1]])[randoms,], logcounts(ref.out[[1]]))
+    expect_equal(logcounts(sub.out[[2]])[randoms,], logcounts(ref.out[[2]]))
 })
 
 set.seed(20013)

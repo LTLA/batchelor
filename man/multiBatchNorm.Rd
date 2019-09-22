@@ -6,7 +6,7 @@
 \usage{
 multiBatchNorm(..., batch = NULL, assay.type = "counts",
   norm.args = list(), min.mean = 1, subset.row = NULL,
-  preserve.single = FALSE)
+  normalize.all = FALSE, preserve.single = FALSE)
 }
 \arguments{
 \item{...}{One or more \linkS4class{SingleCellExperiment} objects containing counts and size factors.
@@ -24,7 +24,9 @@ This is ignored if multiple objects are present.}
 
 \item{min.mean}{A numeric scalar specifying the minimum (library size-adjusted) average count of genes to be used for normalization.}
 
-\item{subset.row}{A vector specifying which features to use for correction.}
+\item{subset.row}{A vector specifying which features to use for normalization.}
+
+\item{normalize.all}{A logical scalar indicating whether normalized values should be returned for all genes.}
 
 \item{preserve.single}{A logical scalar indicating whether to combine the results into a single matrix if only one object was supplied in \code{...}.}
 }
@@ -59,7 +61,8 @@ This improves precision and avoids problems with discreteness.
 By default, we use \code{min.mean=1}, which is usually satisfactory but may need to be lowered for very sparse datasets. 
 
 Users can also set \code{subset.row} to restrict the set of genes used for computing the rescaling factors.
-However, this only affects the rescaling of the size factors - normalized values for \emph{all} genes will still be returned.
+By default, normalized values will only be returned for genes specified in the subset.
+Setting \code{normalize.all=TRUE} will return normalized values for all genes.
 }
 \section{Note about spike-ins}{
 
