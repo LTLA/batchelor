@@ -392,6 +392,7 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
 
 #' @importFrom BiocParallel SerialParam
 #' @importFrom BiocNeighbors KmknnParam
+#' @importClassesFrom S4Vectors List
 .fast_mnn <- function(batches, k=20, restrict=NULL, ndist=3, 
     merge.order=NULL, auto.merge=FALSE, auto.order=NULL, 
     min.batch.skip=0, BNPARAM=KmknnParam(), BPPARAM=SerialParam()) 
@@ -414,17 +415,14 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
             min.batch.skip=min.batch.skip, BNPARAM=BNPARAM, BPPARAM=BPPARAM,
             NEXT=.get_next_merge, UPDATE=.update_tree)
     } else {
-        remainders <- lapply(seq_along(batches), function(i) {
-            MNN_treenode(index=i, data=batches[[i]], restrict=restrict[[i]])
-        })
-
-        merge_chooser <- function(remainders) {
-            .search_for_merge(remainders, k1=k, k2=k, BNPARAM=BNPARAM, BPPARAM=BPPARAM)
+        mnn.args <- list(k1=k, k2=k, BNPARAM=BNPARAM, BPPARAM=BPPARAM)
+        remainders <- do.call(.initialize_auto_search, c(list(batches, restrict), mnn.args))
+        updater <- function(remainders, chosen, ...) {
+            .update_remainders(remainders, chosen, ..., mnn.args=mnn.args)
         }
-
         output <- .fast_mnn_core(remainders, k=k, restrict=restrict, ndist=ndist,
             min.batch.skip=min.batch.skip, BNPARAM=BNPARAM, BPPARAM=BPPARAM,
-            NEXT=merge_chooser, UPDATE=.update_remainders)
+            NEXT=.pick_best_merge, UPDATE=updater)
     }
 
     nms <- names(batches)

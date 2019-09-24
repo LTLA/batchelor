@@ -103,51 +103,78 @@ MNN_treenode <- function(index, data, restrict, origin=rep(index, nrow(data)), e
 # Tree searching for fastMNN(). This requires some care as the
 # search has to orthogonalize each batch before comparing them.
 
-.search_for_merge <- function(remainders, ..., orthogonalize=TRUE) {
-    left.idx <- right.idx <- n <- list()
-    counter <- 1L
+#' @importFrom S4Vectors DataFrame metadata<- metadata
+#' @importClassesFrom S4Vectors List
+.initialize_auto_search <- function(batches, restrict, extras=list(), ...) {
+    remainders <- lapply(seq_along(batches), function(i) {
+        MNN_treenode(index=i, data=batches[[i]], restrict=restrict[[i]], extras=extras)
+    })
+    remainders <- as(remainders, "List")
 
+    collected <- matrix(0L, length(remainders), length(remainders))
     for (i in seq_along(remainders)) {
-        left <- remainders[[i]]
-        left.data <- .get_node_data(left)
-        left.restrict <- .get_node_restrict(left)
-        left.extras <- .get_node_extras(left)
-
-        for (j in seq_len(i-1L)) {
-            right <- remainders[[j]]
-            right.data <- .get_node_data(right)
-            right.restrict <- .get_node_restrict(right)
-            right.extras <- .get_node_extras(right)
-
-            if (orthogonalize) {
-                right.data <- .orthogonalize_other(right.data, right.restrict, left.extras)
-                left.data <- .orthogonalize_other(left.data, left.restrict, right.extras)
-            }
-            collected <- .restricted_mnn(left.data, left.restrict, right.data, right.restrict, ...)
-
-            left.idx[[counter]] <- i
-            right.idx[[counter]] <- j
-            n[[counter]] <- length(collected$first)
-            counter <- counter + 1L
-        }
+        below <- i - 1L
+        collected[i,seq_len(below)] <- .count_mnn_pairs(remainders[[i]], remainders, upto=below, ...) 
     }
-    
-    n <- unlist(n)
-    chosen <- which.max(n)
-    chosen.left <- left.idx[[chosen]]
-    chosen.right <- right.idx[[chosen]]
-    list(left=remainders[[chosen.left]], right=remainders[[chosen.right]], 
-        chosen=c(chosen.left, chosen.right))
+
+    metadata(remainders)$pairwise <- collected
+    remainders
 }
 
-.update_remainders <- function(remainders, chosen, ...) {
-    leftovers <- remainders[-chosen]
+#' @importFrom S4Vectors DataFrame
+.count_mnn_pairs <- function(left, remainders, upto, ..., orthogonalize=TRUE) {
+    left.data <- .get_node_data(left)
+    left.restrict <- .get_node_restrict(left)
+    left.extras <- .get_node_extras(left)
+
+    n <- integer(upto)
+    for (j in seq_len(upto)) {
+        right <- remainders[[j]]
+        right.data <- .get_node_data(right)
+        right.restrict <- .get_node_restrict(right)
+        right.extras <- .get_node_extras(right)
+
+        if (orthogonalize) {
+            right.data <- .orthogonalize_other(right.data, right.restrict, left.extras)
+            left.data <- .orthogonalize_other(left.data, left.restrict, right.extras)
+        }
+
+        collected <- .restricted_mnn(left.data, left.restrict, right.data, right.restrict, ...)
+        n[j] <- length(collected$first)
+    }
+
+    n
+}
+
+#' @importFrom S4Vectors metadata
+.pick_best_merge <- function(remainders) {
+    stats <- metadata(remainders)$pairwise
+    chosen <- which(stats==max(stats), arr.ind=TRUE)[1,]
+    chosen.left <- chosen[1] 
+    chosen.right <- chosen[2] 
+    list(left=remainders[[chosen.left]], right=remainders[[chosen.right]], chosen=chosen)
+}
+
+#' @importFrom S4Vectors metadata metadata<- List
+.update_remainders <- function(remainders, chosen, ..., mnn.args) {
+    remainders <- remainders[-chosen]
     val <- MNN_treenode(...)
-    if (length(leftovers)) {
-        c(leftovers, list(val))
+
+    if (length(remainders)) {
+        old.meta <- metadata(remainders)$pairwise
+
+        # Discarding whatever batches just got merged, and adding the 
+        # number of MNN pairs to the newly formed batch.
+        old.meta <- old.meta[-chosen,-chosen,drop=FALSE]
+        new.stats <- do.call(.count_mnn_pairs, c(list(val, remainders, upto=length(remainders)), mnn.args))
+        new.meta <- rbind(old.meta, new.stats)
+        new.meta <- cbind(new.meta, 0) # must be square, so that '-chosen' has something to remove.
+
+        remainders <- c(remainders, List(val))
+        metadata(remainders)$pairwise <- new.meta
+        remainders
+
     } else {
         val # Return node directly to indicate completion.
     }
 }
-
-
