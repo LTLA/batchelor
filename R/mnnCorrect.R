@@ -247,19 +247,23 @@ mnnCorrect <- function(..., batch=NULL, restrict=NULL, k=20, sigma=0.1,
         merge.tree <- .create_tree_predefined(in.batches, restrict, merge.order)
         NEXT <- .get_next_merge
         UPDATE <- .update_tree
+
+        # Putting the out.batches information in the 'extras'.
         merge.tree <- .add_out_batches_to_tree(merge.tree, if (same.set) NULL else out.batches)
     } else {
-        merge.tree <- lapply(seq_along(in.batches), function(i) {
-            MNN_treenode(index=i, data=in.batches[[i]], restrict=restrict[[i]], extras=list(NULL))
-        })
+        mnn.args <- list(k1=k, k2=k, BNPARAM=BNPARAM, BPPARAM=BPPARAM, orthogonalize=FALSE)
+        merge.tree <- do.call(.initialize_auto_search, c(list(in.batches, restrict), mnn.args))
 
-        NEXT <- function(remainders) {
-            .search_for_merge(remainders, k1=k, k2=k, BNPARAM=BNPARAM, BPPARAM=BPPARAM, orthogonalize=FALSE)
+        NEXT <- .pick_best_merge
+        UPDATE <- function(remainders, chosen, ...) {
+            .update_remainders(remainders, chosen, ..., mnn.args=mnn.args)
         }
 
-        UPDATE <- .update_remainders
+        # Putting the out.batches information in the 'extras'.
+        for (i in seq_along(merge.tree)) {
+            merge.tree[[i]]@extras <- if (same.set) list(NULL) else out.batches[.get_node_index(merge.tree[[i]])]
+        }
     }
-
     output <- .mnn_correct_core(merge.tree, NEXT=NEXT, UPDATE=UPDATE, k=k, sigma=sigma,
         same.set=same.set, svd.dim=svd.dim, var.adj=var.adj, subset.row=subset.row, 
         BSPARAM=BSPARAM, BNPARAM=BNPARAM, BPPARAM=BPPARAM)
