@@ -105,9 +105,9 @@ MNN_treenode <- function(index, data, restrict, origin=rep(index, nrow(data)), e
 
 #' @importFrom S4Vectors DataFrame metadata<- metadata
 #' @importClassesFrom S4Vectors List
-.initialize_auto_search <- function(batches, restrict, extras=list(), ...) {
+.initialize_auto_search <- function(batches, restrict, ...) {
     remainders <- lapply(seq_along(batches), function(i) {
-        MNN_treenode(index=i, data=batches[[i]], restrict=restrict[[i]], extras=extras)
+        MNN_treenode(index=i, data=batches[[i]], restrict=restrict[[i]])
     })
     remainders <- as(remainders, "List")
 

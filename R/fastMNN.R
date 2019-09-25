@@ -411,19 +411,20 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
 
     if (!auto.merge) {
         merge.tree <- .create_tree_predefined(batches, restrict, merge.order)
-        output <- .fast_mnn_core(merge.tree, k=k, restrict=restrict, ndist=ndist,
-            min.batch.skip=min.batch.skip, BNPARAM=BNPARAM, BPPARAM=BPPARAM,
-            NEXT=.get_next_merge, UPDATE=.update_tree)
+        UPDATE <- .update_tree
+        NEXT <- .get_next_merge
     } else {
         mnn.args <- list(k1=k, k2=k, BNPARAM=BNPARAM, BPPARAM=BPPARAM)
-        remainders <- do.call(.initialize_auto_search, c(list(batches, restrict), mnn.args))
-        updater <- function(remainders, chosen, ...) {
+        merge.tree <- do.call(.initialize_auto_search, c(list(batches, restrict), mnn.args))
+        UPDATE <- function(remainders, chosen, ...) {
             .update_remainders(remainders, chosen, ..., mnn.args=mnn.args)
         }
-        output <- .fast_mnn_core(remainders, k=k, restrict=restrict, ndist=ndist,
-            min.batch.skip=min.batch.skip, BNPARAM=BNPARAM, BPPARAM=BPPARAM,
-            NEXT=.pick_best_merge, UPDATE=updater)
+        NEXT <- .pick_best_merge
     }
+
+    output <- .fast_mnn_core(merge.tree, k=k, restrict=restrict, ndist=ndist, 
+        min.batch.skip=min.batch.skip, BNPARAM=BNPARAM, BPPARAM=BPPARAM, 
+        NEXT=NEXT, UPDATE=UPDATE)
 
     nms <- names(batches)
     if (!is.null(nms)) {
