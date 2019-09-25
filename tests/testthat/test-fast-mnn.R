@@ -349,6 +349,38 @@ test_that("fastMNN works as expected for four batches with trees", {
     expect_true(isTRUE(all.equal(reducedDim(out.treeX), reducedDim(out.treeY))))
 })
 
+set.seed(120000051)
+test_that("fastMNN works as expected for many batches with auto ordering", {
+    # Creating several batches with different composition.
+    collected <- list()
+    for (i in 1:10) {
+        n <- round(runif(1, 5, 20))*10
+        stuff <- runif(100)
+        collected[[i]] <- matrix(rnorm(n*length(stuff), stuff), nrow=length(stuff)) 
+    }
+
+    ref <- do.call(fastMNN, c(collected, list(BSPARAM=ExactParam(), auto.merge=TRUE)))
+
+    # Checking that all our batches are present in the output.
+    by.batch <- rle(ref$batch)
+    expect_identical(by.batch$value, seq_along(collected))
+    expect_identical(by.batch$length, vapply(collected, ncol, 0L)) 
+
+    # The algorithm should yield the same results after reordering if it is correct.
+    # Note that the reordering is done in a manner that preserves the chosen reference at each step
+    # (the later batch is chosen as the reference, but the reference is reported first, hence the rev()).
+    # Otherwise the results will not be identical due to the asymmetry of each merge step.
+    last <- metadata(ref)$merge.info[length(collected)-1,]
+    s <- rev(c(last$left[[1]], last$right[[1]]))
+    expect_identical(sort(s), seq_along(s))
+
+    alt <- do.call(fastMNN, c(collected[s], list(BSPARAM=ExactParam(), auto.merge=TRUE)))
+    expect_identical(metadata(alt)$merge.info$left[[length(collected)-1L]], 10:2)
+
+    o <- order(s[alt$batch])
+    expect_equal(reducedDim(ref), reducedDim(alt)[o,])
+})
+
 set.seed(120000500)
 test_that("fastMNN computes the batch size correctly and skips no-batch scenarios", {
     B1 <- matrix(rnorm(50000), nrow=100) 

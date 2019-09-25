@@ -192,10 +192,11 @@ test_that("mnnCorrect behaves consistently with subsetting", {
     expect_equal(ref[2:4,], out[length(keep)+2:4-1,])
 
     # Duplicated genes should have no effect.
-    out <- mnnCorrect(rbind(alpha, alpha), rbind(bravo, bravo), rbind(charlie, charlie), 
+    extra <- 2:5
+    out <- mnnCorrect(rbind(alpha, alpha[extra,]), rbind(bravo, bravo[extra,]), rbind(charlie, charlie[extra,]), 
         subset.row=1:nrow(alpha), correct.all=TRUE, svd.dim=2)
-    ref1 <- out[1:nrow(alpha),]
-    ref2 <- out[nrow(alpha)+1:nrow(alpha),]
+    ref1 <- out[extra,]
+    ref2 <- out[nrow(alpha)+seq_along(extra),]
     expect_equal(ref1, ref2) 
 })
 
@@ -279,6 +280,14 @@ test_that("mnnCorrect behaves correctly with an alternative order", {
             curout[order(curout[,1], curout[,2]),]
         )
     }
+})
+
+set.seed(100042)
+test_that("mnnCorrect behaves correctly with an automatic order", {
+    alpha <- matrix(rnorm(1000), ncol=100)
+    bravo <- matrix(rnorm(2000), ncol=200)
+    charlie <- matrix(rnorm(3000), ncol=300)
+    out <- mnnCorrect(alpha, bravo, charlie, merge.order=c(2,3,1))
 
     # Works with automatic ordering.
     auto <- mnnCorrect(A=alpha, B=bravo, C=charlie, auto.merge=TRUE)
@@ -287,6 +296,16 @@ test_that("mnnCorrect behaves correctly with an alternative order", {
     expect_identical(metadata(auto)$merge.info$right[[1]], "B") 
     expect_identical(metadata(auto)$merge.info$left[[2]], c("C", "B"))
     expect_identical(metadata(auto)$merge.info$right[[2]], "A")
+
+    # Automatic ordering works with options that force same.set=FALSE
+    extra <- 5:1
+    auto2 <- mnnCorrect(A=rbind(alpha, alpha[extra,]),
+        B=rbind(bravo, bravo[extra,]), 
+        C=rbind(charlie, charlie[extra,]), 
+        auto.merge=TRUE, subset.row=1:10, correct.all=TRUE)
+
+    expect_identical(assay(auto2)[1:nrow(alpha),], assay(auto))
+    expect_identical(assay(auto2)[nrow(alpha)+seq_along(extra),], assay(auto)[extra,])
 })
 
 set.seed(100043)
