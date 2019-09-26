@@ -637,10 +637,4 @@ test_that("fastMNN fails on silly inputs", {
 
     # Throws errors upon restrict name checks.
     expect_error(fastMNN(B=B1, A=B2, restrict=list(A=1, B=2)), "same names")
-
-    # Various failure modes for the merge.order specification.
-    expect_error(fastMNN(B1, B2, merge.order=1:3), "invalid leaf nodes")
-    expect_error(fastMNN(B1, B2, merge.order=c(1,1)), "invalid leaf nodes")
-    expect_error(fastMNN(A=B1, B=B2, merge.order=c("A","C")), "invalid leaf nodes")
-    expect_error(fastMNN(B1, B2, merge.order=list(list(1), list(2))), "two children per node")
 })
