@@ -18,6 +18,30 @@ MNN_treenode <- function(index, data, restrict, origin=rep(index, nrow(data)), e
 ############################################
 # Methods for creating a tree with a pre-defined structure.
 
+.binarize_tree <- function(merge.tree) {
+    if (!is.list(merge.tree)) {
+        return(merge.tree)
+    }
+
+    N <- length(merge.tree)
+    if (N==1L) {
+        # Get rid of useless internal nodes with only one child.
+        .binarize_tree(merge.tree[[1]])
+    } else if (N==2L) {
+        # Keep going.
+        list(.binarize_tree(merge.tree[[1]]), .binarize_tree(merge.tree[[2]]))
+    } else if (N > 2L) {
+        # Progressive merge.
+        current <- list(.binarize_tree(merge.tree[[1]]), .binarize_tree(merge.tree[[2]]))
+        for (i in 3:N) {
+            current <- list(current, .binarize_tree(merge.tree[[i]]))
+        }
+        current
+    } else {
+        stop("merge tree contains a node with no children")
+    }
+}
+
 .fill_tree <- function(merge.tree, batches, restrict) {
     if (!is.list(merge.tree)) {
         val <- batches[[merge.tree]]
@@ -54,6 +78,7 @@ MNN_treenode <- function(index, data, restrict, origin=rep(index, nrow(data)), e
     if (is.null(merge.order)) {
         merge.order <- seq_along(batches)
     }
+
     if (!is.list(merge.order) && length(merge.order) > 1L) {
         merge.tree <- list(merge.order[1], merge.order[2])
         for (i in tail(merge.order, -2L)) {
@@ -63,7 +88,9 @@ MNN_treenode <- function(index, data, restrict, origin=rep(index, nrow(data)), e
         merge.tree <- merge.order
     }
 
-    # Checking validity.
+    merge.tree <- .binarize_tree(merge.tree)
+
+    # Checking validity of leaf identities.
     leaves <- unlist(merge.tree)
     if (!is.numeric(leaves)) {
         leaves <- match(leaves, names(batches))
