@@ -42,8 +42,7 @@
 #'
 #' See \code{?"\link{batchelor-restrict}"} for a description of the \code{restrict} argument.
 #' Specifically, this function will compute the model coefficients using only the specified subset of cells.
-#' However, the regression will then be applied to all cells in each batch.
-#' This means that the output is always of the same dimensionality, regardless of whether \code{restrict} is specified.
+#' The regression will then be applied to all cells in each batch.
 #'
 #' @author Aaron Lun
 #'

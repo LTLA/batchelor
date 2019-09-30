@@ -48,19 +48,8 @@
 #' All genes are used with the default setting of \code{subset.row=NULL}.
 #' Users can set \code{subset.row} to subset the inputs, though this is purely for convenience as each gene is processed independently of other genes.
 #'
-#' @section Using restriction:
-#' It is possible to compute the correction using only a subset of cells in each batch, and then extrapolate that correction to all other cells.
-#' This may be desirable in experimental designs where a control set of cells from the same source population were run on different batches.
-#' Any difference in the controls must be artificial in origin and can be directly removed without making further biological assumptions.
-#'
-#' To do this, users should set \code{restrict} to specify the subset of cells in each batch to be used for correction.
-#' This should be set to a list of length equal to the length of \code{...}, where each element is a subsetting vector to be applied to the columns of the corresponding batch.
-#' A \code{NULL} element indicates that all the cells from a batch should be used.
-#' In situations where one input object contains multiple batches, \code{restrict} is simply a list containing a single subsetting vector for that object.
-#'
-#' The function will compute the scaling differences using only the specified subset of cells.
-#' However, the re-scaling will then be applied to all cells in each batch - hence the extrapolation.
-#' This means that the output is always of the same dimensionality, regardless of whether \code{restrict} is specified.
+#' See \code{?"\link{batchelor-restrict}"} for a description of the \code{restrict} argument.
+#' Specifically, the function will compute the scaling differences using only the specified subset of cells, and then apply the re-scaling to all cells in each batch.
 #'
 #' @author Aaron Lun
 #'

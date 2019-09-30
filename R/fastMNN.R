@@ -141,21 +141,15 @@
 #' Note that this setting will not affect the corrected low-dimension coordinates or the rotation values for the selected genes. 
 #'
 #' @section Using restriction:
-#' It is possible to compute the correction using only a subset of cells in each batch, and then extrapolate that correction to all other cells.
-#' This may be desirable in experimental designs where a control set of cells from the same source population were run on different batches.
-#' Any difference in the controls must be artificial in origin and can be directly removed without making further biological assumptions.
-#'
-#' To do this, users should set \code{restrict} to specify the subset of cells in each batch to be used for correction.
-#' This should be set to a list of length equal to the length of \code{...}, where each element is a subsetting vector to be applied to the columns of the corresponding batch.
-#' A \code{NULL} element indicates that all the cells from a batch should be used.
-#' In situations where one input object contains multiple batches, \code{restrict} is simply a list containing a single subsetting vector for that object.
-#' 
-#' \code{fastMNN} will only use the restricted subset of cells in each batch to identify MNN pairs and the center of the orthogonalization.
-#' However, it will apply the correction to all cells in each batch - hence the extrapolation.
-#' This means that the output is always of the same dimensionality, regardless of whether \code{restrict} is specified.
+#' See \code{?"\link{batchelor-restrict}"} for a description of the \code{restrict} argument.
+#' Specifically, \code{fastMNN} will only use the restricted subset of cells in each batch to identify MNN pairs and the center of the orthogonalization.
+#' It will then extrapolate the correction to all cells in each batch.
 #'
 #' Note that \emph{all} cells are used to perform the PCA, regardless of whether \code{restrict} is set.
-#' Constructing the projection vectors with only control cells will not guarantee resolution of unique non-control populations in each batch.
+#' This is generally desirable in applications where \code{restrict} is useful.
+#' For example, constructing the projection vectors with only control cells will not guarantee resolution of unique non-control populations in each batch.
+#' 
+#' However, this also means that the corrected values for the restricted cells will differ from the output when the inputs are directly subsetted to only contain the restricted cells.
 #' If this is not desirable, users can perform the PCA manually and apply \code{\link{reducedMNN}} instead.
 #'
 #' @section Merge diagnostics:

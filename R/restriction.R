@@ -1,0 +1,43 @@
+#' Using restriction
+#'
+#' @section Motivation:
+#' It is possible to compute the correction using only a subset of cells in each batch, and then extrapolate that correction to all other cells.
+#' This may be desirable in experimental designs where a control set of cells from the same source population were run on different batches.
+#' Any difference in the controls must be artificial in origin and can be directly removed without making further biological assumptions.
+#' Similarly, if certain cells are known to be of a batch-specific subpopulation, it may be desirable to exclude them to ensure that they are not inadvertently used during the batch correction.
+#'
+#' @section Setting the \code{restrict} argument:
+#' To perform restriction, users should set \code{restrict} to specify the subset of cells in each batch to be used for correction.
+#' This should be set to a list of length equal to the number of objects passed to the \code{...} argument of the batch correction function.
+#' Each element of this list should be a subsetting vector to be applied to the columns of the corresponding batch.
+#' A \code{NULL} element indicates that all the cells from a batch should be used.
+#' In situations where one input object contains multiple batches, \code{restrict} should simply a list containing a single subsetting vector for that object.
+#'
+#' Correction functions that support \code{restrict} will only use the restricted subset of cells in each batch to perform the correction.
+#' For example, \code{\link{fastMNN}} will only use the restricted cells to identify MNN pairs and the center of the orthogonalization.
+#' However, it will apply the correction to all cells in each batch - hence the extrapolation.
+#' This means that the output is always of the same dimensionality, regardless of whether \code{restrict} is specified.
+#'
+#' As a general rule, users can expect the corrected values in the restricted cells to be the same as if the inputs were directly subsetted to only contain those cells (see Examples).
+#' This is appealing as it demonstrates that correction only uses information from the restricted subset of cells. 
+#' If batch correction functions do not follow this rule, they will explicitly state so, e.g., in \code{?\link{fastMNN}}.
+#'
+#' @author Aaron Lun
+#' @seealso
+#' \code{\link{rescaleBatches}}, \code{\link{regressBatches}}, \code{\link{fastMNN}} and \code{\link{mnnCorrect}},
+#' as examples of batch correction methods that support restriction.
+#' @name batchelor-restrict
+#' @examples
+#' means <- 2^rgamma(1000, 2, 1)
+#' A1 <- matrix(rpois(10000, lambda=means), ncol=50) # Batch 1 
+#' A2 <- matrix(rpois(10000, lambda=means*runif(1000, 0, 2)), ncol=50) # Batch 2
+#'
+#' B1 <- log2(A1 + 1)
+#' B2 <- log2(A2 + 1)
+#' out <- regressBatches(B1, B2, restrict=list(1:10, 1:10)) 
+#' assay(out)[,c(1:10, 50+1:10)]
+#' 
+#' # Compare to actual subsetting:
+#' out.sub <- regressBatches(B1[,1:10], B2[,1:10])
+#' assay(out.sub)
+NULL
