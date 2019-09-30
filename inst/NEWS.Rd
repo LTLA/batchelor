@@ -18,6 +18,8 @@ Merge trees can also be specified as input.
 
 \item Added batch= and preserve.single= arguments to multiBatchNorm().
 Standardized behavior of subset.row= by adding a normalize.all= argument.
+
+\item Added the regressBatches() function for correction via standard linear regression. 
 }}
 
 \section{Version 1.0.0}{\itemize{
