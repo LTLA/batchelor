@@ -78,7 +78,7 @@ regressBatches <- function(..., batch=NULL, restrict=NULL, subset.row=NULL, assa
     if (any(is.sce)) {
         sce.batches <- batches[is.sce]
         checkSpikeConsistency(sce.batches)
-        subset.row <- .SCE_subset_genes(subset.row, sce.batches[[1]], get.spikes)
+        subset.row <- .SCE_subset_genes(subset.row, sce.batches[[1]], FALSE)
         batches[is.sce] <- lapply(sce.batches, assay, i=assay.type)
     }
 
@@ -94,14 +94,20 @@ regressBatches <- function(..., batch=NULL, restrict=NULL, subset.row=NULL, assa
             batch <- nm[batch]
         }
         if (!is.null(restrict)) {
-            restrict <- mapply("+", restrict, c(0L, head(ncells, -1L)))
+            restrict <- unlist(mapply("+", restrict, c(0L, head(ncells, -1L)), SIMPLIFY=FALSE))
         }
-    } else {
+    } else if (length(batches)==1L) {
         combined <- batches[[1]]
-        restrict <- restrict[[1]]
         if (is.null(batch)) { 
             stop("'batch' must be specified if '...' has only one object")
         }
+        restrict <- restrict[[1]]
+    } else {
+        stop("at least two batches must be specified")
+    }
+
+    if (!is.null(subset.row)) {
+        combined <- combined[subset.row,,drop=FALSE]
     }
 
     design <- model.matrix(~0 + factor(batch))
@@ -114,10 +120,11 @@ regressBatches <- function(..., batch=NULL, restrict=NULL, subset.row=NULL, assa
         Q <- as.matrix(qr.Q(QR))
         Qty <- as.matrix(crossprod(Q, combined[restrict,,drop=FALSE]))
 
-        # TODO: modify ResidualMatrix to accommodate non-standard left %*% right.
+        # TODO: modify ResidualMatrix() to accommodate non-standard left %*% right.
         coefs <- backsolve(qr.R(QR), Qty)
         seed(corrected)@Qty <- coefs
         seed(corrected)@Q <- as.matrix(design)
+        seed(corrected)@centered <- FALSE # no guarantee of centering if you add extra cells.
     }
 
     SingleCellExperiment(list(corrected=t(corrected)), colData=DataFrame(batch=batch)) 
