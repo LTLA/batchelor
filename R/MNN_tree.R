@@ -19,7 +19,7 @@ MNN_treenode <- function(index, data, restrict, origin=rep(index, nrow(data)), e
 # Methods for creating a tree with a pre-defined structure.
 
 .binarize_tree <- function(merge.tree) {
-    if (!is.list(merge.tree)) {
+    if (!is.list(merge.tree) && length(merge.tree)==1L) {
         return(merge.tree)
     }
 

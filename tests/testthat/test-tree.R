@@ -29,6 +29,11 @@ test_that("tree binarization works correctly", {
         list(list(list(1,2),3), list(list(4,5),6))
     )
 
+    expect_identical(
+        batchelor:::.binarize_tree(list(list(1:3), list(4:6))),
+        list(list(list(1L,2L),3L), list(list(4L,5L),6L))
+    )
+
     # No change if it's already binary.
     ref <- list(list(list(1,2),list(3,4)), list(list(5,6), list(7,8)))
     expect_identical(ref, batchelor:::.binarize_tree(ref))
@@ -36,7 +41,7 @@ test_that("tree binarization works correctly", {
     expect_error(batchelor:::.binarize_tree(list(list(), list(1,2,3), list(4,5,6))), "node with no children")
 })
 
-test_that("asdasd", {
+test_that("testing tree construction", {
     B1 <- matrix(1)
     B2 <- matrix(2)
     B3 <- matrix(3)
