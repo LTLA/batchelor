@@ -92,16 +92,11 @@ chosen.hvgs <- combined.dec$bio > 0
 summary(chosen.hvgs)
 ```
 
-We evaluate the batch effect by combining the two `SingleCellExperiment` objects and creating a PCA plot:
+We evaluate the batch effect by combining the two `SingleCellExperiment` objects without any correction and creating a PCA plot:
 
 ```{r}
-# TODO: replace with a no-correction convenience method.
-combined <- SingleCellExperiment(
-    list(logcounts=cbind(logcounts(sce1), logcounts(sce2)))
-)
-combined$batch <- factor(rep(1:2, each=500))
-
 library(scater)
+combined <- correctExperiments(A=sce1, B=sce2, PARAM=NoCorrectParam())
 combined <- runPCA(combined, subset_row=chosen.hvgs)
 plotPCA(combined, colour_by="batch")
 ```
@@ -208,6 +203,15 @@ Thus, `rescaleBatches()` is best suited for merging technical replicates of the 
 rescale.out <- runPCA(rescale.out, subset_row=chosen.hvgs,
     exprs_values="corrected")
 plotPCA(rescale.out, colour_by="batch")
+```
+
+Alternatively, a more direct linear regression of the batch effect can be performed with `regressBatches()`.
+This does not preserve sparsity but uses a different set of tricks to avoid explicitly creating a dense matrix,
+specifically by using the `ResidualMatrix` class from the `r Biocpkg("BiocSingular")` package.
+
+```{r}
+regress.out <- regressBatches(sce1, sce2)
+assay(regress.out)
 ```
 
 # Using data subsets

@@ -23,7 +23,8 @@
 #' @param PARAM A \linkS4class{BatchelorParam} object specifying the batch correction method to dispatch to, and the parameters with which it should be run.
 #' \linkS4class{ClassicMnnParam} will dispatch to \code{\link{mnnCorrect}};
 #' \linkS4class{FastMnnParam} will dispatch to \code{\link{fastMNN}};
-#' and \linkS4class{RescaleParam} will dispatch to \code{\link{rescaleBatches}}.
+#' \linkS4class{RescaleParam} will dispatch to \code{\link{rescaleBatches}};
+#' and \linkS4class{RegressParam} will dispatch to \code{\link{regressBatches}}.
 #' 
 #' @return
 #' A SingleCellExperiment where the first assay contains corrected gene expression values for all genes.
@@ -84,6 +85,14 @@ setMethod("batchCorrect", "RescaleParam", function(..., batch=NULL, restrict=NUL
     if (correct.all) subset.row <- NULL
     combined <- c(list(..., batch=batch, restrict=restrict, subset.row=subset.row, assay.type=assay.type, get.spikes=get.spikes), as.list(PARAM))
     do.call(rescaleBatches, combined)
+})
+
+#' @rdname batchCorrect
+#' @export
+setMethod("batchCorrect", "RegressParam", function(..., batch=NULL, restrict=NULL, subset.row=NULL, correct.all=FALSE, assay.type="logcounts", get.spikes=FALSE, PARAM) {
+    if (correct.all) subset.row <- NULL
+    combined <- c(list(..., batch=batch, restrict=restrict, subset.row=subset.row, assay.type=assay.type, get.spikes=get.spikes), as.list(PARAM))
+    do.call(regressBatches, combined)
 })
 
 #' @rdname batchCorrect

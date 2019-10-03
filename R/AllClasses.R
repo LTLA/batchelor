@@ -18,6 +18,10 @@ setClass("RescaleParam", contains="BatchelorParam")
 
 #' @export
 #' @rdname BatchelorParam
+setClass("RegressParam", contains="BatchelorParam")
+
+#' @export
+#' @rdname BatchelorParam
 setClass("NoCorrectParam", contains="BatchelorParam")
 
 #####################################################

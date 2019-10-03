@@ -63,6 +63,14 @@ RescaleParam <- function(...) {
 #' @export
 #' @importFrom S4Vectors SimpleList
 #' @importFrom methods new
+RegressParam <- function(...) {
+    new("RegressParam", SimpleList(list(...)))
+}
+
+#' @rdname BatchelorParam
+#' @export
+#' @importFrom S4Vectors SimpleList
+#' @importFrom methods new
 NoCorrectParam <- function(...) {
     new("NoCorrectParam", SimpleList(list(...)))
 }
