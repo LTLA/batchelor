@@ -31,7 +31,8 @@ Used to ensure that the output is of the same dimensionality as the input.}
 \item{PARAM}{A \linkS4class{BatchelorParam} object specifying the batch correction method to dispatch to, and the parameters with which it should be run.
 \linkS4class{ClassicMnnParam} will dispatch to \code{\link{mnnCorrect}};
 \linkS4class{FastMnnParam} will dispatch to \code{\link{fastMNN}};
-and \linkS4class{RescaleParam} will dispatch to \code{\link{rescaleBatches}}.}
+\linkS4class{RescaleParam} will dispatch to \code{\link{rescaleBatches}};
+and \linkS4class{RegressParam} will dispatch to \code{\link{regressBatches}}.}
 
 \item{combine.assays}{Character vector specifying the assays from each entry of \code{...} to combine together without correction.
 By default, any named assay that is present in all entries of \code{...} are combined.

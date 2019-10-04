@@ -186,13 +186,15 @@ If \code{merge.order} is a character vector, it is treated as an ordering permut
 
 If \code{merge.order} is a nested list, it is treated as a tree that specifies a hierarchical merge.
 Each element of the list should either be a string or integer scalar, corresponding to a leaf node that specifies a batch;
-or another list, corresponding to an internal node that should contain at least two children.
+or another list, corresponding to an internal node that should contain at least two children;
+or an integer or character vector of length 2 or more, again corresponding to an internal node.
 \itemize{
 \item For example, \code{list(list(1,2), list(3,4))} indicates that batch 1 should be merged with batch 2;
 batch 3 should be merged with batch 4; and that, finally, the combined batches 1+2 and 3+4 should be merged.
-\item More than two children per node are supported and will result in a progressive merge.
+\item More than two children per node are supported and will result in a progressive merge within that node.
 For example, \code{list(list(1,2,3), list(4,5,6))} will merge batch 1 with 2, then 1+2 with 3;
 batch 4 with 5, and then 4+5 with 6; and finally, 1+2+3 with 4+5+6.
+\item The same approach can be used for integer or character vectors, e.g., \code{list(1:3, 4:6)} has the same effect as above.
 }
 A merge tree is useful for merging together batches that are known to be more closely related (e.g., replicates)
 before attempting difficult merges involving more dissimilar batches.

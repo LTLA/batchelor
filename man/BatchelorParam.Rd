@@ -6,10 +6,12 @@
 \alias{ClassicMnnParam-class}
 \alias{FastMnnParam-class}
 \alias{RescaleParam-class}
+\alias{RegressParam-class}
 \alias{NoCorrectParam-class}
 \alias{ClassicMnnParam}
 \alias{FastMnnParam}
 \alias{RescaleParam}
+\alias{RegressParam}
 \alias{NoCorrectParam}
 \title{BatchelorParam methods}
 \usage{
@@ -18,6 +20,8 @@ ClassicMnnParam(...)
 FastMnnParam(...)
 
 RescaleParam(...)
+
+RegressParam(...)
 
 NoCorrectParam(...)
 }

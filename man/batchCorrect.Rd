@@ -6,6 +6,7 @@
 \alias{batchCorrect,ClassicMnnParam-method}
 \alias{batchCorrect,FastMnnParam-method}
 \alias{batchCorrect,RescaleParam-method}
+\alias{batchCorrect,RegressParam-method}
 \alias{batchCorrect,NoCorrectParam-method}
 \title{Batch correction methods}
 \usage{
@@ -21,6 +22,10 @@ batchCorrect(..., batch = NULL, restrict = NULL, subset.row = NULL,
   assay.type = "logcounts", get.spikes = FALSE, PARAM)
 
 \S4method{batchCorrect}{RescaleParam}(..., batch = NULL,
+  restrict = NULL, subset.row = NULL, correct.all = FALSE,
+  assay.type = "logcounts", get.spikes = FALSE, PARAM)
+
+\S4method{batchCorrect}{RegressParam}(..., batch = NULL,
   restrict = NULL, subset.row = NULL, correct.all = FALSE,
   assay.type = "logcounts", get.spikes = FALSE, PARAM)
 
@@ -57,7 +62,8 @@ Only used for SingleCellExperiment inputs.}
 \item{PARAM}{A \linkS4class{BatchelorParam} object specifying the batch correction method to dispatch to, and the parameters with which it should be run.
 \linkS4class{ClassicMnnParam} will dispatch to \code{\link{mnnCorrect}};
 \linkS4class{FastMnnParam} will dispatch to \code{\link{fastMNN}};
-and \linkS4class{RescaleParam} will dispatch to \code{\link{rescaleBatches}}.}
+\linkS4class{RescaleParam} will dispatch to \code{\link{rescaleBatches}};
+and \linkS4class{RegressParam} will dispatch to \code{\link{regressBatches}}.}
 }
 \value{
 A SingleCellExperiment where the first assay contains corrected gene expression values for all genes.
