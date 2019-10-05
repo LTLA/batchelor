@@ -250,7 +250,28 @@ test_that("mnnCorrect behaves consistently with subsetting and cosine normalizat
     default <- mnnCorrect(alpha[keep,], bravo[keep,], charlie[keep,])
     expect_false(isTRUE(all.equal(assay(default), assay(out))))
 })
-    
+
+set.seed(120000411)
+test_that("mnnCorrect uses 'prop.k' correctly", {
+    B1 <- matrix(rnorm(10000, 0), nrow=100) # Batch 1 
+    B2 <- matrix(rnorm(10000, 1), nrow=100) # Batch 2
+
+    ref <- mnnCorrect(B1, B2) 
+    out <- mnnCorrect(B1, B2, k=10, prop.k=20/ncol(B1)) 
+    expect_identical(assay(ref), assay(out))
+
+    # max() kicks in.
+    ref <- mnnCorrect(B1, B2) 
+    out <- mnnCorrect(B1, B2, prop.k=0)
+    expect_identical(assay(ref), assay(out))
+
+    # Actually causes a difference in results.
+    B2a <- matrix(rnorm(20000, 1), nrow=100)
+    ref <- mnnCorrect(B1, B2a)
+    out <- mnnCorrect(B1, B2a, prop.k=20/ncol(B1))
+    expect_false(identical(assay(ref), assay(out)))
+})
+
 set.seed(100042)
 test_that("mnnCorrect behaves correctly with an alternative order", {
     alpha <- matrix(rnorm(1000), ncol=100)

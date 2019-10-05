@@ -34,6 +34,27 @@ test_that("reducedMNN works with names", {
     expect_identical(colnames(out$corrected), colnames(C1))
 })
 
+set.seed(12000052)
+test_that("reducedMNN uses 'prop.k' correctly", {
+    B1 <- matrix(rnorm(10000, 0), ncol=100) # Batch 1
+    B2 <- matrix(rnorm(10000, 1), ncol=100) # Batch 2
+
+    ref <- reducedMNN(B1, B2)
+    out <- reducedMNN(B1, B2, k=10, prop.k=20/nrow(B1))
+    expect_identical(ref, out)
+
+    # max() kicks in.
+    ref <- reducedMNN(B1, B2)
+    out <- reducedMNN(B1, B2, prop.k=0)
+    expect_identical(ref, out)
+
+    # Actually causes a difference in results.
+    B2a <- matrix(rnorm(20000, 1), ncol=100)
+    ref <- reducedMNN(B1, B2a)
+    out <- reducedMNN(B1, B2a, prop.k=20/nrow(B1))
+    expect_false(identical(ref, out))
+})
+
 set.seed(120000521)
 test_that("reducedMNN works with within-object batches", {
     pcd <- list(

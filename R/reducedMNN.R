@@ -50,7 +50,7 @@
 #' @importFrom BiocNeighbors KmknnParam
 #' @importFrom BiocParallel SerialParam bpstart bpstop bpisup register
 #' @importClassesFrom S4Vectors DataFrame
-reducedMNN <- function (..., batch=NULL, k=20, restrict=NULL, ndist=3,
+reducedMNN <- function (..., batch=NULL, k=20, prop.k=NULL, restrict=NULL, ndist=3,
     merge.order=NULL, auto.merge=FALSE, auto.order=NULL, min.batch.skip=0,
     BNPARAM=KmknnParam(), BPPARAM=SerialParam())
 {
@@ -74,7 +74,8 @@ reducedMNN <- function (..., batch=NULL, k=20, restrict=NULL, ndist=3,
         on.exit(bpstop(BPPARAM), add=TRUE)
     }
 
-    args <- list(k=k, ndist=ndist, merge.order=merge.order, auto.merge=auto.merge, auto.order=auto.order,
+    args <- list(k=k, prop.k=prop.k, ndist=ndist, 
+        merge.order=merge.order, auto.merge=auto.merge, auto.order=auto.order,
         min.batch.skip=min.batch.skip, BNPARAM=BNPARAM, BPPARAM=BPPARAM)
 
     if (length(batches)==1L) {
