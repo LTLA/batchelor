@@ -4,12 +4,12 @@
 \alias{mnnCorrect}
 \title{Mutual nearest neighbors correction}
 \usage{
-mnnCorrect(..., batch = NULL, restrict = NULL, k = 20, sigma = 0.1,
-  cos.norm.in = TRUE, cos.norm.out = TRUE, svd.dim = 0L,
-  var.adj = TRUE, subset.row = NULL, correct.all = FALSE,
-  merge.order = NULL, auto.merge = FALSE, auto.order = NULL,
-  assay.type = "logcounts", get.spikes = FALSE,
-  BSPARAM = ExactParam(), BNPARAM = KmknnParam(),
+mnnCorrect(..., batch = NULL, restrict = NULL, k = 20,
+  prop.k = NULL, sigma = 0.1, cos.norm.in = TRUE,
+  cos.norm.out = TRUE, svd.dim = 0L, var.adj = TRUE,
+  subset.row = NULL, correct.all = FALSE, merge.order = NULL,
+  auto.merge = FALSE, auto.order = NULL, assay.type = "logcounts",
+  get.spikes = FALSE, BSPARAM = ExactParam(), BNPARAM = KmknnParam(),
   BPPARAM = SerialParam())
 }
 \arguments{
@@ -27,6 +27,9 @@ This is ignored if multiple objects are present.}
 Each entry of the list corresponds to one batch and specifies the cells to use when computing the correction.}
 
 \item{k}{An integer scalar specifying the number of nearest neighbors to consider when identifying mutual nearest neighbors.}
+
+\item{prop.k}{A numeric scalar in (0, 1) specifying the proportion of cells in each dataset to use for mutual nearest neighbor searching.
+If set, \code{k} for the search in each batch is redefined as \code{max(k, prop.k*N)} where \code{N} is the number of cells in that batch.}
 
 \item{sigma}{A numeric scalar specifying the bandwidth of the Gaussian smoothing kernel used to compute the correction vector for each cell.}
 
@@ -166,6 +169,11 @@ However, values of \code{k} should not be too large, as this would result in MNN
 In practice, increasing \code{k} will generally result in more aggressive merging as the algorithm is more generous in matching subpopulations across batches.
 We suggest starting with the default \code{k} and increasing it if one is confident that the same cell types are not adequately merged across batches.
 This is better than starting with a large \code{k} as incorrect merging is much harder to diagnose than insufficient merging.
+
+An additional consideration is that the effect of any given \code{k} will vary with the number of cells in each batch.
+With more cells, a larger \code{k} may be preferable to achieve better merging in the presence of non-orthogonality.
+We can achieve this by setting \code{prop.k}, which allows the choice of \code{k} to adapt to the size of each batch at each merge step.
+This also handles asymmetry in batch sizes via the \code{k1} and \code{k2} arguments in \code{\link{findMutualNN}}.
 }
 
 \section{Controlling the merge order}{

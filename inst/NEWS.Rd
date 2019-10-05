@@ -20,6 +20,9 @@ Merge trees can also be specified as input.
 Standardized behavior of subset.row= by adding a normalize.all= argument.
 
 \item Added the regressBatches() function for correction via standard linear regression. 
+
+\item Added the prop.k= argument in all MNN-related functions,
+to allow the value of k to adapt asymmetrically to the size of each batch.
 }}
 
 \section{Version 1.0.0}{\itemize{

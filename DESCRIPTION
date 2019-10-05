@@ -1,6 +1,6 @@
 Package: batchelor
-Version: 1.1.16
-Date: 2019-10-03
+Version: 1.1.17
+Date: 2019-10-04
 Title: Single-Cell Batch Correction Methods
 Authors@R: c(person("Aaron", "Lun", role = c("aut", "cre"), email = "infinite.monkeys.with.keyboards@gmail.com"),
     person("Laleh", "Haghverdi", role="ctb"))
@@ -42,8 +42,8 @@ LinkingTo:
 Description: 
     Implements a variety of methods for batch correction of single-cell (RNA sequencing) data. 
     This includes methods based on detecting mutually nearest neighbors,
-    as well as a simple sparsity-preserving translation of the population means. 
-    Functions are also provided for global rescaling to remove differences in depth between batches, 
+    as well as several efficient variants of linear regression of the log-expression values.
+    Functions are also provided to perform global rescaling to remove differences in depth between batches,
     and to perform a principal components analysis that is robust to differences in the numbers of cells across batches.
 License: GPL-3
 NeedsCompilation: yes
