@@ -431,7 +431,7 @@ fastMNN <- function(..., batch=NULL, k=20, prop.k=NULL, restrict=NULL, cos.norm=
         NEXT <- .pick_best_merge
     }
 
-    output <- .fast_mnn_core(merge.tree, k=k, prop.k, restrict=restrict, ndist=ndist, 
+    output <- .fast_mnn_core(merge.tree, k=k, prop.k=prop.k, restrict=restrict, ndist=ndist, 
         min.batch.skip=min.batch.skip, BNPARAM=BNPARAM, BPPARAM=BPPARAM, 
         NEXT=NEXT, UPDATE=UPDATE)
 
@@ -515,20 +515,6 @@ fastMNN <- function(..., batch=NULL, k=20, prop.k=NULL, restrict=NULL, cos.norm=
             left.data <- .center_along_batch_vector(left.data, overall.batch, restrict=left.restrict)
             right.data <- .center_along_batch_vector(right.data, overall.batch, restrict=right.restrict)
 
-#            if (TRUE) {
-#                # Remove local variation (note the use of '0' to avoid using the updated function ahead of time).
-#                right.ave.out <- .average_correction(left.data, mnn.sets$first, right.data, mnn.sets$second)
-#                right.data0 <- .orthogonalize_local(right.data, right.ave.out$averaged, right.ave.out$second, 
-#                    k=100, ndist=ndist, BNPARAM=BNPARAM, BPPARAM=BPPARAM)
-#
-#                left.ave.out <- .average_correction(right.data, mnn.sets$second, left.data, mnn.sets$first)
-#                left.data0 <- .orthogonalize_local(left.data, left.ave.out$averaged, left.ave.out$second, 
-#                    k=100, ndist=ndist, BNPARAM=BNPARAM, BPPARAM=BPPARAM)
-#
-#                left.data <- left.data0
-#                right.data <- right.data0
-#            }
-
             # Also recording the lost variation if desired, which does not respond to 'restrict'.
             left.new.var <- .compute_perbatch_var(left.data, left.index, left.origin)
             right.new.var <- .compute_perbatch_var(right.data, right.index, right.origin)
@@ -537,7 +523,8 @@ fastMNN <- function(..., batch=NULL, k=20, prop.k=NULL, restrict=NULL, cos.norm=
             # Recompute correction vectors and apply them to all cells (hence, no restriction).
             re.ave.out <- .average_correction(left.data, mnn.sets$first, right.data, mnn.sets$second)
             right.data <- .tricube_weighted_correction(right.data, re.ave.out$averaged, re.ave.out$second,
-                k=k, ndist=ndist, BNPARAM=BNPARAM, BPPARAM=BPPARAM)
+                k=.choose_k(k, prop.k, nrow(right.data)), ndist=ndist, BNPARAM=BNPARAM, BPPARAM=BPPARAM)
+
         } else {
             to.add <- list()
             left.new.var <- .compute_perbatch_var(left.data, left.index, left.origin)
@@ -637,19 +624,6 @@ fastMNN <- function(..., batch=NULL, k=20, prop.k=NULL, restrict=NULL, cos.norm=
     closest <- queryKNN(query=curdata, X=cur.uniq, k=safe.k, BNPARAM=BNPARAM, BPPARAM=BPPARAM)
     weighted.correction <- .compute_tricube_average(correction, closest$index, closest$distance, ndist=ndist)
     curdata + weighted.correction
-}
-
-#' @importFrom BiocNeighbors queryKNN KmknnParam
-#' @importFrom BiocParallel SerialParam
-.orthogonalize_local <- function(curdata, correction, in.mnn, k=20, ndist=3, BNPARAM=KmknnParam(), BPPARAM=SerialParam()) {
-    cur.uniq <- curdata[in.mnn,,drop=FALSE]
-    safe.k <- min(k, nrow(cur.uniq))
-    closest <- queryKNN(query=curdata, X=cur.uniq, k=safe.k, BNPARAM=BNPARAM, BPPARAM=BPPARAM)
-    wcorrection <- .compute_tricube_average(correction, closest$index, closest$distance, ndist=ndist)
-
-    wcorrection0 <- wcorrection/pmax(1e-8, sqrt(rowSums(wcorrection^2)))
-    proj <- rowSums(wcorrection0 * curdata)
-    curdata - wcorrection0 * proj
 }
 
 ############################################

@@ -223,6 +223,27 @@ test_that("variance loss calculations work as expected", {
     expect_identical(metadata(mnn.outx)$merge.info$lost.var, matrix(0, 2, 3))
 })
 
+set.seed(120000421)
+test_that("fastMNN uses 'prop.k' correctly", {
+    B1 <- matrix(rnorm(10000, 0), nrow=100) # Batch 1 
+    B2 <- matrix(rnorm(10000, 1), nrow=100) # Batch 2
+
+    ref <- fastMNN(B1, B2, BSPARAM=ExactParam()) 
+    out <- fastMNN(B1, B2, BSPARAM=ExactParam(), k=10, prop.k=20/ncol(B1)) 
+    expect_identical(reducedDim(ref), reducedDim(out))
+
+    # max() kicks in.
+    ref <- fastMNN(B1, B2, BSPARAM=ExactParam()) 
+    out <- fastMNN(B1, B2, BSPARAM=ExactParam(), prop.k=0)
+    expect_identical(reducedDim(ref), reducedDim(out))
+
+    # Actually causes a difference in results.
+    B2a <- matrix(rnorm(20000, 1), nrow=100)
+    ref <- fastMNN(B1, B2a, BSPARAM=ExactParam()) 
+    out <- fastMNN(B1, B2a, BSPARAM=ExactParam(), prop.k=20/ncol(B1))
+    expect_false(identical(reducedDim(ref), reducedDim(out)))
+})
+
 set.seed(12000043)
 test_that("fastMNN changes the reference batch upon orthogonalization", {
     B1 <- matrix(rnorm(10000, 0), nrow=100) # Batch 1 
