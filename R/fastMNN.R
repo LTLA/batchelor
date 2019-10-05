@@ -98,14 +98,15 @@
 #' i.e., the first batch is merged with the second batch, 
 #' the third batch is merged with the combined first-second batch,
 #' the fourth batch is merged with the combined first-second-third batch and so on.
+#' We refer to this approach as a progressive merge.
 #'
-#' If \code{merge.order} is an integer vector, it is treated as an ordering permutation with which to merge batches.
+#' If \code{merge.order} is an integer vector, it is treated as an ordering permutation with which to perform a progressive merge.
 #' For example, if \code{merge.order=c(4,1,3,2)}, batches 4 and 1 in \code{...} are merged first;
 #' batch 3 is merged with the combined 4+1 batch; 
 #' and then batch 2 is merged with the combined 4+1+3 batch.
 #' This is often more convenient than changing the order manually in \code{...}, 
 #' which would alter the order of batches in the output \code{corrected} matrix.
-#' 
+#'
 #' If \code{merge.order} is a character vector, it is treated as an ordering permutation for named batches.
 #'
 #' If \code{merge.order} is a nested list, it is treated as a tree that specifies a hierarchical merge.
@@ -120,17 +121,29 @@
 #' batch 4 with 5, and then 4+5 with 6; and finally, 1+2+3 with 4+5+6.
 #' \item The same approach can be used for integer or character vectors, e.g., \code{list(1:3, 4:6)} has the same effect as above.
 #' }
-#' A merge tree is useful for merging together batches that are known to be more closely related (e.g., replicates)
+#' Note that, while batches can be specified by name (character) or index (integer), users cannot use both in the same tree.
+#'
+#' The merge order may occasionally be important as it determines the number of MNN pairs available at each merge step.
+#' MNN pairs results in greater stability of the batch vectors and increased likelihood of identifying shared subpopulations,
+#' which are important to the precision and accuracy of the MNN-based correction, respectively.
+#' \itemize{
+#' \item  In a progressive merge, the reference increases in size at each step,
+#' ensuring that more cells are available to identify MNN pairs in later merges.
+#' We suggest setting the largest, most heterogeneous batch as the first reference,
+#' which favors detection of sufficient MNN pairs between the first and other batches.
+#' Conversely, if two small batches without shared populations are supplied first, 
+#' the wrong MNN pairs will be detected and the result of the merge will be incorrect.
+#' \item A merge tree is useful for merging together batches that are known to be more closely related (e.g., replicates)
 #' before attempting difficult merges involving more dissimilar batches.
 #' The idea is to increase the number of cells and thus MNN pairs prior to merging batches with few shared subpopulations.
-#' Note that batches can be specified by name (character) or index (integer), but not both in the same tree.
-#' 
-#' If \code{auto.merge=TRUE}, merge steps are chosen to maximize the number of MNN pairs at each step.
+#' By comparison, performing the more difficult merges first is more likely to introduce errors whereby distinct subpopulations are incorrectly placed together, which is propagated to later steps as the initial merge is used as a reference for subsequent merges.
+#' \item If \code{auto.merge=TRUE}, merge steps are chosen to maximize the number of MNN pairs at each step.
 #' The aim is to improve the stability of the correction by first merging more similar batches with more MNN pairs.
 #' This can be somewhat time-consuming as MNN pairs need to be iteratively recomputed for all possible batch pairings.
+#' }
 #'
 #' The order of cells in the output is \emph{never} affected by the setting of \code{merge.order} or \code{auto.order}.
-#' It depends only on the order of elements in \code{...}.
+#' It depends only on the order of objects in \code{...} and the order of cells within each object.
 #'
 #' @section Choice of genes:
 #' All genes are used with the default setting of \code{subset.row=NULL}.
