@@ -107,7 +107,7 @@ MNN_treenode <- function(index, data, restrict, origin=rep(index, nrow(data)), e
 
 ############################################
 
-.restricted_mnn <- function(left.data, left.restrict, right.data, right.restrict, ...) {
+.restricted_mnn <- function(left.data, left.restrict, right.data, right.restrict, k, prop.k=NULL, ...) {
     if (!is.null(left.restrict)) {
         left.data <- left.data[left.restrict,,drop=FALSE]
     } else {
@@ -120,7 +120,14 @@ MNN_treenode <- function(index, data, restrict, origin=rep(index, nrow(data)), e
         right.data <- right.data
     }
 
-    pairs <- findMutualNN(left.data, right.data, ...)
+    if (is.null(prop.k)) {
+        k1 <- k2 <- k
+    } else {
+        k1 <- max(k, round(prop.k * nrow(left.data)))
+        k2 <- max(k, round(prop.k * nrow(right.data)))
+    }
+
+    pairs <- findMutualNN(left.data, right.data, k1=k1, k2=k2, ...)
     pairs$first <- .unrestrict_indices(pairs$first, left.restrict)
     pairs$second <- .unrestrict_indices(pairs$second, right.restrict)
     pairs

@@ -16,6 +16,8 @@
 #' @param restrict A list of length equal to the number of objects in \code{...}.
 #' Each entry of the list corresponds to one batch and specifies the cells to use when computing the correction.
 #' @param k An integer scalar specifying the number of nearest neighbors to consider when identifying MNNs.
+#' @param prop.k A numeric scalar in (0, 1) specifying the proportion of cells in each dataset to use for mutual nearest neighbor searching.
+#' If set, \code{k} for the search in each batch is redefined as \code{max(k, prop.k*N)} where \code{N} is the number of cells in that batch.
 #' @param cos.norm A logical scalar indicating whether cosine normalization should be performed on the input data prior to PCA.
 #' @param ndist A numeric scalar specifying the threshold beyond which neighbours are to be ignored when computing correction vectors.
 #' Each threshold is defined as a multiple of the number of median distances.
@@ -194,6 +196,11 @@
 #' In practice, increasing \code{k} will generally result in more aggressive merging as the algorithm is more generous in matching subpopulations across batches.
 #' We suggest starting with the default \code{k} and increasing it if one is confident that the same cell types are not adequately merged across batches.
 #' This is better than starting with a large \code{k} as incorrect merging is much harder to diagnose than insufficient merging.
+#'
+#' An additional consideration is that the effect of any given \code{k} will vary with the number of cells in each batch.
+#' With more cells, a larger \code{k} may be preferable to achieve better merging in the presence of non-orthogonality.
+#' We can achieve this by setting \code{prop.k}, which allows the choice of \code{k} to adapt to the size of each batch at each merge step.
+#' This also handles asymmetry in batch sizes via the \code{k1} and \code{k2} arguments in \code{\link{findMutualNN}}.
 #' 
 #' @section Orthogonalization details:
 #' \code{fastMNN} will compute the percentage of variance that is lost from each batch during orthogonalization at each merge step.
@@ -225,8 +232,8 @@
 #' \code{\link{mnnCorrect}} for the \dQuote{classic} version of the MNN correction algorithm.
 #'
 #' @examples
-#' B1 <- matrix(rnorm(10000), ncol=50) # Batch 1 
-#' B2 <- matrix(rnorm(10000), ncol=50) # Batch 2
+#' B1 <- matrix(rnorm(10000, -1), ncol=50) # Batch 1 
+#' B2 <- matrix(rnorm(10000, 1), ncol=50) # Batch 2
 #' out <- fastMNN(B1, B2)
 #'
 #' # Corrected values for use in clustering, etc.
@@ -253,7 +260,7 @@
 #' @importClassesFrom S4Vectors List
 #' @importFrom S4Vectors DataFrame metadata<-
 #' @importFrom methods as
-fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3, d=50, weights=NULL,
+fastMNN <- function(..., batch=NULL, k=20, prop.k=NULL, restrict=NULL, cos.norm=TRUE, ndist=3, d=50, weights=NULL,
     merge.order=NULL, auto.merge=FALSE, auto.order=NULL, min.batch.skip=0,
     subset.row=NULL, correct.all=FALSE, pc.input=FALSE, assay.type="logcounts", get.spikes=FALSE, use.dimred=NULL, 
     BSPARAM=IrlbaParam(deferred=TRUE), BNPARAM=KmknnParam(), BPPARAM=SerialParam()) 
@@ -279,7 +286,7 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
     }
     if (pc.input) {
         .Deprecated(msg="'pc.input=TRUE' and 'use.dimred=TRUE' are deprecated.\nUse 'reducedMNN' instead.")
-        return(reducedMNN(..., batch=batch, k=k, restrict=restrict, ndist=ndist,
+        return(reducedMNN(..., batch=batch, k=k, prop.k=prop.k, restrict=restrict, ndist=ndist,
             merge.order=merge.order, auto.merge=auto.merge, auto.order=auto.order,
             min.batch.skip=min.batch.skip, BNPARAM=KmknnParam(), BPPARAM=SerialParam()))
     }
@@ -311,7 +318,7 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
     }
 
     # Performing the MNN search.
-    common.args <-list(k=k, cos.norm=cos.norm, ndist=ndist, 
+    common.args <-list(k=k, prop.k=prop.k, cos.norm=cos.norm, ndist=ndist, 
         d=d, weights=weights, subset.row=subset.row, correct.all=correct.all, 
         min.batch.skip=min.batch.skip, 
         merge.order=merge.order, auto.merge=auto.merge, auto.order=auto.order,
@@ -337,7 +344,7 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
 }
 
 ############################################
-# Function to prepare data from a list or a single batch.
+# Functions to prepare data (specifically, generate the PCs) from a list or a single batch.
 
 #' @importFrom BiocSingular ExactParam 
 #' @importFrom BiocParallel SerialParam
@@ -391,18 +398,17 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
 }
 
 ############################################
-# Internal main function, to separate the input handling from the actual calculations.
+# Functions to perform the correction, given a set of PC coordinates.
+# Split into a wrapper around a core function to distinguish between 
+# calculations with a pre-defined vs automatically determined merge tree. 
 
 #' @importFrom BiocParallel SerialParam
 #' @importFrom BiocNeighbors KmknnParam
 #' @importClassesFrom S4Vectors List
-.fast_mnn <- function(batches, k=20, restrict=NULL, ndist=3, 
+.fast_mnn <- function(batches, k=20, prop.k=NULL, restrict=NULL, ndist=3, 
     merge.order=NULL, auto.merge=FALSE, auto.order=NULL, 
     min.batch.skip=0, BNPARAM=KmknnParam(), BPPARAM=SerialParam()) 
 {
-    args <- list(k=k, restrict=restrict, ndist=ndist,
-        min.batch.skip=min.batch.skip, BNPARAM=BNPARAM, BPPARAM=BPPARAM)
-
     if (!is.null(auto.order)) {
         .Deprecated(old="auto.order", new="auto.merge")
         if (isTRUE(auto.order)) {
@@ -417,7 +423,7 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
         UPDATE <- .update_tree
         NEXT <- .get_next_merge
     } else {
-        mnn.args <- list(k1=k, k2=k, BNPARAM=BNPARAM, BPPARAM=BPPARAM)
+        mnn.args <- list(k=k, prop.k=prop.k, BNPARAM=BNPARAM, BPPARAM=BPPARAM)
         merge.tree <- do.call(.initialize_auto_search, c(list(batches, restrict), mnn.args))
         UPDATE <- function(remainders, chosen, ...) {
             .update_remainders(remainders, chosen, ..., mnn.args=mnn.args)
@@ -425,7 +431,7 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
         NEXT <- .pick_best_merge
     }
 
-    output <- .fast_mnn_core(merge.tree, k=k, restrict=restrict, ndist=ndist, 
+    output <- .fast_mnn_core(merge.tree, k=k, prop.k, restrict=restrict, ndist=ndist, 
         min.batch.skip=min.batch.skip, BNPARAM=BNPARAM, BPPARAM=BPPARAM, 
         NEXT=NEXT, UPDATE=UPDATE)
 
@@ -446,7 +452,7 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
 #' @importFrom BiocNeighbors KmknnParam
 #' @importClassesFrom S4Vectors List
 #' @importFrom methods as
-.fast_mnn_core <- function(merge.tree, k=20, restrict=NULL, ndist=3, 
+.fast_mnn_core <- function(merge.tree, k=20, prop.k=NULL, restrict=NULL, ndist=3, 
     min.batch.skip=0, BNPARAM=KmknnParam(), BPPARAM=SerialParam(),
     NEXT, UPDATE)
 {
@@ -485,14 +491,15 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
         # Orthogonalizing and obtaining all MNNs.
         right.data <- .orthogonalize_other(right.data, right.restrict, left.extras)
         left.data <- .orthogonalize_other(left.data, left.restrict, right.extras)
+
         mnn.sets <- .restricted_mnn(left.data, left.restrict, right.data, right.restrict, 
-            k1=k, k2=k, BNPARAM=BNPARAM, BPPARAM=BPPARAM)
+            k=k, prop.k=prop.k, BNPARAM=BNPARAM, BPPARAM=BPPARAM)
 
         # Estimate the overall batch vector (implicitly 'restrict'd by definition of MNNs).
         ave.out <- .average_correction(left.data, mnn.sets$first, right.data, mnn.sets$second)
         overall.batch <- colMeans(ave.out$averaged)
 
-        do.correct <- TRUE 
+        do.correct <- TRUE
         if (!is.na(min.batch.skip)) {
             batch.magnitude <- .get_batch_magnitude(ave.out$averaged, overall.batch)
             batch.size[mdx] <- batch.magnitude
@@ -505,17 +512,31 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
 
         if (do.correct) {
             # Remove variation along the batch vector, which responds to 'restrict'.
-            # Also recording the lost variation if desired, which does not respond to 'restrict'.
             left.data <- .center_along_batch_vector(left.data, overall.batch, restrict=left.restrict)
             right.data <- .center_along_batch_vector(right.data, overall.batch, restrict=right.restrict)
 
+#            if (TRUE) {
+#                # Remove local variation (note the use of '0' to avoid using the updated function ahead of time).
+#                right.ave.out <- .average_correction(left.data, mnn.sets$first, right.data, mnn.sets$second)
+#                right.data0 <- .orthogonalize_local(right.data, right.ave.out$averaged, right.ave.out$second, 
+#                    k=100, ndist=ndist, BNPARAM=BNPARAM, BPPARAM=BPPARAM)
+#
+#                left.ave.out <- .average_correction(right.data, mnn.sets$second, left.data, mnn.sets$first)
+#                left.data0 <- .orthogonalize_local(left.data, left.ave.out$averaged, left.ave.out$second, 
+#                    k=100, ndist=ndist, BNPARAM=BNPARAM, BPPARAM=BPPARAM)
+#
+#                left.data <- left.data0
+#                right.data <- right.data0
+#            }
+
+            # Also recording the lost variation if desired, which does not respond to 'restrict'.
             left.new.var <- .compute_perbatch_var(left.data, left.index, left.origin)
             right.new.var <- .compute_perbatch_var(right.data, right.index, right.origin)
             to.add <- list(overall.batch)
 
             # Recompute correction vectors and apply them to all cells (hence, no restriction).
             re.ave.out <- .average_correction(left.data, mnn.sets$first, right.data, mnn.sets$second)
-            right.data <- .tricube_weighted_correction(right.data, re.ave.out$averaged, re.ave.out$second, 
+            right.data <- .tricube_weighted_correction(right.data, re.ave.out$averaged, re.ave.out$second,
                 k=k, ndist=ndist, BNPARAM=BNPARAM, BPPARAM=BPPARAM)
         } else {
             to.add <- list()
@@ -523,6 +544,7 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
             right.new.var <- .compute_perbatch_var(right.data, right.index, right.origin)
         }
 
+        # Recompute correction vectors and apply them to all cells (hence, no restriction).
         var.kept[mdx,left.index] <- left.new.var/left.old.var
         var.kept[mdx,right.index] <- right.new.var/right.old.var
         mnn.pairings[[mdx]] <- DataFrame(left=mnn.sets$first, right=mnn.sets$second)
@@ -615,6 +637,19 @@ fastMNN <- function(..., batch=NULL, k=20, restrict=NULL, cos.norm=TRUE, ndist=3
     closest <- queryKNN(query=curdata, X=cur.uniq, k=safe.k, BNPARAM=BNPARAM, BPPARAM=BPPARAM)
     weighted.correction <- .compute_tricube_average(correction, closest$index, closest$distance, ndist=ndist)
     curdata + weighted.correction
+}
+
+#' @importFrom BiocNeighbors queryKNN KmknnParam
+#' @importFrom BiocParallel SerialParam
+.orthogonalize_local <- function(curdata, correction, in.mnn, k=20, ndist=3, BNPARAM=KmknnParam(), BPPARAM=SerialParam()) {
+    cur.uniq <- curdata[in.mnn,,drop=FALSE]
+    safe.k <- min(k, nrow(cur.uniq))
+    closest <- queryKNN(query=curdata, X=cur.uniq, k=safe.k, BNPARAM=BNPARAM, BPPARAM=BPPARAM)
+    wcorrection <- .compute_tricube_average(correction, closest$index, closest$distance, ndist=ndist)
+
+    wcorrection0 <- wcorrection/pmax(1e-8, sqrt(rowSums(wcorrection^2)))
+    proj <- rowSums(wcorrection0 * curdata)
+    curdata - wcorrection0 * proj
 }
 
 ############################################

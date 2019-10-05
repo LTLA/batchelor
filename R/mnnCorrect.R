@@ -13,6 +13,8 @@
 #' @param restrict A list of length equal to the number of objects in \code{...}.
 #' Each entry of the list corresponds to one batch and specifies the cells to use when computing the correction.
 #' @param k An integer scalar specifying the number of nearest neighbors to consider when identifying mutual nearest neighbors.
+#' @param prop.k A numeric scalar in (0, 1) specifying the proportion of cells in each dataset to use for mutual nearest neighbor searching.
+#' If set, \code{k} for the search in each batch is redefined as \code{max(k, prop.k*N)} where \code{N} is the number of cells in that batch.
 #' @param sigma A numeric scalar specifying the bandwidth of the Gaussian smoothing kernel used to compute the correction vector for each cell.
 #' @param cos.norm.in A logical scalar indicating whether cosine normalization should be performed on the input data prior to calculating distances between cells.
 #' @param cos.norm.out A logical scalar indicating whether cosine normalization should be performed prior to computing corrected expression values.
@@ -139,7 +141,7 @@
 #' @importFrom SummarizedExperiment assay
 #' @importFrom BiocSingular ExactParam
 #' @importFrom BiocNeighbors KmknnParam
-mnnCorrect <- function(..., batch=NULL, restrict=NULL, k=20, sigma=0.1, 
+mnnCorrect <- function(..., batch=NULL, restrict=NULL, k=20, prop.k=NULL, sigma=0.1, 
     cos.norm.in=TRUE, cos.norm.out=TRUE, svd.dim=0L, var.adj=TRUE, 
     subset.row=NULL, correct.all=FALSE, merge.order=NULL, auto.merge=FALSE, auto.order=NULL, 
     assay.type="logcounts", get.spikes=FALSE, BSPARAM=ExactParam(), BNPARAM=KmknnParam(), BPPARAM=SerialParam())
@@ -176,7 +178,7 @@ mnnCorrect <- function(..., batch=NULL, restrict=NULL, k=20, sigma=0.1,
     }
 
     output <- do.call(.mnn_correct, c(batches, 
-        list(k=k, sigma=sigma, cos.norm.in=cos.norm.in, cos.norm.out=cos.norm.out, svd.dim=svd.dim, 
+        list(k=k, prop.k=prop.k, sigma=sigma, cos.norm.in=cos.norm.in, cos.norm.out=cos.norm.out, svd.dim=svd.dim, 
             var.adj=var.adj, subset.row=subset.row, correct.all=correct.all, restrict=restrict,
             merge.order=merge.order, auto.merge=auto.merge, auto.order=auto.order, 
             BSPARAM=BSPARAM, BNPARAM=BNPARAM, BPPARAM=BPPARAM)))
@@ -192,13 +194,15 @@ mnnCorrect <- function(..., batch=NULL, restrict=NULL, k=20, sigma=0.1,
 }
 
 ####################################
-# Internal main function, to separate data handling from the actual calculations.
+# Internal main functions, to separate input/output munging from the actual calculations.
+# This is split into two functions - .mnn_correct() sets up the core function, which
+# defines how to handle predefined vs automatically determined merge trees.
 
 #' @importFrom Matrix t
 #' @importFrom BiocParallel SerialParam
 #' @importFrom BiocSingular ExactParam
 #' @importFrom BiocNeighbors KmknnParam
-.mnn_correct <- function(..., k=20, sigma=0.1, cos.norm.in=TRUE, cos.norm.out=TRUE, svd.dim=0L, var.adj=TRUE, 
+.mnn_correct <- function(..., k=20, prop.k=NULL, sigma=0.1, cos.norm.in=TRUE, cos.norm.out=TRUE, svd.dim=0L, var.adj=TRUE, 
     subset.row=NULL, correct.all=FALSE, restrict=NULL, 
     merge.order=NULL, auto.merge=FALSE, auto.order=NULL, 
     BSPARAM=ExactParam(), BNPARAM=KmknnParam(), BPPARAM=SerialParam())
@@ -240,7 +244,7 @@ mnnCorrect <- function(..., batch=NULL, restrict=NULL, k=20, sigma=0.1,
         # Putting the out.batches information in the 'extras'.
         merge.tree <- .add_out_batches_to_tree(merge.tree, if (same.set) NULL else out.batches)
     } else {
-        mnn.args <- list(k1=k, k2=k, BNPARAM=BNPARAM, BPPARAM=BPPARAM, orthogonalize=FALSE)
+        mnn.args <- list(k=k, prop.k=prop.k, BNPARAM=BNPARAM, BPPARAM=BPPARAM, orthogonalize=FALSE)
         merge.tree <- do.call(.initialize_auto_search, c(list(in.batches, restrict), mnn.args))
 
         NEXT <- .pick_best_merge
@@ -253,7 +257,7 @@ mnnCorrect <- function(..., batch=NULL, restrict=NULL, k=20, sigma=0.1,
             merge.tree[[i]]@extras <- if (same.set) list(NULL) else out.batches[.get_node_index(merge.tree[[i]])]
         }
     }
-    output <- .mnn_correct_core(merge.tree, NEXT=NEXT, UPDATE=UPDATE, k=k, sigma=sigma,
+    output <- .mnn_correct_core(merge.tree, NEXT=NEXT, UPDATE=UPDATE, k=k, prop.k=prop.k, sigma=sigma,
         same.set=same.set, svd.dim=svd.dim, var.adj=var.adj, subset.row=subset.row, 
         BSPARAM=BSPARAM, BNPARAM=BNPARAM, BPPARAM=BPPARAM)
 
@@ -285,7 +289,7 @@ mnnCorrect <- function(..., batch=NULL, restrict=NULL, k=20, sigma=0.1,
 #' @importFrom SingleCellExperiment SingleCellExperiment 
 #' @importFrom Matrix t
 .mnn_correct_core <- function(merge.tree, NEXT, UPDATE,
-    same.set=FALSE, k=20, sigma=0.1, svd.dim=0L, var.adj=TRUE, subset.row=NULL,
+    same.set=FALSE, k=20, prop.k=NULL, sigma=0.1, svd.dim=0L, var.adj=TRUE, subset.row=NULL,
     BSPARAM=ExactParam(), BNPARAM=KmknnParam(), BPPARAM=SerialParam()) 
 {
     nbatches <- length(unlist(merge.tree))
@@ -312,7 +316,7 @@ mnnCorrect <- function(..., batch=NULL, restrict=NULL, k=20, sigma=0.1,
 
         # Computing the correction vector for each cell.
         mnn.sets <- .restricted_mnn(left.data, left.restrict, right.data, right.restrict,
-            k1=k, k2=k, BNPARAM=BNPARAM, BPPARAM=BPPARAM)
+            k=k, prop.k=prop.k, BNPARAM=BNPARAM, BPPARAM=BPPARAM)
         s1 <- mnn.sets$first
         s2 <- mnn.sets$second
 
