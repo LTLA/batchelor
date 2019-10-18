@@ -90,10 +90,10 @@ checkSpikeConsistency <- function(batches)
         return(invisible(NULL))
     }
 
-    ref.spike.names <- spikeNames(batches[[1]])
+    suppressWarnings(ref.spike.names <- spikeNames(batches[[1]]))
     ref.spike <- suppressWarnings(isSpike(batches[[1]]))
     for (b in seq_along(batches)) {
-        if (!identical(ref.spike.names, spikeNames(batches[[b]]))) {
+        if (!identical(ref.spike.names, suppressWarnings(spikeNames(batches[[b]])))) {
             stop("spike-in sets differ across batches")
         }
         if (!identical(ref.spike, suppressWarnings(isSpike(batches[[b]])))) {
