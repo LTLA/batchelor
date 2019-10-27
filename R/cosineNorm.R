@@ -45,15 +45,19 @@
 #' 
 #' @export
 #' @importFrom methods is
+#' @importFrom Matrix colSums
 cosineNorm <- function(x, mode=c("matrix", "all", "l2norm"), subset.row=NULL) {
-    l2 <- .Call(cxx_cosine_norm, x, .row_subset_to_index(x, subset.row) - 1L)
+    if (!is.null(subset.row)) {
+        x <- x[subset.row,,drop=FALSE]
+    }
+    l2 <- sqrt(colSums(x^2))
 
     mode <- match.arg(mode)
     if (mode=="l2norm") {
         return(l2)
     }
 
-    mat <- .apply_cosine_norm(x, pmax(1e-8, l2), subset.row=subset.row) # protect against zero-L2.
+    mat <- .apply_cosine_norm(x, l2)
     if (mode=="matrix") {
         mat
     } else {
@@ -62,6 +66,7 @@ cosineNorm <- function(x, mode=c("matrix", "all", "l2norm"), subset.row=NULL) {
 }
 
 #' @importFrom scater normalizeCounts
-.apply_cosine_norm <- function(x, l2, subset.row=NULL) {
-    normalizeCounts(x, size_factors=l2, center_size_factors=FALSE, log=FALSE, subset_row=subset.row)
+.apply_cosine_norm <- function(x, l2) {
+    l2 <- pmax(1e-8, l2) # protect against zero-L2.
+    normalizeCounts(x, size_factors=l2, center_size_factors=FALSE, log=FALSE)
 }

@@ -10,7 +10,6 @@ extern "C" {
 static const R_CallMethodDef all_call_entries[] = {
     // MNN calculations.
     REGISTER(find_mutual_nns, 2),
-    REGISTER(cosine_norm, 2),
     REGISTER(smooth_gaussian_kernel, 4),
     REGISTER(adjust_shift_variance, 6),
 
