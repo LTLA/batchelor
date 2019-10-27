@@ -244,5 +244,3 @@ test_that("rescaleBatches fails on silly inputs", {
     rownames(xB2) <- sample(nrow(B2))
     expect_error(rescaleBatches(xB1, xB2), "row names are not the same")
 })
-
-

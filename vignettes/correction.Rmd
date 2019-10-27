@@ -142,7 +142,7 @@ As we can see, cells from the batches are more intermingled in the PCA plot belo
 This suggests that the batch effect was removed - assuming, of course, that the intermingled cells represent the same population.
 
 ```{r}
-plotReducedDim(f.out, colour_by="batch", use_dimred="corrected")
+plotReducedDim(f.out, colour_by="batch", dimred="corrected")
 ```
 
 We can also obtain per-gene corrected expression values by using the rotation vectors stored in the output.
