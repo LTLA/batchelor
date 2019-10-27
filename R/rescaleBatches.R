@@ -112,18 +112,20 @@ rescaleBatches <- function(..., batch=NULL, restrict=NULL, log.base=2, pseudo.co
     }
 
     # Computing the unlogged means for each matrix, using only the restricted subset of cells.
-    subset.row.m1 <- .row_subset_to_index(batches[[1]], subset.row) - 1L
-    averages <- vector("list", nbatches)
+    for (b in seq_along(batches)) {
+        if (!is.null(subset.row)) {
+            batches[[b]] <- batches[[b]][subset.row,,drop=FALSE]
+        }
+        batches[[b]] <- .unlog(batches[[b]], log.base=log.base, pseudo.count=pseudo.count)
+    }
 
+    averages <- vector("list", nbatches)
     for (b in seq_along(batches)) {
         curbatch <- batches[[b]]
-
-        currestrict <- restrict[[b]]
-        if (!is.null(currestrict)) {
+        if (!is.null(currestrict <- restrict[[b]])) {
             curbatch <- curbatch[,currestrict,drop=FALSE]
         }
-
-        averages[[b]] <- .Call(cxx_unlog_exprs_mean, curbatch, log.base, pseudo.count, subset.row.m1)
+        averages[[b]] <- rowMeans(curbatch)
     }
 
     # Defining the reference.
@@ -131,7 +133,7 @@ rescaleBatches <- function(..., batch=NULL, restrict=NULL, log.base=2, pseudo.co
     for (b in seq_along(batches)) {
         rescale <- reference / averages[[b]] 
         rescale[!is.finite(rescale)] <- 0
-        batches[[b]] <- .Call(cxx_unlog_exprs_scaled, batches[[b]], log.base, pseudo.count, subset.row.m1, rescale)
+        batches[[b]] <- .relog(batches[[b]] * rescale, log.base=log.base, pseudo.count=pseudo.count)
     }
 
     batch.labels <- names(batches)
@@ -146,3 +148,38 @@ rescaleBatches <- function(..., batch=NULL, restrict=NULL, log.base=2, pseudo.co
     SingleCellExperiment(list(corrected=do.call(cbind, batches)), 
         colData=DataFrame(batch=batch.names)) 
 }
+
+############################################
+# A helpful dispatcher system to accommodate different matrix representations.
+
+setGeneric(".unlog", function(x, log.base, pseudo.count) standardGeneric(".unlog"))
+
+setMethod(".unlog", "ANY", function(x, log.base, pseudo.count) {
+    log.base^x - pseudo.count
+})
+
+#' @importClassesFrom Matrix dsparseMatrix
+setMethod(".unlog", "dsparseMatrix", function(x, log.base, pseudo.count) {
+    if (pseudo.count!=1) {
+        callNextMethod()
+    } else {
+        x@x <- log.base^x@x - pseudo.count
+        x
+    }
+})
+
+setGeneric(".relog", function(x, log.base, pseudo.count) standardGeneric(".relog"))
+
+setMethod(".relog", "ANY", function(x, log.base, pseudo.count) {
+    log(x + pseudo.count, log.base)
+})
+
+#' @importClassesFrom Matrix dsparseMatrix
+setMethod(".relog", "dsparseMatrix", function(x, log.base, pseudo.count) {
+    if (pseudo.count!=1) {
+        callNextMethod()
+    } else {
+        x@x <- log(x@x + pseudo.count, log.base)
+        x
+    }
+})
