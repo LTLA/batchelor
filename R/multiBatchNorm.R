@@ -52,7 +52,8 @@
 #' A list of SingleCellExperiment objects with normalized log-expression values in the \code{"logcounts"} assay (depending on values in \code{norm.args}).
 #' Each object contains cells from a single batch.
 #'
-#' If \code{preserve.single=TRUE} and \code{...} contains a single object, the list will only contain a single SingleCellExperiment, containing normalized log-expression values for all cells in the same order that they were supplied.
+#' If \code{preserve.single=TRUE} and \code{...} contains only one SingleCellExperiment, that object is returned with an additional \code{"logcounts"} assay containing normalized log-expression values.
+#' The order of cells is not changed.
 #' 
 #' @author
 #' Aaron Lun
@@ -84,7 +85,7 @@
 #' @importFrom BiocGenerics sizeFactors sizeFactors<- cbind
 #' @importMethodsFrom scater logNormCounts librarySizeFactors
 multiBatchNorm <- function(..., batch=NULL, assay.type="counts", norm.args=list(), 
-    min.mean=1, subset.row=NULL, normalize.all=FALSE, preserve.single=FALSE) 
+    min.mean=1, subset.row=NULL, normalize.all=FALSE, preserve.single=TRUE)
 {
     batches <- list(...)
     checkBatchConsistency(batches)
@@ -110,7 +111,7 @@ multiBatchNorm <- function(..., batch=NULL, assay.type="counts", norm.args=list(
 
         if (preserve.single) {
             output <- do.call(cbind, output)
-            return(list(output[,order(unlist(by.batch))]))
+            return(output[,order(unlist(by.batch))])
         } else {
             return(output)
         }

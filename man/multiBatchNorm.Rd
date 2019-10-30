@@ -6,7 +6,7 @@
 \usage{
 multiBatchNorm(..., batch = NULL, assay.type = "counts",
   norm.args = list(), min.mean = 1, subset.row = NULL,
-  normalize.all = FALSE, preserve.single = FALSE)
+  normalize.all = FALSE, preserve.single = TRUE)
 }
 \arguments{
 \item{...}{One or more \linkS4class{SingleCellExperiment} objects containing counts and size factors.
@@ -34,7 +34,8 @@ This is ignored if multiple objects are present.}
 A list of SingleCellExperiment objects with normalized log-expression values in the \code{"logcounts"} assay (depending on values in \code{norm.args}).
 Each object contains cells from a single batch.
 
-If \code{preserve.single=TRUE} and \code{...} contains a single object, the list will only contain a single SingleCellExperiment, containing normalized log-expression values for all cells in the same order that they were supplied.
+If \code{preserve.single=TRUE} and \code{...} contains only one SingleCellExperiment, that object is returned with an additional \code{"logcounts"} assay containing normalized log-expression values.
+The order of cells is not changed.
 }
 \description{
 Perform scaling normalization within each batch to provide comparable results to the lowest-coverage batch.
