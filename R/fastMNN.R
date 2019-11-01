@@ -220,15 +220,9 @@
 #' This represents the variance in each batch that is parallel to the average correction vectors (and hence removed during orthogonalization) at each merge step.
 #' Large proportions suggest that there is biological structure that is parallel to the batch effect, 
 #' corresponding to violations of the assumption that the batch effect is orthogonal to the biological subspace.
+#' A rule of thumb is that more than 10\% of lost variance is cause for closer examination, though this is highly dependent on the context, e.g., a large lost proportion may be fine if the population structure is still approximately preserved while a small lost proportion may be unacceptable if an important rare subpopulation can no longer be distinguished.
 #' 
-#' If \code{fastMNN} is called with DataFrame inputs, each DataFrame is assumed to be the result of a previous \code{fastMNN} call
-#' and have a set of vectors used for orthogonalization in the merge steps of that previous call.
-#' In the current call, \code{fastMNN} will gather all such batch vectors across all DataFrame inputs.
-#' Each batch is then re-orthogonalized with respect to each of these vectors.
-#' This ensures that the same variation is removed from each batch prior to merging.
-#' The variance lost due to this pre-correction orthogonalization is reported in the \code{pre.orthog} field in the output metadata.
-#'
-#' Orthogonalization may cause problems if there is actually no batch effect, resulting in large losses of variance.
+#' In rare cases, orthogonalization may cause problems in the \emph{absence} of a batch effect, resulting in large losses of variance.
 #' To avoid this, \code{fastMNN} will not perform any correction if the relative magnitude of the batch effect is less than \code{min.batch.skip}.
 #' The relative magnitude is defined as the L2 norm of the average correction vector divided by the root-mean-square of the L2 norms of the per-MNN pair correction vectors.
 #' This will be large when the per-pair vectors are all pointing in the same direction, 
