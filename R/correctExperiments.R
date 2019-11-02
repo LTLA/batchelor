@@ -1,7 +1,8 @@
 #' Correct SingleCellExperiment objects
 #'
 #' Apply a correction to multiple \linkS4class{SingleCellExperiment} objects,
-#' while also combining the assay data and column metadata for easy use.
+#' while also combining the assay data and column metadata for easy downstream use.
+#' This augments the simpler \code{\link{batchCorrect}} function, which returns only the corrected values.
 #'
 #' @param ... One or more \linkS4class{SingleCellExperiment} objects.
 #' If multiple objects are supplied, each object is assumed to contain all and only cells from a single batch.

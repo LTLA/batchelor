@@ -52,6 +52,8 @@
 #' @seealso
 #' \linkS4class{BatchelorParam} classes to determine dispatch.
 #'
+#' \code{\link{correctExperiments}}, to obtain corrected values while retaining the original expression data.
+#'
 #' @examples
 #' B1 <- matrix(rnorm(10000), ncol=50) # Batch 1 
 #' B2 <- matrix(rnorm(10000), ncol=50) # Batch 2
