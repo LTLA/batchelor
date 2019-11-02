@@ -11,27 +11,27 @@
 \title{Batch correction methods}
 \usage{
 batchCorrect(..., batch = NULL, restrict = NULL, subset.row = NULL,
-  correct.all = FALSE, assay.type = NULL, get.spikes = FALSE, PARAM)
+  correct.all = FALSE, assay.type = NULL, PARAM)
 
 \S4method{batchCorrect}{ClassicMnnParam}(..., batch = NULL,
   restrict = NULL, subset.row = NULL, correct.all = FALSE,
-  assay.type = "logcounts", get.spikes = FALSE, PARAM)
+  assay.type = "logcounts", PARAM)
 
 \S4method{batchCorrect}{FastMnnParam}(..., batch = NULL,
   restrict = NULL, subset.row = NULL, correct.all = FALSE,
-  assay.type = "logcounts", get.spikes = FALSE, PARAM)
+  assay.type = "logcounts", PARAM)
 
 \S4method{batchCorrect}{RescaleParam}(..., batch = NULL,
   restrict = NULL, subset.row = NULL, correct.all = FALSE,
-  assay.type = "logcounts", get.spikes = FALSE, PARAM)
+  assay.type = "logcounts", PARAM)
 
 \S4method{batchCorrect}{RegressParam}(..., batch = NULL,
   restrict = NULL, subset.row = NULL, correct.all = FALSE,
-  assay.type = "logcounts", get.spikes = FALSE, PARAM)
+  assay.type = "logcounts", PARAM)
 
 \S4method{batchCorrect}{NoCorrectParam}(..., batch = NULL,
   restrict = NULL, subset.row = NULL, correct.all = FALSE,
-  assay.type = "logcounts", get.spikes = FALSE, PARAM)
+  assay.type = "logcounts", PARAM)
 }
 \arguments{
 \item{...}{One or more matrix-like objects containing single-cell gene expression matrices.
@@ -54,9 +54,6 @@ Defaults to \code{NULL}, in which case all genes are used.}
 Used to ensure that the output is of the same dimensionality as the input.}
 
 \item{assay.type}{A string or integer scalar specifying the assay to use for correction.
-Only used for SingleCellExperiment inputs.}
-
-\item{get.spikes}{Deprecated, a logical scalar indicating whether to retain rows corresponding to spike-in transcripts.
 Only used for SingleCellExperiment inputs.}
 
 \item{PARAM}{A \linkS4class{BatchelorParam} object specifying the batch correction method to dispatch to, and the parameters with which it should be run.
@@ -84,10 +81,7 @@ A common interface for single-cell batch correction methods.
 Users can pass parameters to each method directly via \code{...} or via the constructors for \code{PARAM}.
 While there is no restriction on which parameters go where, we recommend only passing data-agnostic and method-specific parameters to \code{PARAM}.
 Data-dependent parameters - and indeed, the data themselves - should be passed in via \code{...}.
-This means that different data sets can be used without modifying \code{PARAM}, and allows users to switch to a different algorithm by only changing \code{PARAM}.
-
-Note that \code{get.spikes=FALSE} effectively modifies \code{subset.row} to exclude spike-in transcripts when SingleCellExperiment inputs are supplied.
-This means that the reported SingleCellExperiment will not, by default, contain corrected expression values for spike-in transcripts unless \code{get.spikes=TRUE}.
+This means that different data sets can be used without modifying \code{PARAM}, allowing users to switch to a different algorithm by only changing \code{PARAM}.
 }
 \examples{
 B1 <- matrix(rnorm(10000), ncol=50) # Batch 1 
@@ -102,6 +96,8 @@ n.out <- batchCorrect(B1, B2, PARAM=NoCorrectParam())
 }
 \seealso{
 \linkS4class{BatchelorParam} classes to determine dispatch.
+
+\code{\link{correctExperiments}}, to obtain corrected values while retaining the original expression data.
 }
 \author{
 Aaron Lun

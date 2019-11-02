@@ -5,9 +5,8 @@
 \title{Multi-batch PCA}
 \usage{
 multiBatchPCA(..., batch = NULL, d = 50, subset.row = NULL,
-  weights = NULL, get.all.genes = FALSE, rotate.all = FALSE,
-  get.variance = FALSE, preserve.single = FALSE,
-  assay.type = "logcounts", get.spikes = FALSE,
+  weights = NULL, get.all.genes = FALSE, get.variance = FALSE,
+  preserve.single = FALSE, assay.type = "logcounts",
   BSPARAM = ExactParam(), BPPARAM = SerialParam())
 }
 \arguments{
@@ -33,16 +32,11 @@ This defaults to 1 for all batches.}
 \item{get.all.genes}{A logical scalar indicating whether the reported rotation vectors should include genes 
 that are excluded by a non-\code{NULL} value of \code{subset.row}.}
 
-\item{rotate.all}{A deprecated synonym for \code{get.all.genes}.}
-
 \item{get.variance}{A logical scalar indicating whether to return the (weighted) variance explained by each PC.}
 
 \item{preserve.single}{A logical scalar indicating whether to combine the results into a single matrix if only one object was supplied in \code{...}.}
 
 \item{assay.type}{A string or integer scalar specifying the assay containing the expression values, if SingleCellExperiment objects are present in \code{...}.}
-
-\item{get.spikes}{Deprecated, a logical scalar indicating whether to retain rows corresponding to spike-in transcripts.
-Only used for SingleCellExperiment inputs.}
 
 \item{BSPARAM}{A \linkS4class{BiocSingularParam} object specifying the algorithm to use for PCA, see \code{\link{runSVD}} for details.}
 
@@ -55,7 +49,7 @@ If \code{preserve.single=TRUE} and \code{...} contains a single object, the List
 This contains the first \code{d} PCs (columns) for all cells in the same order as supplied in the single input object.
 
 The metadata contains \code{rotation}, a matrix of rotation vectors, which can be used to construct a low-rank approximation of the input matrices.
-This has number of rows equal to the number of genes after any subsetting, except if \code{rotate.all=TRUE}, where the number of rows is equal to the genes before subsetting.
+This has number of rows equal to the number of genes after any subsetting, except if \code{get.all.genes=TRUE}, where the number of rows is equal to the genes before subsetting.
 
 If \code{get.variance=TRUE}, the metadata will also contain \code{var.explained}, the weighted variance explained by each PC;
 and \code{var.total}, the total variance after weighting.
@@ -78,10 +72,6 @@ When \code{weights} is set, this will scale the weight of each batch by the spec
 For example, each batch may represent one replicate, with multiple replicates per study.
 In such cases, it may be more appropriate to ensure that each \emph{study} has equal weight.
 This is done by assigning a value of \code{weights} to each replicate that is inversely proportional to the number of replicates in the same study - see Examples.
-
-If \code{...} contains SingleCellExperiment objects, any spike-in transcripts should be the same across all batches.
-These will be removed prior to PCA unless \code{get.spikes=TRUE}.
-If \code{subset.row} is specified and \code{get.spikes=FALSE}, only the non-spike-in specified features will be used. 
 
 Setting \code{get.all.genes=TRUE} will report rotation vectors that span all genes, even when only a subset of genes are used for the PCA.
 This is done by projecting all non-used genes into the low-dimensional \dQuote{cell space} defined by the first \code{d} components.

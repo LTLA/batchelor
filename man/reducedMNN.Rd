@@ -6,8 +6,8 @@
 \usage{
 reducedMNN(..., batch = NULL, k = 20, prop.k = NULL,
   restrict = NULL, ndist = 3, merge.order = NULL,
-  auto.merge = FALSE, auto.order = NULL, min.batch.skip = 0,
-  BNPARAM = KmknnParam(), BPPARAM = SerialParam())
+  auto.merge = FALSE, min.batch.skip = 0, BNPARAM = KmknnParam(),
+  BPPARAM = SerialParam())
 }
 \arguments{
 \item{...}{One or more matrices of low-dimensional representations where rows are cells and columns are dimensions.
@@ -35,8 +35,6 @@ Each threshold is defined as a multiple of the number of median distances.}
 Alternatively, a list of lists representing a tree structure specifying a hierarchical merge order.}
 
 \item{auto.merge}{Logical scalar indicating whether to automatically identify the \dQuote{best} merge order.}
-
-\item{auto.order}{Deprecated, use \code{merge.order} or \code{auto.merge} instead.}
 
 \item{min.batch.skip}{Numeric scalar specifying the minimum relative magnitude of the batch effect, 
 below which no correction will be performed at a given merge step.}

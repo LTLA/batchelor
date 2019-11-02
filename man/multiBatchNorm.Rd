@@ -65,15 +65,6 @@ Users can also set \code{subset.row} to restrict the set of genes used for compu
 By default, normalized values will only be returned for genes specified in the subset.
 Setting \code{normalize.all=TRUE} will return normalized values for all genes.
 }
-\section{Note about spike-ins}{
-
-Rescaling is only performed on endogenous genes in each SingleCellExperiment object.
-If any spike-in transcripts are present in the \code{\link{altExps}},
-their abundances will not be rescaled here, and are no longer directly comparable to the rescaled abundances of the genes.
-This is usually not a major problem as spike-ins are rarely used during the batch correction itself -
-however, users should not attempt to perform variance modelling with the spike-ins on the output of this function.
-}
-
 \examples{
 d1 <- matrix(rnbinom(50000, mu=10, size=1), ncol=100)
 sce1 <- SingleCellExperiment(list(counts=d1))

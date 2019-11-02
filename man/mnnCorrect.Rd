@@ -8,8 +8,8 @@ mnnCorrect(..., batch = NULL, restrict = NULL, k = 20,
   prop.k = NULL, sigma = 0.1, cos.norm.in = TRUE,
   cos.norm.out = TRUE, svd.dim = 0L, var.adj = TRUE,
   subset.row = NULL, correct.all = FALSE, merge.order = NULL,
-  auto.merge = FALSE, auto.order = NULL, assay.type = "logcounts",
-  get.spikes = FALSE, BSPARAM = ExactParam(), BNPARAM = KmknnParam(),
+  auto.merge = FALSE, assay.type = "logcounts",
+  BSPARAM = ExactParam(), BNPARAM = KmknnParam(),
   BPPARAM = SerialParam())
 }
 \arguments{
@@ -50,12 +50,7 @@ Alternatively, a list of lists representing a tree structure specifying a hierar
 
 \item{auto.merge}{Logical scalar indicating whether to automatically identify the \dQuote{best} merge order.}
 
-\item{auto.order}{Deprecated, use \code{merge.order} or \code{auto.merge} instead.}
-
 \item{assay.type}{A string or integer scalar specifying the assay containing the log-expression values, if SingleCellExperiment objects are present in \code{...}.}
-
-\item{get.spikes}{A logical scalar indicating whether to retain rows corresponding to spike-in transcripts.
-Only used for SingleCellExperiment inputs.}
 
 \item{BSPARAM}{A \linkS4class{BiocSingularParam} object specifying the SVD algorithm to use.}
 
@@ -226,7 +221,7 @@ The aim is to improve the stability of the correction by first merging more simi
 This can be somewhat time-consuming as MNN pairs need to be iteratively recomputed for all possible batch pairings.
 }
 
-The order of cells in the output is \emph{never} affected by the setting of \code{merge.order} or \code{auto.order}.
+The order of cells in the output is \emph{never} affected by the setting of \code{merge.order}.
 It depends only on the order of objects in \code{...} and the order of cells within each object.
 }
 

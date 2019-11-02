@@ -6,11 +6,10 @@
 \usage{
 fastMNN(..., batch = NULL, k = 20, prop.k = NULL, restrict = NULL,
   cos.norm = TRUE, ndist = 3, d = 50, weights = NULL,
-  merge.order = NULL, auto.merge = FALSE, auto.order = NULL,
-  min.batch.skip = 0, subset.row = NULL, correct.all = FALSE,
-  pc.input = FALSE, assay.type = "logcounts", get.spikes = FALSE,
-  use.dimred = NULL, BSPARAM = IrlbaParam(deferred = TRUE),
-  BNPARAM = KmknnParam(), BPPARAM = SerialParam())
+  merge.order = NULL, auto.merge = FALSE, min.batch.skip = 0,
+  subset.row = NULL, correct.all = FALSE, assay.type = "logcounts",
+  BSPARAM = IrlbaParam(deferred = TRUE), BNPARAM = KmknnParam(),
+  BPPARAM = SerialParam())
 }
 \arguments{
 \item{...}{One or more log-expression matrices where genes correspond to rows and cells correspond to columns.
@@ -48,8 +47,6 @@ Alternatively, a list of lists representing a tree structure specifying a hierar
 
 \item{auto.merge}{Logical scalar indicating whether to automatically identify the \dQuote{best} merge order.}
 
-\item{auto.order}{Deprecated, use \code{merge.order} or \code{auto.merge} instead.}
-
 \item{min.batch.skip}{Numeric scalar specifying the minimum relative magnitude of the batch effect, 
 below which no correction will be performed at a given merge step.}
 
@@ -57,14 +54,8 @@ below which no correction will be performed at a given merge step.}
 
 \item{correct.all}{Logical scalar indicating whether a rotation matrix should be computed for genes not in \code{subset.row}.}
 
-\item{pc.input}{Deprecated, use \code{\link{reducedMNN}} instead.}
-
 \item{assay.type}{A string or integer scalar specifying the assay containing the log-expression values.
 Only used for SingleCellExperiment inputs.}
-
-\item{get.spikes}{Deprecated.}
-
-\item{use.dimred}{Deprecated, use \code{\link{reducedMNN}} instead.}
 
 \item{BSPARAM}{A \linkS4class{BiocSingularParam} object specifying the algorithm to use for PCA.
 This uses a fast approximate algorithm from \pkg{irlba} by default, see \code{\link{multiBatchPCA}} for details.}
@@ -178,7 +169,7 @@ The aim is to improve the stability of the correction by first merging more simi
 This can be somewhat time-consuming as MNN pairs need to be iteratively recomputed for all possible batch pairings.
 }
 
-The order of cells in the output is \emph{never} affected by the setting of \code{merge.order} or \code{auto.order}.
+The order of cells in the output is \emph{never} affected by the setting of \code{merge.order}.
 It depends only on the order of objects in \code{...} and the order of cells within each object.
 }
 

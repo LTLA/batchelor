@@ -53,7 +53,8 @@ Additional column metadata fields may also be present depending on \code{combine
 }
 \description{
 Apply a correction to multiple \linkS4class{SingleCellExperiment} objects,
-while also combining the assay data and column metadata for easy use.
+while also combining the assay data and column metadata for easy downstream use.
+This augments the simpler \code{\link{batchCorrect}} function, which returns only the corrected values.
 }
 \details{
 This function makes it easy to retain information from the original SingleCellExperiment objects in the post-merge object.

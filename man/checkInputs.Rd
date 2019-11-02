@@ -2,14 +2,11 @@
 % Please edit documentation in R/checkInputs.R
 \name{checkBatchConsistency}
 \alias{checkBatchConsistency}
-\alias{checkSpikeConsistency}
 \alias{checkIfSCE}
 \alias{checkRestrictions}
 \title{Check batch inputs}
 \usage{
 checkBatchConsistency(batches, cells.in.columns = TRUE)
-
-checkSpikeConsistency(batches)
 
 checkIfSCE(batches)
 
@@ -23,7 +20,7 @@ checkRestrictions(batches, restrictions, cells.in.columns = TRUE)
 \item{restrictions}{A list of length equal to \code{batches}, specifying the cells in each batch that should be used for correction.}
 }
 \value{
-\code{checkBatchConsistency} and \code{checkSpikeConsistency} will return an invisible \code{NULL} if there are no errors.
+\code{checkBatchConsistency} return an invisible \code{NULL} if there are no errors.
 
 \code{checkIfSCE} will return a logical vector specifying whether each element of \code{batches} is a SingleCellExperiment objects.
 
@@ -38,9 +35,6 @@ These functions are intended for internal use and other package developers.
 
 \code{checkBatchConsistency} will check whether the input \code{batches} are consistent with respect to the size of the dimension containing features (i.e., not cells).
 It will also verify that the dimension names are consistent, to avoid problems from variable ordering of rows/columns in the inputs.
-
-\code{checkSpikeConsistency} will check whether the spike-in information is consistent across all \code{batches}.
-This only works for SingleCellExperiment objects, so one should only run this function if \code{checkIfSCE} returns \code{TRUE}.
 
 \code{checkRestrictions} will check whether \code{restrictions} are consistent with the supplied \code{batches},
 in terms of the length and names of the two lists.

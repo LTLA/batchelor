@@ -5,8 +5,7 @@
 \title{Scale counts across batches}
 \usage{
 rescaleBatches(..., batch = NULL, restrict = NULL, log.base = 2,
-  pseudo.count = 1, subset.row = NULL, assay.type = "logcounts",
-  get.spikes = FALSE)
+  pseudo.count = 1, subset.row = NULL, assay.type = "logcounts")
 }
 \arguments{
 \item{...}{Two or more log-expression matrices where genes correspond to rows and cells correspond to columns.
@@ -32,9 +31,6 @@ Each entry of the list corresponds to one batch and specifies the cells to use w
 \item{subset.row}{A vector specifying which features to use for correction.}
 
 \item{assay.type}{A string or integer scalar specifying the assay containing the log-expression values, if SingleCellExperiment objects are present in \code{...}.}
-
-\item{get.spikes}{Deprecated, a logical scalar indicating whether to retain rows corresponding to spike-in transcripts.
-Only used for SingleCellExperiment inputs.}
 }
 \value{
 A \linkS4class{SingleCellExperiment} object containing the \code{corrected} assay.
