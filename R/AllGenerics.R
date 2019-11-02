@@ -8,9 +8,3 @@ setGeneric("batchCorrect", function(..., batch=NULL, restrict=NULL, subset.row=N
 # so there's no need to reset it explicitly in each method (see ?setMethod). 
 # We don't set it here as different methods may expect different assay types, 
 # e.g., a correction that only operates on counts rather than log-counts.
-
-#' @importFrom BiocNeighbors queryKNN buildIndex KmknnParam
-#' @importFrom BiocParallel SerialParam
-setGeneric(".advance", function(x, k, BNPARAM=KmknnParam(), BPPARAM=SerialParam()) standardGeneric(".advance"))
-
-setGeneric(".update_batch", function(x, i, batch) standardGeneric(".update_batch"))
