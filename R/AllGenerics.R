@@ -1,7 +1,7 @@
 #' @export
 #' @rdname batchCorrect
 #' @import methods
-setGeneric("batchCorrect", function(..., batch=NULL, restrict=NULL, subset.row=NULL, correct.all=FALSE, assay.type=NULL, get.spikes=FALSE, PARAM) 
+setGeneric("batchCorrect", function(..., batch=NULL, restrict=NULL, subset.row=NULL, correct.all=FALSE, assay.type=NULL, PARAM) 
     standardGeneric("batchCorrect"), signature=c("PARAM"))
 
 # Note that assay.type default in each method will override that in the generic,

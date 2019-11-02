@@ -25,10 +25,7 @@
 #' @param merge.order An integer vector containing the linear merge order of batches in \code{...}.
 #' Alternatively, a list of lists representing a tree structure specifying a hierarchical merge order.
 #' @param auto.merge Logical scalar indicating whether to automatically identify the \dQuote{best} merge order.
-#' @param auto.order Deprecated, use \code{merge.order} or \code{auto.merge} instead.
 #' @param assay.type A string or integer scalar specifying the assay containing the log-expression values, if SingleCellExperiment objects are present in \code{...}.
-#' @param get.spikes A logical scalar indicating whether to retain rows corresponding to spike-in transcripts.
-#' Only used for SingleCellExperiment inputs.
 #' @param BSPARAM A \linkS4class{BiocSingularParam} object specifying the SVD algorithm to use.
 #' @param BNPARAM A \linkS4class{BiocNeighborParam} object specifying the neighbor search algorithm to use.
 #' @param BPPARAM A \linkS4class{BiocParallelParam} object specifying the parallelization scheme to use.
@@ -143,8 +140,8 @@
 #' @importFrom BiocNeighbors KmknnParam
 mnnCorrect <- function(..., batch=NULL, restrict=NULL, k=20, prop.k=NULL, sigma=0.1, 
     cos.norm.in=TRUE, cos.norm.out=TRUE, svd.dim=0L, var.adj=TRUE, 
-    subset.row=NULL, correct.all=FALSE, merge.order=NULL, auto.merge=FALSE, auto.order=NULL, 
-    assay.type="logcounts", get.spikes=FALSE, BSPARAM=ExactParam(), BNPARAM=KmknnParam(), BPPARAM=SerialParam())
+    subset.row=NULL, correct.all=FALSE, merge.order=NULL, auto.merge=FALSE, 
+    assay.type="logcounts", BSPARAM=ExactParam(), BNPARAM=KmknnParam(), BPPARAM=SerialParam())
 {
     original <- batches <- list(...)
     checkBatchConsistency(batches)
@@ -153,10 +150,7 @@ mnnCorrect <- function(..., batch=NULL, restrict=NULL, k=20, prop.k=NULL, sigma=
     # Pulling out information from the SCE objects.        
     is.sce <- checkIfSCE(batches)
     if (any(is.sce)) {
-        sce.batches <- batches[is.sce]
-        checkSpikeConsistency(sce.batches)
-        subset.row <- .SCE_subset_genes(subset.row, sce.batches[[1]], get.spikes)
-        batches[is.sce] <- lapply(sce.batches, assay, i=assay.type, withDimnames=FALSE)
+        batches[is.sce] <- lapply(batches[is.sce], assay, i=assay.type, withDimnames=FALSE)
     }
 
     # Subsetting by 'batch'.
@@ -180,7 +174,7 @@ mnnCorrect <- function(..., batch=NULL, restrict=NULL, k=20, prop.k=NULL, sigma=
     output <- do.call(.mnn_correct, c(batches, 
         list(k=k, prop.k=prop.k, sigma=sigma, cos.norm.in=cos.norm.in, cos.norm.out=cos.norm.out, svd.dim=svd.dim, 
             var.adj=var.adj, subset.row=subset.row, correct.all=correct.all, restrict=restrict,
-            merge.order=merge.order, auto.merge=auto.merge, auto.order=auto.order, 
+            merge.order=merge.order, auto.merge=auto.merge, 
             BSPARAM=BSPARAM, BNPARAM=BNPARAM, BPPARAM=BPPARAM)))
 
     # Reordering the output for correctness.
@@ -204,7 +198,7 @@ mnnCorrect <- function(..., batch=NULL, restrict=NULL, k=20, prop.k=NULL, sigma=
 #' @importFrom BiocNeighbors KmknnParam
 .mnn_correct <- function(..., k=20, prop.k=NULL, sigma=0.1, cos.norm.in=TRUE, cos.norm.out=TRUE, svd.dim=0L, var.adj=TRUE, 
     subset.row=NULL, correct.all=FALSE, restrict=NULL, 
-    merge.order=NULL, auto.merge=FALSE, auto.order=NULL, 
+    merge.order=NULL, auto.merge=FALSE, 
     BSPARAM=ExactParam(), BNPARAM=KmknnParam(), BPPARAM=SerialParam())
 {
     batches <- list(...) 
@@ -227,15 +221,6 @@ mnnCorrect <- function(..., batch=NULL, restrict=NULL, k=20, prop.k=NULL, sigma=
     }
 
     # Choosing the merge order.
-    if (!is.null(auto.order)) {
-        .Deprecated(old="auto.order", new="auto.merge")
-        if (isTRUE(auto.order)) {
-            auto.merge <- TRUE
-        } else if (is.numeric(auto.order)) {
-            merge.order <- auto.order
-        }
-    }
-
     if (!auto.merge) {
         merge.tree <- .create_tree_predefined(in.batches, restrict, merge.order)
         NEXT <- .get_next_merge

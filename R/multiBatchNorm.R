@@ -41,13 +41,6 @@
 #' By default, normalized values will only be returned for genes specified in the subset.
 #' Setting \code{normalize.all=TRUE} will return normalized values for all genes.
 #'
-#' @section Note about spike-ins:
-#' Rescaling is only performed on endogenous genes in each SingleCellExperiment object.
-#' If any spike-in transcripts are present in the \code{\link{altExps}},
-#' their abundances will not be rescaled here, and are no longer directly comparable to the rescaled abundances of the genes.
-#' This is usually not a major problem as spike-ins are rarely used during the batch correction itself -
-#' however, users should not attempt to perform variance modelling with the spike-ins on the output of this function.
-#' 
 #' @return
 #' A list of SingleCellExperiment objects with normalized log-expression values in the \code{"logcounts"} assay (depending on values in \code{norm.args}).
 #' Each object contains cells from a single batch.
@@ -132,12 +125,11 @@ multiBatchNorm <- function(..., batch=NULL, assay.type="counts", norm.args=list(
     }
 
     # Adjusting size factors.
-    nonspike.subset <- .SCE_subset_genes(subset.row, batches[[1]], get.spikes=FALSE)
-    endog.rescale <- .compute_batch_rescaling(batches, subset.row=nonspike.subset, assay.type=assay.type, min.mean=min.mean)
-    batches <- .rescale_size_factors(batches, endog.rescale)
+    rescale <- .compute_batch_rescaling(batches, subset.row=subset.row, assay.type=assay.type, min.mean=min.mean)
+    batches <- .rescale_size_factors(batches, rescale)
 
-    if (!normalize.all && !is.null(nonspike.subset)) {
-        batches <- lapply(batches, FUN="[", i=nonspike.subset,)
+    if (!normalize.all && !is.null(subset.row)) {
+        batches <- lapply(batches, FUN="[", i=subset.row, ) # empty argument is important!
     }
 
     # Applying the normalization.   

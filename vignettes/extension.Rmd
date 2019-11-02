@@ -99,7 +99,6 @@ Alternatively, one or more `SingleCellExperiment` objects can be supplied, conta
 These should not be mixed with matrix-like objects, i.e., if one object is a `SingleCellExperiment`, all objects should be `SingleCellExperiment`s.
 
 The `subset.row=` argument specifies a subset of genes on which to perform the correction.
-The `get.spikes=` argument specifies whether spike-in transcripts should be used for `SingleCellExperiment` inputs.
 The `correct.all=` argument specifies whether corrected values should be returned for all genes, by "extrapolating" from the results for the genes that were used^[If your method cannot support this option, setting it to `TRUE` should raise an error.]. 
 See the Output section below for the expected output from each combination of these settings.
 
@@ -109,17 +108,8 @@ The correction is then "extrapolated" to all cells in the batch^[Again, if your 
 ## Output 
 
 Any implemented method must return a `SingleCellExperiment` where the first assay contains corrected gene expression values for all genes. 
-Corrected values should be returned:
-
-- for all genes, if `correct.all=TRUE` for any input.
-- for all genes, if `subset.row=NULL` for matrix-like inputs.
-- for selected genes, if `subset.row` is not `NULL` for matrix-like inputs.
-- for all genes, if `subset.row=NULL` and `get.spikes=TRUE` for `SingleCellExperiment` inputs.
-- for all non-spike-in transcripts, if `subset.row=NULL` and `get.spikes=FALSE` for `SingleCellExperiment` inputs.
-- for selected genes, if `subset.row` is not `NULL` and `get.spikes=FALSE` for matrix-like inputs.
-- for selected genes that are not spike-in transcripts, if `subset.row` is not `NULL` and `get.spikes=FALSE` for `SingleCellExperiment` inputs.
-
-This looks more complicated than it really is, as developers can just modify `subset.row` to exclude spike-ins when `get.spikes=FALSE`.
+Corrected values should be returned for all genes if `correct.all=TRUE` or `subset.row=NULL`.
+If `correct.all=FALSE` and `subset.row` is not `NULL`, values should only be returned for the selected genes.
 
 Cells should be reported in the same order that they are supplied in `...`.
 In cases with multiple batches, the cell identities are simply concatenated from successive objects in their specified order,
@@ -142,7 +132,7 @@ We have used some internal `r Biocpkg("batchelor")` functions for brevity - plea
 ```{r}
 setMethod("batchCorrect", "NothingParam", function(..., batch = NULL, 
     restrict=NULL, subset.row = NULL, correct.all = FALSE, 
-    assay.type = "logcounts", get.spikes = FALSE, PARAM) 
+    assay.type = "logcounts", PARAM) 
 {
     batches <- list(...)
     checkBatchConsistency(batches)
@@ -150,10 +140,7 @@ setMethod("batchCorrect", "NothingParam", function(..., batch = NULL,
     # Pulling out information from the SCE objects.        
     is.sce <- checkIfSCE(batches)
     if (any(is.sce)) {
-        sce.batches <- batches[is.sce]
-        checkSpikeConsistency(sce.batches)
-        subset.row <- batchelor:::.SCE_subset_genes(subset.row, sce.batches[[1]], get.spikes)
-        batches[is.sce] <- lapply(sce.batches, assay, i=assay.type)
+        batches[is.sce] <- lapply(batches[is.sce], assay, i=assay.type)
     }
 
     # Subsetting by 'batch', if only one object is supplied. 

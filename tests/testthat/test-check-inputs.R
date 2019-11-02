@@ -50,26 +50,6 @@ test_that("checkBatchConsistency handles corner cases", {
     expect_error(checkBatchConsistency(list(B[,0], B[,0]), cells.in.columns=FALSE), NA)
 })
 
-set.seed(1000002)
-test_that("checkSpikeConsistency works correctly", {
-    sce1 <- SingleCellExperiment(list(logcounts=matrix(runif(5000), nrow=10)))
-    sce2 <- SingleCellExperiment(list(logcounts=matrix(runif(2000), nrow=10)))
-    expect_error(checkSpikeConsistency(list(sce1, sce2)), NA)
-    expect_error(checkSpikeConsistency(list(sce1, sce2, cbind(sce1, sce2))), NA)
-
-    isSpike(sce1, "ERCC") <- isSpike(sce2, "ERCC") <- 1:5
-    expect_error(checkSpikeConsistency(list(sce1, sce2)), NA)
-
-    isSpike(sce2, "ERCC") <- NULL
-    expect_error(checkSpikeConsistency(list(sce1, sce2)), "spike-in sets differ")
-
-    isSpike(sce2, "SIRV") <- isSpike(sce1, "ERCC")
-    expect_error(checkSpikeConsistency(list(sce1, sce2)), "spike-in sets differ")
-    
-    expect_error(checkSpikeConsistency(list(sce1)), NA)
-    expect_error(checkSpikeConsistency(list()), NA)
-})
-
 set.seed(1000003)
 test_that("checkIfSCE works correctly", {
     sce1 <- SingleCellExperiment(list(logcounts=matrix(runif(5000), nrow=10)))

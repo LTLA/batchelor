@@ -26,16 +26,12 @@
 #' @param merge.order An integer vector containing the linear merge order of batches in \code{...}.
 #' Alternatively, a list of lists representing a tree structure specifying a hierarchical merge order.
 #' @param auto.merge Logical scalar indicating whether to automatically identify the \dQuote{best} merge order.
-#' @param auto.order Deprecated, use \code{merge.order} or \code{auto.merge} instead.
 #' @param min.batch.skip Numeric scalar specifying the minimum relative magnitude of the batch effect, 
 #' below which no correction will be performed at a given merge step.
 #' @param subset.row A vector specifying which features to use for correction. 
 #' @param correct.all Logical scalar indicating whether a rotation matrix should be computed for genes not in \code{subset.row}.
-#' @param pc.input Deprecated, use \code{\link{reducedMNN}} instead.
 #' @param assay.type A string or integer scalar specifying the assay containing the log-expression values.
 #' Only used for SingleCellExperiment inputs. 
-#' @param get.spikes Deprecated.
-#' @param use.dimred Deprecated, use \code{\link{reducedMNN}} instead.
 #' @param BSPARAM A \linkS4class{BiocSingularParam} object specifying the algorithm to use for PCA.
 #' This uses a fast approximate algorithm from \pkg{irlba} by default, see \code{\link{multiBatchPCA}} for details.
 #' @param BNPARAM A \linkS4class{BiocNeighborParam} object specifying the nearest neighbor algorithm.
@@ -142,7 +138,7 @@
 #' This can be somewhat time-consuming as MNN pairs need to be iteratively recomputed for all possible batch pairings.
 #' }
 #'
-#' The order of cells in the output is \emph{never} affected by the setting of \code{merge.order} or \code{auto.order}.
+#' The order of cells in the output is \emph{never} affected by the setting of \code{merge.order}.
 #' It depends only on the order of objects in \code{...} and the order of cells within each object.
 #'
 #' @section Choice of genes:
@@ -268,51 +264,20 @@
 #' @importFrom S4Vectors DataFrame metadata<-
 #' @importFrom methods as
 fastMNN <- function(..., batch=NULL, k=20, prop.k=NULL, restrict=NULL, cos.norm=TRUE, ndist=3, d=50, weights=NULL,
-    merge.order=NULL, auto.merge=FALSE, auto.order=NULL, min.batch.skip=0,
-    subset.row=NULL, correct.all=FALSE, pc.input=FALSE, assay.type="logcounts", get.spikes=FALSE, use.dimred=NULL, 
+    merge.order=NULL, auto.merge=FALSE, min.batch.skip=0,
+    subset.row=NULL, correct.all=FALSE, assay.type="logcounts", 
     BSPARAM=IrlbaParam(deferred=TRUE), BNPARAM=KmknnParam(), BPPARAM=SerialParam()) 
 {
     batches <- list(...)
-    is.sce <- checkIfSCE(batches)
-    is.df <- vapply(batches, is, class2="DataFrame", FUN.VALUE=TRUE)
-    needs.reorth <- any(is.df)
-
-    # Checking whether the PC status is consistent.
-    if (any(is.df)) {
-        pc.input <- TRUE
-        if (any(is.sce) && is.null(use.dimred)) {
-            stop("cannot mix low- and high-dimensional inputs")
-        }
-    } else if (any(is.sce) && !all(is.sce)) {
-        sce.pcs <- !is.null(use.dimred)
-        if (sce.pcs != pc.input) {
-            stop("cannot mix low- and high-dimensional inputs")
-        }
-    } else if (all(is.sce)) {
-        pc.input <- !is.null(use.dimred)
-    }
-    if (pc.input) {
-        .Deprecated(msg="'pc.input=TRUE' and 'use.dimred=TRUE' are deprecated.\nUse 'reducedMNN' instead.")
-        return(reducedMNN(..., batch=batch, k=k, prop.k=prop.k, restrict=restrict, ndist=ndist,
-            merge.order=merge.order, auto.merge=auto.merge, auto.order=auto.order,
-            min.batch.skip=min.batch.skip, BNPARAM=KmknnParam(), BPPARAM=SerialParam()))
-    }
-
-    # Extracting information from SCEs.
-    if (any(is.sce)) {
-        sce.batches <- batches[is.sce]
-        checkBatchConsistency(sce.batches)
-        checkSpikeConsistency(sce.batches)
-        subset.row <- .SCE_subset_genes(subset.row, sce.batches[[1]], get.spikes)
-
-        # NOTE: do NOT set withDimnames=FALSE, this will break the consistency check.
-        sce.batches <- lapply(sce.batches, assay, i=assay.type)
-        batches[is.sce] <- sce.batches
-    }
-
-    # Batch consistency checks.
     checkBatchConsistency(batches, cells.in.columns=TRUE)
     restrict <- checkRestrictions(batches, restrict, cells.in.columns=TRUE)
+
+    # Extracting information from SCEs.
+    is.sce <- checkIfSCE(batches)
+    if (any(is.sce)) {
+        # NOTE: do NOT set withDimnames=FALSE, this will break the consistency check.
+        batches[is.sce] <- lapply(batches[is.sce], assay, i=assay.type)
+    }
 
     # Setting up the parallelization environment.
     old <- bpparam()
@@ -328,7 +293,7 @@ fastMNN <- function(..., batch=NULL, k=20, prop.k=NULL, restrict=NULL, cos.norm=
     common.args <-list(k=k, prop.k=prop.k, cos.norm=cos.norm, ndist=ndist, 
         d=d, weights=weights, subset.row=subset.row, correct.all=correct.all, 
         min.batch.skip=min.batch.skip, 
-        merge.order=merge.order, auto.merge=auto.merge, auto.order=auto.order,
+        merge.order=merge.order, auto.merge=auto.merge, 
         BSPARAM=BSPARAM, BNPARAM=BNPARAM, BPPARAM=BPPARAM)
 
     if (length(batches)==1L) {
@@ -413,18 +378,9 @@ fastMNN <- function(..., batch=NULL, k=20, prop.k=NULL, restrict=NULL, cos.norm=
 #' @importFrom BiocNeighbors KmknnParam
 #' @importClassesFrom S4Vectors List
 .fast_mnn <- function(batches, k=20, prop.k=NULL, restrict=NULL, ndist=3, 
-    merge.order=NULL, auto.merge=FALSE, auto.order=NULL, 
+    merge.order=NULL, auto.merge=FALSE, 
     min.batch.skip=0, BNPARAM=KmknnParam(), BPPARAM=SerialParam()) 
 {
-    if (!is.null(auto.order)) {
-        .Deprecated(old="auto.order", new="auto.merge")
-        if (isTRUE(auto.order)) {
-            auto.merge <- TRUE
-        } else if (is.numeric(auto.order)) {
-            merge.order <- auto.order
-        }
-    }
-
     if (!auto.merge) {
         merge.tree <- .create_tree_predefined(batches, restrict, merge.order)
         UPDATE <- .update_tree

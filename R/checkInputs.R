@@ -12,15 +12,12 @@
 #' \code{checkBatchConsistency} will check whether the input \code{batches} are consistent with respect to the size of the dimension containing features (i.e., not cells).
 #' It will also verify that the dimension names are consistent, to avoid problems from variable ordering of rows/columns in the inputs.
 #'
-#' \code{checkSpikeConsistency} will check whether the spike-in information is consistent across all \code{batches}.
-#' This only works for SingleCellExperiment objects, so one should only run this function if \code{checkIfSCE} returns \code{TRUE}.
-#'
 #' \code{checkRestrictions} will check whether \code{restrictions} are consistent with the supplied \code{batches},
 #' in terms of the length and names of the two lists.
 #' It will also check that each batch contains at least one usable cell after restriction.
 #'
 #' @return
-#' \code{checkBatchConsistency} and \code{checkSpikeConsistency} will return an invisible \code{NULL} if there are no errors.
+#' \code{checkBatchConsistency} return an invisible \code{NULL} if there are no errors.
 #'
 #' \code{checkIfSCE} will return a logical vector specifying whether each element of \code{batches} is a SingleCellExperiment objects.
 #'
@@ -77,29 +74,6 @@ checkBatchConsistency <- function(batches, cells.in.columns=TRUE)
         }
     }
 
-    invisible(NULL)
-}
-
-#' @rdname checkInputs
-#' @export
-#' @importFrom SingleCellExperiment isSpike spikeNames
-checkSpikeConsistency <- function(batches) 
-# Checking for identical spike-in sets and (overall) identities.
-{
-    if (length(batches) < 2L) {
-        return(invisible(NULL))
-    }
-
-    suppressWarnings(ref.spike.names <- spikeNames(batches[[1]]))
-    ref.spike <- suppressWarnings(isSpike(batches[[1]]))
-    for (b in seq_along(batches)) {
-        if (!identical(ref.spike.names, suppressWarnings(spikeNames(batches[[b]])))) {
-            stop("spike-in sets differ across batches")
-        }
-        if (!identical(ref.spike, suppressWarnings(isSpike(batches[[b]])))) {
-            stop("spike-in identities differ across batches")
-        }
-    }
     invisible(NULL)
 }
 

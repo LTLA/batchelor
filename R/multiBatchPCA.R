@@ -17,11 +17,8 @@
 #' @param d An integer scalar specifying the number of dimensions to keep from the initial multi-sample PCA.
 #' @param subset.row A vector specifying which features to use for correction. 
 #' @param assay.type A string or integer scalar specifying the assay containing the expression values, if SingleCellExperiment objects are present in \code{...}.
-#' @param get.spikes Deprecated, a logical scalar indicating whether to retain rows corresponding to spike-in transcripts.
-#' Only used for SingleCellExperiment inputs.
 #' @param get.all.genes A logical scalar indicating whether the reported rotation vectors should include genes 
 #' that are excluded by a non-\code{NULL} value of \code{subset.row}.
-#' @param rotate.all A deprecated synonym for \code{get.all.genes}.
 #' @param get.variance A logical scalar indicating whether to return the (weighted) variance explained by each PC.
 #' @param preserve.single A logical scalar indicating whether to combine the results into a single matrix if only one object was supplied in \code{...}.
 #' @param BSPARAM A \linkS4class{BiocSingularParam} object specifying the algorithm to use for PCA, see \code{\link{runSVD}} for details.
@@ -43,10 +40,6 @@
 #' In such cases, it may be more appropriate to ensure that each \emph{study} has equal weight.
 #' This is done by assigning a value of \code{weights} to each replicate that is inversely proportional to the number of replicates in the same study - see Examples.
 #' 
-#' If \code{...} contains SingleCellExperiment objects, any spike-in transcripts should be the same across all batches.
-#' These will be removed prior to PCA unless \code{get.spikes=TRUE}.
-#' If \code{subset.row} is specified and \code{get.spikes=FALSE}, only the non-spike-in specified features will be used. 
-#'
 #' Setting \code{get.all.genes=TRUE} will report rotation vectors that span all genes, even when only a subset of genes are used for the PCA.
 #' This is done by projecting all non-used genes into the low-dimensional \dQuote{cell space} defined by the first \code{d} components.
 #'
@@ -60,7 +53,7 @@
 #' This contains the first \code{d} PCs (columns) for all cells in the same order as supplied in the single input object.
 #' 
 #' The metadata contains \code{rotation}, a matrix of rotation vectors, which can be used to construct a low-rank approximation of the input matrices.
-#' This has number of rows equal to the number of genes after any subsetting, except if \code{rotate.all=TRUE}, where the number of rows is equal to the genes before subsetting.
+#' This has number of rows equal to the number of genes after any subsetting, except if \code{get.all.genes=TRUE}, where the number of rows is equal to the genes before subsetting.
 #'
 #' If \code{get.variance=TRUE}, the metadata will also contain \code{var.explained}, the weighted variance explained by each PC;
 #' and \code{var.total}, the total variance after weighting.
@@ -98,8 +91,8 @@
 #' @importFrom BiocGenerics colnames<- rownames<- colnames rownames
 #' @importFrom BiocSingular ExactParam
 multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, weights=NULL,
-    get.all.genes=FALSE, rotate.all=FALSE, get.variance=FALSE, preserve.single=FALSE, 
-    assay.type="logcounts", get.spikes=FALSE, BSPARAM=ExactParam(), BPPARAM=SerialParam()) 
+    get.all.genes=FALSE, get.variance=FALSE, preserve.single=FALSE, 
+    assay.type="logcounts", BSPARAM=ExactParam(), BPPARAM=SerialParam()) 
 # Performs a multi-sample PCA (i.e., batches).
 # Each batch is weighted inversely by the number of cells when computing the gene-gene covariance matrix.
 # This avoids domination by samples with a large number of cells.
@@ -115,15 +108,7 @@ multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, weights=NULL,
 
     is.sce <- checkIfSCE(mat.list)
     if (any(is.sce)) {
-        sce.in <- mat.list[is.sce]
-        checkSpikeConsistency(sce.in)
-        subset.row <- .SCE_subset_genes(subset.row, sce.in[[1]], get.spikes)
-        mat.list[is.sce] <- lapply(sce.in, assay, i=assay.type)
-    }
-
-    if (rotate.all) {
-        .Deprecated(msg="'rotate.all=TRUE' is deprecated.\nUse 'get.all.genes=TRUE' instead.")
-        get.all.genes <- TRUE
+        mat.list[is.sce] <- lapply(mat.list[is.sce], assay, i=assay.type)
     }
 
     # Different function calls for different input modes.

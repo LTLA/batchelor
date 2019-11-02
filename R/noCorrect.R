@@ -50,18 +50,14 @@
 #' @importFrom S4Vectors DataFrame
 noCorrect <- function(..., batch=NULL, subset.row=NULL, assay.type="logcounts") {
     batches <- list(...)
-    is.sce <- checkIfSCE(batches)
+    checkBatchConsistency(batches, cells.in.columns=TRUE)
 
     # Extracting information from SCEs.
+    is.sce <- checkIfSCE(batches)
     if (any(is.sce)) {
-        sce.batches <- batches[is.sce]
-        # NOTE: do NOT set withDimnames=FALSE, this will break the consistency check.
-        sce.batches <- lapply(sce.batches, assay, i=assay.type)
-        batches[is.sce] <- sce.batches
+        batches[is.sce] <- lapply(batches[is.sce], assay, i=assay.type)
     }
 
-    # Batch consistency checks.
-    checkBatchConsistency(batches, cells.in.columns=TRUE)
     if (!is.null(subset.row)) {
         for (i in seq_along(batches)) {
             batches[[i]] <- batches[[i]][subset.row,,drop=FALSE]

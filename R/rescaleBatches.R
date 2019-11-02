@@ -19,8 +19,6 @@
 #' @param pseudo.count A numeric scalar specifying the pseudo-count used for the log-transformation.
 #' @param subset.row A vector specifying which features to use for correction.
 #' @param assay.type A string or integer scalar specifying the assay containing the log-expression values, if SingleCellExperiment objects are present in \code{...}.
-#' @param get.spikes Deprecated, a logical scalar indicating whether to retain rows corresponding to spike-in transcripts.
-#' Only used for SingleCellExperiment inputs.
 #'
 #' @return
 #' A \linkS4class{SingleCellExperiment} object containing the \code{corrected} assay.
@@ -64,7 +62,7 @@
 #' 
 #' @export
 #' @importFrom SummarizedExperiment assay
-rescaleBatches <- function(..., batch=NULL, restrict=NULL, log.base=2, pseudo.count=1, subset.row=NULL, assay.type="logcounts", get.spikes=FALSE) {
+rescaleBatches <- function(..., batch=NULL, restrict=NULL, log.base=2, pseudo.count=1, subset.row=NULL, assay.type="logcounts") {
     originals <- batches <- list(...)
     checkBatchConsistency(batches)
     restrict <- checkRestrictions(batches, restrict)
@@ -72,10 +70,7 @@ rescaleBatches <- function(..., batch=NULL, restrict=NULL, log.base=2, pseudo.co
     # Pulling out information from the SCE objects.
     is.sce <- checkIfSCE(batches)
     if (any(is.sce)) {
-        sce.batches <- batches[is.sce]
-        checkSpikeConsistency(sce.batches)
-        subset.row <- .SCE_subset_genes(subset.row, sce.batches[[1]], get.spikes)
-        batches[is.sce] <- lapply(sce.batches, assay, i=assay.type, withDimnames=FALSE)
+        batches[is.sce] <- lapply(batches[is.sce], assay, i=assay.type, withDimnames=FALSE)
     }
 
     # Subsetting by 'batch'. 

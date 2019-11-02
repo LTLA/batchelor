@@ -18,8 +18,6 @@
 #' Used to ensure that the output is of the same dimensionality as the input.
 #' @param assay.type A string or integer scalar specifying the assay to use for correction.
 #' Only used for SingleCellExperiment inputs.
-#' @param get.spikes Deprecated, a logical scalar indicating whether to retain rows corresponding to spike-in transcripts.
-#' Only used for SingleCellExperiment inputs.
 #' @param PARAM A \linkS4class{BatchelorParam} object specifying the batch correction method to dispatch to, and the parameters with which it should be run.
 #' \linkS4class{ClassicMnnParam} will dispatch to \code{\link{mnnCorrect}};
 #' \linkS4class{FastMnnParam} will dispatch to \code{\link{fastMNN}};
@@ -44,11 +42,8 @@
 #' Users can pass parameters to each method directly via \code{...} or via the constructors for \code{PARAM}.
 #' While there is no restriction on which parameters go where, we recommend only passing data-agnostic and method-specific parameters to \code{PARAM}.
 #' Data-dependent parameters - and indeed, the data themselves - should be passed in via \code{...}.
-#' This means that different data sets can be used without modifying \code{PARAM}, and allows users to switch to a different algorithm by only changing \code{PARAM}.
+#' This means that different data sets can be used without modifying \code{PARAM}, allowing users to switch to a different algorithm by only changing \code{PARAM}.
 #' 
-#' Note that \code{get.spikes=FALSE} effectively modifies \code{subset.row} to exclude spike-in transcripts when SingleCellExperiment inputs are supplied.
-#' This means that the reported SingleCellExperiment will not, by default, contain corrected expression values for spike-in transcripts unless \code{get.spikes=TRUE}.
-#'
 #' @seealso
 #' \linkS4class{BatchelorParam} classes to determine dispatch.
 #'
@@ -67,39 +62,37 @@
 #' @rdname batchCorrect
 #' @export
 #' @import methods
-setMethod("batchCorrect", "ClassicMnnParam", function(..., batch=NULL, restrict=NULL, subset.row=NULL, correct.all=FALSE, assay.type="logcounts", get.spikes=FALSE, PARAM) {
-    combined <- c(list(..., batch=batch, restrict=restrict, subset.row=subset.row, correct.all=correct.all, assay.type=assay.type, get.spikes=get.spikes), as.list(PARAM))
+setMethod("batchCorrect", "ClassicMnnParam", function(..., batch=NULL, restrict=NULL, subset.row=NULL, correct.all=FALSE, assay.type="logcounts", PARAM) {
+    combined <- c(list(..., batch=batch, restrict=restrict, subset.row=subset.row, correct.all=correct.all, assay.type=assay.type), as.list(PARAM))
     do.call(mnnCorrect, combined)
 })
 
 #' @rdname batchCorrect
 #' @export
-setMethod("batchCorrect", "FastMnnParam", function(..., batch=NULL, restrict=NULL, subset.row=NULL, correct.all=FALSE, assay.type="logcounts", get.spikes=FALSE, PARAM) {
-    combined <- c(list(..., batch=batch, restrict=restrict, subset.row=subset.row, correct.all=correct.all, assay.type=assay.type, get.spikes=get.spikes), as.list(PARAM))
-    combined$pc.input <- FALSE # Ensure we get an SCE out.
-    combined$use.dimred <- NULL
+setMethod("batchCorrect", "FastMnnParam", function(..., batch=NULL, restrict=NULL, subset.row=NULL, correct.all=FALSE, assay.type="logcounts", PARAM) {
+    combined <- c(list(..., batch=batch, restrict=restrict, subset.row=subset.row, correct.all=correct.all, assay.type=assay.type), as.list(PARAM))
     do.call(fastMNN, combined)
 })
 
 #' @rdname batchCorrect
 #' @export
-setMethod("batchCorrect", "RescaleParam", function(..., batch=NULL, restrict=NULL, subset.row=NULL, correct.all=FALSE, assay.type="logcounts", get.spikes=FALSE, PARAM) {
+setMethod("batchCorrect", "RescaleParam", function(..., batch=NULL, restrict=NULL, subset.row=NULL, correct.all=FALSE, assay.type="logcounts", PARAM) {
     if (correct.all) subset.row <- NULL
-    combined <- c(list(..., batch=batch, restrict=restrict, subset.row=subset.row, assay.type=assay.type, get.spikes=get.spikes), as.list(PARAM))
+    combined <- c(list(..., batch=batch, restrict=restrict, subset.row=subset.row, assay.type=assay.type), as.list(PARAM))
     do.call(rescaleBatches, combined)
 })
 
 #' @rdname batchCorrect
 #' @export
-setMethod("batchCorrect", "RegressParam", function(..., batch=NULL, restrict=NULL, subset.row=NULL, correct.all=FALSE, assay.type="logcounts", get.spikes=FALSE, PARAM) {
+setMethod("batchCorrect", "RegressParam", function(..., batch=NULL, restrict=NULL, subset.row=NULL, correct.all=FALSE, assay.type="logcounts", PARAM) {
     if (correct.all) subset.row <- NULL
-    combined <- c(list(..., batch=batch, restrict=restrict, subset.row=subset.row, assay.type=assay.type, get.spikes=get.spikes), as.list(PARAM))
+    combined <- c(list(..., batch=batch, restrict=restrict, subset.row=subset.row, assay.type=assay.type), as.list(PARAM))
     do.call(regressBatches, combined)
 })
 
 #' @rdname batchCorrect
 #' @export
-setMethod("batchCorrect", "NoCorrectParam", function(..., batch=NULL, restrict=NULL, subset.row=NULL, correct.all=FALSE, assay.type="logcounts", get.spikes=FALSE, PARAM) {
+setMethod("batchCorrect", "NoCorrectParam", function(..., batch=NULL, restrict=NULL, subset.row=NULL, correct.all=FALSE, assay.type="logcounts", PARAM) {
     if (correct.all) subset.row <- NULL
     combined <- c(list(..., batch=batch, subset.row=subset.row, assay.type=assay.type), as.list(PARAM))
     do.call(noCorrect, combined)

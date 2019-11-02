@@ -106,22 +106,11 @@ test_that("rescaleBatches works correctly with SCE inputs", {
     ref <- rescaleBatches(B1, B2)
     expect_equal(ref, out)
 
-    # Behaves with spikes as input.
-    isp <- rbinom(nrow(B1), 1, 0.1)==1L
-    isSpike(sce1, "ERCC") <- isp
-    isSpike(sce2, "ERCC") <- isp
-    out <- rescaleBatches(sce1, sce2)
-    ref <- rescaleBatches(B1[!isp,], B2[!isp,])
-    expect_equal(ref, out)
-
-    # Spikes and subsetting interact correctly
+    # Subsetting works correctly
     i <- rbinom(nrow(B1), 1, 0.5)==1L
     out <- rescaleBatches(sce1, sce2, subset.row=i)
     ref <- rescaleBatches(sce1[i,], sce2[i,])
     expect_equal(ref, out)
-
-    ref2 <- rescaleBatches(B1[!isp & i,], B2[!isp & i,])
-    expect_equal(ref2, out)
 })
 
 set.seed(1300011)

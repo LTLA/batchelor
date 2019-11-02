@@ -129,6 +129,11 @@ MNN_treenode <- function(index, data, restrict, origin=rep(index, nrow(data)), e
     pairs
 }
 
+.unrestrict_indices <- function(index, restrict) {
+    if (!is.null(restrict)) index <- restrict[index]
+    index
+}
+
 .choose_k <- function(k, prop.k, N) {
     if (is.null(prop.k)) {
         k

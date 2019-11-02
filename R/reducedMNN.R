@@ -51,15 +51,11 @@
 #' @importFrom BiocParallel SerialParam bpstart bpstop bpisup register
 #' @importClassesFrom S4Vectors DataFrame
 reducedMNN <- function (..., batch=NULL, k=20, prop.k=NULL, restrict=NULL, ndist=3,
-    merge.order=NULL, auto.merge=FALSE, auto.order=NULL, min.batch.skip=0,
+    merge.order=NULL, auto.merge=FALSE, min.batch.skip=0,
     BNPARAM=KmknnParam(), BPPARAM=SerialParam())
 {
     batches <- list(...)
     is.df <- vapply(batches, is, class2="DataFrame", FUN.VALUE=TRUE)
-    if (any(is.df)) {
-        .Deprecated(msg="re-use of 'fastMNN' outputs is deprecated")
-        batches[is.df] <- lapply(batches[is.df], FUN=function(x) x$corrected)
-    }
 
     checkBatchConsistency(batches, cells.in.columns=FALSE)
     restrict <- checkRestrictions(batches, restrict, cells.in.columns=FALSE)
@@ -75,7 +71,7 @@ reducedMNN <- function (..., batch=NULL, k=20, prop.k=NULL, restrict=NULL, ndist
     }
 
     args <- list(k=k, prop.k=prop.k, ndist=ndist, 
-        merge.order=merge.order, auto.merge=auto.merge, auto.order=auto.order,
+        merge.order=merge.order, auto.merge=auto.merge, 
         min.batch.skip=min.batch.skip, BNPARAM=BNPARAM, BPPARAM=BPPARAM)
 
     if (length(batches)==1L) {

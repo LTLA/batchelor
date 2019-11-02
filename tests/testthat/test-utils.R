@@ -79,61 +79,6 @@ test_that(".col_subset_to_index works correctly", {
     expect_identical(batchelor:::.col_subset_to_index(A, character(0)), integer(0))
 })
 
-set.seed(1000007)
-test_that(".spike_subset works correctly", {
-    sce <- SingleCellExperiment(list(logcounts=matrix(runif(2000), nrow=10)))
-
-    # Behaves without any spike-ins.
-    expect_identical(batchelor:::.spike_subset(sce, TRUE), NULL)
-    expect_identical(batchelor:::.spike_subset(sce, FALSE), NULL)
-
-    # Behaves once you throw spike-ins in.
-    isSpike(sce, "ERCC") <- 1:5
-    expect_identical(batchelor:::.spike_subset(sce, TRUE), NULL)
-    expect_identical(batchelor:::.spike_subset(sce, FALSE), !isSpike(sce))
-
-    # Testing silly inputs.
-    expect_identical(batchelor:::.spike_subset(sce[0,], TRUE), NULL)
-    expect_identical(batchelor:::.spike_subset(sce[0,], FALSE), NULL)
-})
-
-set.seed(1000008)
-test_that(".SCE_subset_genes works correctly", {
-    sce <- SingleCellExperiment(list(logcounts=matrix(runif(2000), nrow=10)))
-
-    # Behaves without any spike-ins.
-    expect_identical(batchelor:::.SCE_subset_genes(NULL, sce, TRUE), NULL)
-    expect_identical(batchelor:::.SCE_subset_genes(NULL, sce, FALSE), NULL)
-
-    i <- 1:5
-    expect_identical(batchelor:::.SCE_subset_genes(i, sce, TRUE), i)
-    expect_identical(batchelor:::.SCE_subset_genes(i, sce, FALSE), i)
-
-    l <- seq_len(nrow(sce)) %% 2 == 0
-    expect_identical(batchelor:::.SCE_subset_genes(l, sce, TRUE), which(l))
-    expect_identical(batchelor:::.SCE_subset_genes(l, sce, FALSE), which(l))
-
-    # Behaves once you throw spike-ins in.
-    isSpike(sce, "ERCC") <- 1:5
-    expect_identical(batchelor:::.SCE_subset_genes(NULL, sce, TRUE), NULL)
-    expect_identical(batchelor:::.SCE_subset_genes(NULL, sce, FALSE), !isSpike(sce))
-
-    i <- 3:10
-    expect_identical(batchelor:::.SCE_subset_genes(i, sce, TRUE), i)
-    expect_identical(batchelor:::.SCE_subset_genes(i, sce, FALSE), 6:10)
-
-    l <- seq_len(nrow(sce)) %% 2 == 0
-    expect_identical(batchelor:::.SCE_subset_genes(l, sce, TRUE), which(l))
-    expect_identical(batchelor:::.SCE_subset_genes(l, sce, FALSE), setdiff(which(l), 1:5))
-
-    # Testing silly inputs.
-    expect_identical(batchelor:::.SCE_subset_genes(NULL, sce[0,], TRUE), NULL)
-    expect_identical(batchelor:::.SCE_subset_genes(NULL, sce[0,], FALSE), NULL)
-
-    expect_identical(batchelor:::.SCE_subset_genes(integer(0), sce[0,], TRUE), integer(0))
-    expect_identical(batchelor:::.SCE_subset_genes(integer(0), sce[0,], FALSE), integer(0))
-})
-
 set.seed(1000009)
 test_that("tricube calculations work correctly", {
     A <- matrix(runif(1000), ncol=20)

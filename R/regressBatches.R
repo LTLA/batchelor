@@ -76,10 +76,7 @@ regressBatches <- function(..., batch=NULL, restrict=NULL, subset.row=NULL, assa
     # Pulling out information from the SCE objects.
     is.sce <- checkIfSCE(batches)
     if (any(is.sce)) {
-        sce.batches <- batches[is.sce]
-        checkSpikeConsistency(sce.batches)
-        subset.row <- .SCE_subset_genes(subset.row, sce.batches[[1]], FALSE)
-        batches[is.sce] <- lapply(sce.batches, assay, i=assay.type)
+        batches[is.sce] <- lapply(batches[is.sce], assay, i=assay.type)
     }
 
     # Creating a single matrix object.

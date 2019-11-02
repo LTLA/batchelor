@@ -79,23 +79,11 @@ test_that("multi-sample PCA works with SCEs", {
     out <- multiBatchPCA(test1, test2, d=4)
     expect_equal(ref, out)
 
-    # Behaves with spikes as input.
-    isp <- sample(nrow(test1), 2)
-    isSpike(sce1, "ERCC") <- isp
-    isSpike(sce2, "ERCC") <- isp
-    ref <- multiBatchPCA(sce1, sce2, d=5)
-    out <- multiBatchPCA(test1[-isp,], test2[-isp,], d=5)
-    expect_equal(ref, out)
-
-    # Spikes and subsetting interact correctly.
+    # Subsetting works correctly.
     i <- sample(nrow(test1), 5)
     ref <- multiBatchPCA(sce1, sce2, d=2, subset.row=i)
     out <- multiBatchPCA(sce1[i,], sce2[i,], d=2)
     expect_equal(ref, out)
-
-    # Throws a useful error.
-    sce1x <- clearSpikes(sce1)
-    expect_error(multiBatchPCA(sce1x, sce2), "spike-in sets")
 })
 
 set.seed(1200002)
@@ -283,8 +271,9 @@ test_that("multi-sample PCA works with deferred operations", {
     out <- multiBatchPCA(test1, test2, test3, d=10, get.variance=TRUE, BSPARAM=BiocSingular::ExactParam(deferred=TRUE))
     expect_equal(metadata(ref), metadata(out))
 
-    ref <- multiBatchPCA(test1, test2, test3, d=10, subset.row=5:15, rotate.all=TRUE)
-    out <- multiBatchPCA(test1, test2, test3, d=10, subset.row=5:15, rotate.all=TRUE, BSPARAM=BiocSingular::ExactParam(deferred=TRUE))
+    ref <- multiBatchPCA(test1, test2, test3, d=10, subset.row=5:15, get.all.genes=TRUE)
+    out <- multiBatchPCA(test1, test2, test3, d=10, subset.row=5:15, get.all.genes=TRUE, 
+        BSPARAM=BiocSingular::ExactParam(deferred=TRUE))
     expect_equal(metadata(ref), metadata(out))
 
     # Also works with single inputs.
