@@ -2,23 +2,9 @@
 #'
 #' Scale counts so that the average count within each batch is the same for each gene.
 #'
-#' @param ... Two or more log-expression matrices where genes correspond to rows and cells correspond to columns.
-#' Each matrix should contain the same number of rows, corresponding to the same genes (in the same order).
-#' 
-#' Alternatively, one or more \linkS4class{SingleCellExperiment} objects can be supplied containing a count matrix in the \code{assay.type} assay.
-#' Note the same restrictions described above for gene expression matrix inputs.
-#'
-#' If multiple objects are supplied, each object is assumed to contain all and only cells from a single batch.
-#' Objects of different types can be mixed together. 
-#' If a single object is supplied, \code{batch} should also be specified.
-#' @param batch A factor specifying the batch of origin for all cells when only a single object is supplied in \code{...}.
-#' This is ignored if multiple objects are present.
-#' @param restrict A list of length equal to the number of objects in \code{...}.
-#' Each entry of the list corresponds to one batch and specifies the cells to use when computing the correction.
+#' @inheritParams fastMNN
 #' @param log.base A numeric scalar specifying the base of the log-transformation.
 #' @param pseudo.count A numeric scalar specifying the pseudo-count used for the log-transformation.
-#' @param subset.row A vector specifying which features to use for correction.
-#' @param assay.type A string or integer scalar specifying the assay containing the log-expression values, if SingleCellExperiment objects are present in \code{...}.
 #'
 #' @return
 #' A \linkS4class{SingleCellExperiment} object containing the \code{corrected} assay.
@@ -63,7 +49,7 @@
 #' @export
 #' @importFrom SummarizedExperiment assay
 rescaleBatches <- function(..., batch=NULL, restrict=NULL, log.base=2, pseudo.count=1, subset.row=NULL, assay.type="logcounts") {
-    originals <- batches <- list(...)
+    originals <- batches <- .unpack_batches(...)
     checkBatchConsistency(batches)
     restrict <- checkRestrictions(batches, restrict)
 

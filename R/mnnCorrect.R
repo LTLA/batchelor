@@ -2,33 +2,13 @@
 #' 
 #' Correct for batch effects in single-cell expression data using the mutual nearest neighbors method.
 #' 
-#' @param ... Two or more log-expression matrices where genes correspond to rows and cells correspond to columns.
-#' Each matrix should contain cells from the same batch; multiple matrices represent separate batches of cells.
-#' Each matrix should contain the same number of rows, corresponding to the same genes (in the same order).
-#' 
-#' Alternatively, one or more \linkS4class{SingleCellExperiment} objects can be supplied containing a log-expression matrix in the \code{assay.type} assay.
-#' Note the same constraints described above for matrix inputs.
-#' @param batch A factor specifying the batch of origin for all cells when only a single object is supplied in \code{...}.
-#' This is ignored if multiple objects are present.
-#' @param restrict A list of length equal to the number of objects in \code{...}.
-#' Each entry of the list corresponds to one batch and specifies the cells to use when computing the correction.
-#' @param k An integer scalar specifying the number of nearest neighbors to consider when identifying mutual nearest neighbors.
-#' @param prop.k A numeric scalar in (0, 1) specifying the proportion of cells in each dataset to use for mutual nearest neighbor searching.
-#' If set, \code{k} for the search in each batch is redefined as \code{max(k, prop.k*N)} where \code{N} is the number of cells in that batch.
 #' @param sigma A numeric scalar specifying the bandwidth of the Gaussian smoothing kernel used to compute the correction vector for each cell.
 #' @param cos.norm.in A logical scalar indicating whether cosine normalization should be performed on the input data prior to calculating distances between cells.
 #' @param cos.norm.out A logical scalar indicating whether cosine normalization should be performed prior to computing corrected expression values.
 #' @param svd.dim An integer scalar specifying the number of dimensions to use for summarizing biological substructure within each batch.
 #' @param var.adj A logical scalar indicating whether variance adjustment should be performed on the correction vectors.
-#' @param subset.row A vector specifying which features to use for correction. 
 #' @param correct.all A logical scalar specifying whether correction should be applied to all genes, even if only a subset is used for the MNN calculations.
-#' @param merge.order An integer vector containing the linear merge order of batches in \code{...}.
-#' Alternatively, a list of lists representing a tree structure specifying a hierarchical merge order.
-#' @param auto.merge Logical scalar indicating whether to automatically identify the \dQuote{best} merge order.
-#' @param assay.type A string or integer scalar specifying the assay containing the log-expression values, if SingleCellExperiment objects are present in \code{...}.
-#' @param BSPARAM A \linkS4class{BiocSingularParam} object specifying the SVD algorithm to use.
-#' @param BNPARAM A \linkS4class{BiocNeighborParam} object specifying the neighbor search algorithm to use.
-#' @param BPPARAM A \linkS4class{BiocParallelParam} object specifying the parallelization scheme to use.
+#' @inheritParams fastMNN
 #' 
 #' @return
 #' A \linkS4class{SingleCellExperiment} object containing the \code{corrected} assay.
@@ -143,7 +123,7 @@ mnnCorrect <- function(..., batch=NULL, restrict=NULL, k=20, prop.k=NULL, sigma=
     subset.row=NULL, correct.all=FALSE, merge.order=NULL, auto.merge=FALSE, 
     assay.type="logcounts", BSPARAM=ExactParam(), BNPARAM=KmknnParam(), BPPARAM=SerialParam())
 {
-    original <- batches <- list(...)
+    original <- batches <- .unpack_batches(...)
     checkBatchConsistency(batches)
     restrict <- checkRestrictions(batches, restrict)
     

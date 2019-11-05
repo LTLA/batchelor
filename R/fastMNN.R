@@ -3,14 +3,14 @@
 #' Correct for batch effects in single-cell expression data using a fast version of the mutual nearest neighbors (MNN) method.
 #'
 #' @param ... One or more log-expression matrices where genes correspond to rows and cells correspond to columns.
-#' Each matrix should contain the same number of rows, corresponding to the same genes in the same order.
-#' 
 #' Alternatively, one or more \linkS4class{SingleCellExperiment} objects can be supplied containing a log-expression matrix in the \code{assay.type} assay.
-#' Note the same restrictions described above for gene expression matrix inputs.
-#'
-#' If multiple objects are supplied, each object is assumed to contain all and only cells from a single batch.
+#' Each object should contain the same number of rows, corresponding to the same genes in the same order.
 #' Objects of different types can be mixed together.
-#' If a single object is supplied, \code{batch} should also be specified.
+#' 
+#' If multiple objects are supplied, each object is assumed to contain all and only cells from a single batch.
+#' If a single object is supplied, it is assumed to contain cells from all batches, so \code{batch} should also be specified.
+#' 
+#' Alternatively, one or more lists of such objects can be provided, which may be more convenient for programmatic use.
 #' @param batch A factor specifying the batch of origin for all cells when only a single object is supplied in \code{...}.
 #' This is ignored if multiple objects are present.
 #' @param restrict A list of length equal to the number of objects in \code{...}.
@@ -268,7 +268,7 @@ fastMNN <- function(..., batch=NULL, k=20, prop.k=NULL, restrict=NULL, cos.norm=
     subset.row=NULL, correct.all=FALSE, assay.type="logcounts", 
     BSPARAM=IrlbaParam(deferred=TRUE), BNPARAM=KmknnParam(), BPPARAM=SerialParam()) 
 {
-    batches <- list(...)
+    batches <- .unpack_batches(...)
     checkBatchConsistency(batches, cells.in.columns=TRUE)
     restrict <- checkRestrictions(batches, restrict, cells.in.columns=TRUE)
 

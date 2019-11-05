@@ -2,21 +2,8 @@
 #'
 #' Provides a no-correction method that has the same interface as the correction functions.
 #' This allows users to easily swap function calls to examine the effect of correction.
-#' 
-#' @param ... One or more log-expression matrices where genes correspond to rows and cells correspond to columns, if \code{pc.input=FALSE}.
-#' Each matrix should contain the same number of rows, corresponding to the same genes in the same order.
-#' 
-#' Alternatively, one or more \linkS4class{SingleCellExperiment} objects can be supplied containing a log-expression matrix in the \code{assay.type} assay.
-#' Note the same restrictions described above for gene expression matrix inputs.
 #'
-#' If multiple objects are supplied, each object is assumed to contain all and only cells from a single batch.
-#' Objects of different types can be mixed together. 
-#' If a single object is supplied, \code{batch} should also be specified.
-#' @param batch A factor specifying the batch of origin for all cells when only a single object is supplied in \code{...}.
-#' This is ignored if multiple objects are present.
-#' @param subset.row A vector specifying which features to retain.
-#' @param assay.type A string or integer scalar specifying the assay containing the log-expression values.
-#' Only used for SingleCellExperiment inputs. 
+#' @inheritParams fastMNN
 #'
 #' @return
 #' A \linkS4class{SingleCellExperiment} is returned where each row is a gene and each column is a cell. 
@@ -49,7 +36,7 @@
 #' @importFrom SingleCellExperiment SingleCellExperiment
 #' @importFrom S4Vectors DataFrame
 noCorrect <- function(..., batch=NULL, subset.row=NULL, assay.type="logcounts") {
-    batches <- list(...)
+    batches <- .unpack_batches(...)
     checkBatchConsistency(batches, cells.in.columns=TRUE)
 
     # Extracting information from SCEs.

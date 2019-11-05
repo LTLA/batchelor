@@ -46,3 +46,20 @@
 
     output
 }
+
+#' @importFrom methods is
+#' @importClassesFrom S4Vectors List
+.unpack_batches <- function(...) {
+    batches <- list(...)
+    for (i in seq_along(batches)) {
+        if (!is.list(current <- batches[[i]])) {
+            if (is(current, "List")) {
+                current <- as.list(current)
+            } else {
+                current <- list(current)
+            }
+            batches[[i]] <- current
+        }
+    }
+    do.call(c, batches)
+}
