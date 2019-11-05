@@ -150,3 +150,19 @@ test_that(".reindex_pairings works correctly", {
     out <- batchelor:::.reindex_pairings(empty, integer(0))
     expect_identical(empty, out)
 })
+
+test_that("batch unpacker works correctly", {
+    X <- cbind(1)
+    Y <- cbind(2)
+
+    expect_identical(batchelor:::.unpack_batches(X, Y), list(X, Y))
+    expect_identical(batchelor:::.unpack_batches(list(X, Y)), list(X, Y))
+    expect_identical(batchelor:::.unpack_batches(list(X), Y), list(X, Y))
+
+    X <- SummarizedExperiment(X)
+    Y <- SummarizedExperiment(Y)
+
+    expect_identical(batchelor:::.unpack_batches(X, Y), list(X, Y))
+    expect_identical(batchelor:::.unpack_batches(list(X, Y)), list(X, Y))
+    expect_identical(batchelor:::.unpack_batches(list(X), Y), list(X, Y))
+})

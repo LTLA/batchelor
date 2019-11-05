@@ -468,7 +468,7 @@ set.seed(12000052)
 test_that("fastMNN works with within-object batches", {
     B1 <- matrix(rnorm(10000, 0), nrow=100) # Batch 1 
     B2 <- matrix(rnorm(20000, 1), nrow=100) # Batch 2
-    B3 <- matrix(rnorm(15000, 2), nrow=100) # Batch 2
+    B3 <- matrix(rnorm(15000, 2), nrow=100) # Batch 3
 
     sce1 <- SingleCellExperiment(list(logcounts=B1))
     sce2 <- SingleCellExperiment(list(logcounts=B2))
@@ -505,7 +505,7 @@ set.seed(120000521)
 test_that("fastMNN works with within-object batches and subsetting", {
     B1 <- matrix(rnorm(10000, 0), nrow=100) # Batch 1 
     B2 <- matrix(rnorm(20000, 1), nrow=100) # Batch 2
-    B3 <- matrix(rnorm(15000, 2), nrow=100) # Batch 2
+    B3 <- matrix(rnorm(15000, 2), nrow=100) # Batch 3
     combined <- cbind(B1, B2, B3)
     batches <- rep(1:3, c(ncol(B1), ncol(B2), ncol(B3)))
 
@@ -533,7 +533,7 @@ set.seed(120000522)
 test_that("fastMNN renames within-object batches correctly", {
     B1 <- matrix(rnorm(10000, 0), nrow=100) # Batch 1 
     B2 <- matrix(rnorm(20000, 1), nrow=100) # Batch 2
-    B3 <- matrix(rnorm(15000, 2), nrow=100) # Batch 2
+    B3 <- matrix(rnorm(15000, 2), nrow=100) # Batch 3
 
     rownames(B1) <- rownames(B2) <- rownames(B3) <- sprintf("GENE_%i", sample(nrow(B1)))
     colnames(B1) <- sprintf("CELL_1_%i", seq_len(ncol(B1)))
@@ -557,7 +557,7 @@ test_that("fastMNN works correctly with restriction", {
     B1 <- matrix(rnorm(10000, 0), nrow=100) # Batch 1 
     B2 <- matrix(rnorm(20000, 1), nrow=100) # Batch 2
     B3 <- matrix(rnorm(5000, 2), nrow=100) # Batch 3
-    B4 <- matrix(rnorm(8000, 2), nrow=100) # Batch 3
+    B4 <- matrix(rnorm(8000, 2), nrow=100) # Batch 4
 
     # Restricted results are only directly comparable if we're not doing a PCA internally.
     # So here, we'll just check that the pairs are only formed between allowable instances. 
