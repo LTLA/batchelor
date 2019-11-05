@@ -8,15 +8,15 @@ rescaleBatches(..., batch = NULL, restrict = NULL, log.base = 2,
   pseudo.count = 1, subset.row = NULL, assay.type = "logcounts")
 }
 \arguments{
-\item{...}{Two or more log-expression matrices where genes correspond to rows and cells correspond to columns.
-Each matrix should contain the same number of rows, corresponding to the same genes (in the same order).
-
-Alternatively, one or more \linkS4class{SingleCellExperiment} objects can be supplied containing a count matrix in the \code{assay.type} assay.
-Note the same restrictions described above for gene expression matrix inputs.
+\item{...}{One or more log-expression matrices where genes correspond to rows and cells correspond to columns.
+Alternatively, one or more \linkS4class{SingleCellExperiment} objects can be supplied containing a log-expression matrix in the \code{assay.type} assay.
+Each object should contain the same number of rows, corresponding to the same genes in the same order.
+Objects of different types can be mixed together.
 
 If multiple objects are supplied, each object is assumed to contain all and only cells from a single batch.
-Objects of different types can be mixed together. 
-If a single object is supplied, \code{batch} should also be specified.}
+If a single object is supplied, it is assumed to contain cells from all batches, so \code{batch} should also be specified.
+
+Alternatively, one or more lists of such objects can be provided, which may be more convenient for programmatic use.}
 
 \item{batch}{A factor specifying the batch of origin for all cells when only a single object is supplied in \code{...}.
 This is ignored if multiple objects are present.}
@@ -30,7 +30,8 @@ Each entry of the list corresponds to one batch and specifies the cells to use w
 
 \item{subset.row}{A vector specifying which features to use for correction.}
 
-\item{assay.type}{A string or integer scalar specifying the assay containing the log-expression values, if SingleCellExperiment objects are present in \code{...}.}
+\item{assay.type}{A string or integer scalar specifying the assay containing the log-expression values.
+Only used for SingleCellExperiment inputs.}
 }
 \value{
 A \linkS4class{SingleCellExperiment} object containing the \code{corrected} assay.

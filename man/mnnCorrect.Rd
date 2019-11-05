@@ -13,12 +13,15 @@ mnnCorrect(..., batch = NULL, restrict = NULL, k = 20,
   BPPARAM = SerialParam())
 }
 \arguments{
-\item{...}{Two or more log-expression matrices where genes correspond to rows and cells correspond to columns.
-Each matrix should contain cells from the same batch; multiple matrices represent separate batches of cells.
-Each matrix should contain the same number of rows, corresponding to the same genes (in the same order).
-
+\item{...}{One or more log-expression matrices where genes correspond to rows and cells correspond to columns.
 Alternatively, one or more \linkS4class{SingleCellExperiment} objects can be supplied containing a log-expression matrix in the \code{assay.type} assay.
-Note the same constraints described above for matrix inputs.}
+Each object should contain the same number of rows, corresponding to the same genes in the same order.
+Objects of different types can be mixed together.
+
+If multiple objects are supplied, each object is assumed to contain all and only cells from a single batch.
+If a single object is supplied, it is assumed to contain cells from all batches, so \code{batch} should also be specified.
+
+Alternatively, one or more lists of such objects can be provided, which may be more convenient for programmatic use.}
 
 \item{batch}{A factor specifying the batch of origin for all cells when only a single object is supplied in \code{...}.
 This is ignored if multiple objects are present.}
@@ -26,7 +29,7 @@ This is ignored if multiple objects are present.}
 \item{restrict}{A list of length equal to the number of objects in \code{...}.
 Each entry of the list corresponds to one batch and specifies the cells to use when computing the correction.}
 
-\item{k}{An integer scalar specifying the number of nearest neighbors to consider when identifying mutual nearest neighbors.}
+\item{k}{An integer scalar specifying the number of nearest neighbors to consider when identifying MNNs.}
 
 \item{prop.k}{A numeric scalar in (0, 1) specifying the proportion of cells in each dataset to use for mutual nearest neighbor searching.
 If set, \code{k} for the search in each batch is redefined as \code{max(k, prop.k*N)} where \code{N} is the number of cells in that batch.}
@@ -50,13 +53,15 @@ Alternatively, a list of lists representing a tree structure specifying a hierar
 
 \item{auto.merge}{Logical scalar indicating whether to automatically identify the \dQuote{best} merge order.}
 
-\item{assay.type}{A string or integer scalar specifying the assay containing the log-expression values, if SingleCellExperiment objects are present in \code{...}.}
+\item{assay.type}{A string or integer scalar specifying the assay containing the log-expression values.
+Only used for SingleCellExperiment inputs.}
 
-\item{BSPARAM}{A \linkS4class{BiocSingularParam} object specifying the SVD algorithm to use.}
+\item{BSPARAM}{A \linkS4class{BiocSingularParam} object specifying the algorithm to use for PCA.
+This uses a fast approximate algorithm from \pkg{irlba} by default, see \code{\link{multiBatchPCA}} for details.}
 
-\item{BNPARAM}{A \linkS4class{BiocNeighborParam} object specifying the neighbor search algorithm to use.}
+\item{BNPARAM}{A \linkS4class{BiocNeighborParam} object specifying the nearest neighbor algorithm.}
 
-\item{BPPARAM}{A \linkS4class{BiocParallelParam} object specifying the parallelization scheme to use.}
+\item{BPPARAM}{A \linkS4class{BiocParallelParam} object specifying whether the PCA and nearest-neighbor searches should be parallelized.}
 }
 \value{
 A \linkS4class{SingleCellExperiment} object containing the \code{corrected} assay.
