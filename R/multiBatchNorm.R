@@ -10,7 +10,7 @@
 #' @param batch A factor specifying the batch of origin for all cells when only a single object is supplied in \code{...}.
 #' This is ignored if multiple objects are present.
 #' @param assay.type A string specifying which assay values contains the counts.
-#' @param norm.args A named list of further arguments to pass to \code{\link[scater]{normalize}}.
+#' @param norm.args A named list of further arguments to pass to \code{\link[scater]{logNormCounts}}.
 #' @param min.mean A numeric scalar specifying the minimum (library size-adjusted) average count of genes to be used for normalization.
 #' @param subset.row A vector specifying which features to use for normalization.
 #' @param normalize.all A logical scalar indicating whether normalized values should be returned for all genes.
@@ -54,7 +54,7 @@
 #' @seealso
 #' \code{\link{mnnCorrect}} and \code{\link{fastMNN}}, for methods that can benefit from rescaling.
 #'
-#' \code{\link[scater]{normalize}} for the calculation of log-transformed normalized expression values.
+#' \code{\link[scater]{logNormCounts}} for the calculation of log-transformed normalized expression values.
 #' 
 #' @examples
 #' d1 <- matrix(rnbinom(50000, mu=10, size=1), ncol=100)

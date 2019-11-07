@@ -20,7 +20,7 @@ This is ignored if multiple objects are present.}
 
 \item{assay.type}{A string specifying which assay values contains the counts.}
 
-\item{norm.args}{A named list of further arguments to pass to \code{\link[scater]{normalize}}.}
+\item{norm.args}{A named list of further arguments to pass to \code{\link[scater]{logNormCounts}}.}
 
 \item{min.mean}{A numeric scalar specifying the minimum (library size-adjusted) average count of genes to be used for normalization.}
 
@@ -87,7 +87,7 @@ Further MNN algorithm development.
 \seealso{
 \code{\link{mnnCorrect}} and \code{\link{fastMNN}}, for methods that can benefit from rescaling.
 
-\code{\link[scater]{normalize}} for the calculation of log-transformed normalized expression values.
+\code{\link[scater]{logNormCounts}} for the calculation of log-transformed normalized expression values.
 }
 \author{
 Aaron Lun

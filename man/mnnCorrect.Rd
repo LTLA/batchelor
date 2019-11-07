@@ -107,7 +107,7 @@ Note that setting \code{correct.all=TRUE} will not alter the corrected expressio
 
 \section{Expected type of input data}{
 
-The input expression values should generally be log-transformed, e.g., log-counts, see \code{\link[scater]{normalize}} for details.
+The input expression values should generally be log-transformed, e.g., log-counts, see \code{\link[scater]{logNormCounts}} for details.
 They should also be normalized within each data set to remove cell-specific biases in capture efficiency and sequencing depth.
 By default, a further cosine normalization step is performed on the supplied expression data to eliminate gross scaling differences between data sets.
 \itemize{
