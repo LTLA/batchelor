@@ -7,7 +7,7 @@
 correctExperiments(..., batch = NULL, restrict = NULL,
   subset.row = NULL, correct.all = FALSE, assay.type = "logcounts",
   PARAM = FastMnnParam(), combine.assays = NULL,
-  combine.coldata = NULL)
+  combine.coldata = NULL, include.rowdata = TRUE)
 }
 \arguments{
 \item{...}{One or more \linkS4class{SingleCellExperiment} objects.
@@ -41,15 +41,13 @@ This can be set to \code{character(0)} to avoid combining any assays.}
 \item{combine.coldata}{Character vector specifying the column metadata fields from each entry of \code{...} to combine together.
 By default, any column metadata field that is present in all entries of \code{...} is combined.
 This can be set to \code{character(0)} to avoid combining any metadata.}
+
+\item{include.rowdata}{Logical scalar indicating whether the function should attempt to include \code{\link{rowRanges}}.}
 }
 \value{
 A SingleCellExperiment containing the merged expression values in the first assay
 and a \code{batch} column metadata field specifying the batch of origin for each cell,
 as described in \code{\link{batchCorrect}}.
-
-Additional assays may be present depending on \code{combine.assays}.
-These contain uncorrected values from each batch that have been simply \code{cbind}ed together.
-Additional column metadata fields may also be present depending on \code{combine.coldata}.
 }
 \description{
 Apply a correction to multiple \linkS4class{SingleCellExperiment} objects,
@@ -61,9 +59,16 @@ This function makes it easy to retain information from the original SingleCellEx
 Operations like differential expression analyses can be easily performed on the uncorrected expression values,
 while common annotation can be leveraged in cell-based analyses like clustering.
 
+Additional assays may be added to the merged object, depending on \code{combine.assays}.
+This will usually contain uncorrected values from each batch that have been simply \code{cbind}ed together.
 If \code{combine.assays} contains a field that overlaps with the name of the corrected assay from \code{\link{batchCorrect}},
 a warning will be raised and the corrected assay will be preferentially retained.
-Similarly, any field named \code{"batch"} in \code{combine.coldata} will be ignored.
+
+Any column metadata fields that are shared will also be included in the merged object by default (tunable by setting \code{combine.coldata}).
+If any existing field is named \code{"batch"}, it will be ignored in favor of that produced by \code{\link{batchCorrect}} and a warning is emitted.
+
+Row metadata is only included in the merged object if \code{include.rowdata=TRUE} \emph{and} all row metadata objects are identical across objects in \code{...}.
+If not, a warning is emitted and no row metadata is attached to the merged object.
 }
 \examples{
 sce1 <- scater::mockSCE()

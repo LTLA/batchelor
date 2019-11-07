@@ -15,25 +15,28 @@
 #' @param combine.coldata Character vector specifying the column metadata fields from each entry of \code{...} to combine together.
 #' By default, any column metadata field that is present in all entries of \code{...} is combined.
 #' This can be set to \code{character(0)} to avoid combining any metadata.
+#' @param include.rowdata Logical scalar indicating whether the function should attempt to include \code{\link{rowRanges}}.
 #'
 #' @return 
 #' A SingleCellExperiment containing the merged expression values in the first assay
 #' and a \code{batch} column metadata field specifying the batch of origin for each cell,
 #' as described in \code{\link{batchCorrect}}.
 #'
-#' Additional assays may be present depending on \code{combine.assays}.
-#' These contain uncorrected values from each batch that have been simply \code{cbind}ed together.
-#' Additional column metadata fields may also be present depending on \code{combine.coldata}.
-#'
 #' @details
 #' This function makes it easy to retain information from the original SingleCellExperiment objects in the post-merge object.
 #' Operations like differential expression analyses can be easily performed on the uncorrected expression values,
 #' while common annotation can be leveraged in cell-based analyses like clustering.
 #'
+#' Additional assays may be added to the merged object, depending on \code{combine.assays}.
+#' This will usually contain uncorrected values from each batch that have been simply \code{cbind}ed together.
 #' If \code{combine.assays} contains a field that overlaps with the name of the corrected assay from \code{\link{batchCorrect}},
 #' a warning will be raised and the corrected assay will be preferentially retained.
-#' Similarly, any field named \code{"batch"} in \code{combine.coldata} will be ignored.
 #'
+#' Any column metadata fields that are shared will also be included in the merged object by default (tunable by setting \code{combine.coldata}).
+#' If any existing field is named \code{"batch"}, it will be ignored in favor of that produced by \code{\link{batchCorrect}} and a warning is emitted.
+#'
+#' Row metadata is only included in the merged object if \code{include.rowdata=TRUE} \emph{and} all row metadata objects are identical across objects in \code{...}.
+#' If not, a warning is emitted and no row metadata is attached to the merged object.
 #' @author Aaron Lun
 #' @examples
 #' sce1 <- scater::mockSCE()
@@ -49,10 +52,13 @@
 #' \code{\link{batchCorrect}}, which does the correction inside this function.
 #'
 #' \code{\link{noCorrect}}, used to combine uncorrected values for the other assays.
+#' 
 #' @export
-#' @importFrom SummarizedExperiment assayNames assay<- assay colData<- colData
+#' @importFrom SummarizedExperiment assayNames assay<- assay colData<- colData 
+#' rowRanges rowRanges<- rowData rowData<-
+#' @importFrom S4Vectors mcols mcols<-
 correctExperiments <- function(..., batch=NULL, restrict=NULL, subset.row=NULL, correct.all=FALSE, assay.type="logcounts", 
-    PARAM=FastMnnParam(), combine.assays=NULL, combine.coldata=NULL) 
+    PARAM=FastMnnParam(), combine.assays=NULL, combine.coldata=NULL, include.rowdata=TRUE) 
 {
     x <- list(...)
     args <- c(x, list(subset.row=subset.row, correct.all=correct.all, batch=batch))
@@ -85,6 +91,36 @@ correctExperiments <- function(..., batch=NULL, restrict=NULL, subset.row=NULL, 
     if (length(combine.coldata)) {
         collected <- lapply(x, FUN=function(y) colData(y)[,combine.coldata,drop=FALSE])
         colData(merged) <- cbind(colData(merged), do.call(rbind, collected))
+    }
+
+    # Adding additional rowRanges only if they are identical across objects.
+    if (include.rowdata) {
+        all.rd <- lapply(x, FUN=rowRanges)
+        is.id <- TRUE
+        for (i in seq_len(length(all.rd)-1L)) {
+            if (is.id <- identical(all.rd[[1]], all.rd[[i+1]])) {
+                break
+            }
+        }
+
+        if (!is.id) {
+            warning("ignoring non-identical 'rowRanges' fields")
+        } else {
+            merged.rd <- rowData(merged) 
+            replacement <- all.rd[[1]]
+            if (!correct.all && !is.null(subset.row)) {
+                replacement <- replacement[subset.row,]
+            }
+
+            combined <- cbind(mcols(replacement), merged.rd)
+            skip <- duplicated(colnames(combined), fromLast=TRUE)
+            if (any(skip)) {
+                warning("ignoring 'rowData' fields overlapping 'batchCorrect' output")
+            }
+
+            mcols(replacement) <- combined[,!skip,drop=FALSE]
+            rowRanges(merged) <- replacement
+        }
     }
 
     merged
