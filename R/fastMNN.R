@@ -208,8 +208,8 @@
 #'
 #' An additional consideration is that the effect of any given \code{k} will vary with the number of cells in each batch.
 #' With more cells, a larger \code{k} may be preferable to achieve better merging in the presence of non-orthogonality.
-#' We can achieve this by setting \code{prop.k}, which allows the choice of \code{k} to adapt to the size of each batch at each merge step.
-#' This also handles asymmetry in batch sizes via the \code{k1} and \code{k2} arguments in \code{\link{findMutualNN}}.
+#' We can achieve this by setting \code{prop.k}, e.g., \code{prop.k=0.05} will set \code{k} to 5\% of the number of cells in each batch.
+#' This allows the choice of \code{k} to adapt to the size of each batch at each merge step and handles asymmetry in batch sizes (via the \code{k1} and \code{k2} arguments in \code{\link{findMutualNN}}).
 #' 
 #' @section Orthogonalization details:
 #' \code{fastMNN} will compute the percentage of variance that is lost from each batch during orthogonalization at each merge step.
