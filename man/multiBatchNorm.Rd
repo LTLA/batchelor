@@ -4,9 +4,16 @@
 \alias{multiBatchNorm}
 \title{Per-batch scaling normalization}
 \usage{
-multiBatchNorm(..., batch = NULL, assay.type = "counts",
-  norm.args = list(), min.mean = 1, subset.row = NULL,
-  normalize.all = FALSE, preserve.single = TRUE)
+multiBatchNorm(
+  ...,
+  batch = NULL,
+  assay.type = "counts",
+  norm.args = list(),
+  min.mean = 1,
+  subset.row = NULL,
+  normalize.all = FALSE,
+  preserve.single = TRUE
+)
 }
 \arguments{
 \item{...}{One or more \linkS4class{SingleCellExperiment} objects containing counts and size factors.

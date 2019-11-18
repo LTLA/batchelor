@@ -4,8 +4,14 @@
 \alias{findMutualNN}
 \title{Find mutual nearest neighbors}
 \usage{
-findMutualNN(data1, data2, k1, k2 = k1, BNPARAM = KmknnParam(),
-  BPPARAM = SerialParam())
+findMutualNN(
+  data1,
+  data2,
+  k1,
+  k2 = k1,
+  BNPARAM = KmknnParam(),
+  BPPARAM = SerialParam()
+)
 }
 \arguments{
 \item{data1}{A numeric matrix containing samples (e.g., cells) in the rows and variables/dimensions in the columns.}

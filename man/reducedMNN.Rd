@@ -4,10 +4,19 @@
 \alias{reducedMNN}
 \title{MNN correction in reduced dimensions}
 \usage{
-reducedMNN(..., batch = NULL, k = 20, prop.k = NULL,
-  restrict = NULL, ndist = 3, merge.order = NULL,
-  auto.merge = FALSE, min.batch.skip = 0, BNPARAM = KmknnParam(),
-  BPPARAM = SerialParam())
+reducedMNN(
+  ...,
+  batch = NULL,
+  k = 20,
+  prop.k = NULL,
+  restrict = NULL,
+  ndist = 3,
+  merge.order = NULL,
+  auto.merge = FALSE,
+  min.batch.skip = 0,
+  BNPARAM = KmknnParam(),
+  BPPARAM = SerialParam()
+)
 }
 \arguments{
 \item{...}{One or more matrices of low-dimensional representations where rows are cells and columns are dimensions.
