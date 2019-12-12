@@ -4,12 +4,26 @@
 \alias{fastMNN}
 \title{Fast mutual nearest neighbors correction}
 \usage{
-fastMNN(..., batch = NULL, k = 20, prop.k = NULL, restrict = NULL,
-  cos.norm = TRUE, ndist = 3, d = 50, weights = NULL,
-  merge.order = NULL, auto.merge = FALSE, min.batch.skip = 0,
-  subset.row = NULL, correct.all = FALSE, assay.type = "logcounts",
-  BSPARAM = IrlbaParam(deferred = TRUE), BNPARAM = KmknnParam(),
-  BPPARAM = SerialParam())
+fastMNN(
+  ...,
+  batch = NULL,
+  k = 20,
+  prop.k = NULL,
+  restrict = NULL,
+  cos.norm = TRUE,
+  ndist = 3,
+  d = 50,
+  weights = NULL,
+  merge.order = NULL,
+  auto.merge = FALSE,
+  min.batch.skip = 0,
+  subset.row = NULL,
+  correct.all = FALSE,
+  assay.type = "logcounts",
+  BSPARAM = IrlbaParam(deferred = TRUE),
+  BNPARAM = KmknnParam(),
+  BPPARAM = SerialParam()
+)
 }
 \arguments{
 \item{...}{One or more log-expression matrices where genes correspond to rows and cells correspond to columns.
@@ -247,8 +261,8 @@ This is better than starting with a large \code{k} as incorrect merging is much 
 
 An additional consideration is that the effect of any given \code{k} will vary with the number of cells in each batch.
 With more cells, a larger \code{k} may be preferable to achieve better merging in the presence of non-orthogonality.
-We can achieve this by setting \code{prop.k}, which allows the choice of \code{k} to adapt to the size of each batch at each merge step.
-This also handles asymmetry in batch sizes via the \code{k1} and \code{k2} arguments in \code{\link{findMutualNN}}.
+We can achieve this by setting \code{prop.k}, e.g., \code{prop.k=0.05} will set \code{k} to 5\% of the number of cells in each batch.
+This allows the choice of \code{k} to adapt to the size of each batch at each merge step and handles asymmetry in batch sizes (via the \code{k1} and \code{k2} arguments in \code{\link{findMutualNN}}).
 }
 
 \section{Orthogonalization details}{

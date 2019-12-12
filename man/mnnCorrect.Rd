@@ -4,13 +4,26 @@
 \alias{mnnCorrect}
 \title{Mutual nearest neighbors correction}
 \usage{
-mnnCorrect(..., batch = NULL, restrict = NULL, k = 20,
-  prop.k = NULL, sigma = 0.1, cos.norm.in = TRUE,
-  cos.norm.out = TRUE, svd.dim = 0L, var.adj = TRUE,
-  subset.row = NULL, correct.all = FALSE, merge.order = NULL,
-  auto.merge = FALSE, assay.type = "logcounts",
-  BSPARAM = ExactParam(), BNPARAM = KmknnParam(),
-  BPPARAM = SerialParam())
+mnnCorrect(
+  ...,
+  batch = NULL,
+  restrict = NULL,
+  k = 20,
+  prop.k = NULL,
+  sigma = 0.1,
+  cos.norm.in = TRUE,
+  cos.norm.out = TRUE,
+  svd.dim = 0L,
+  var.adj = TRUE,
+  subset.row = NULL,
+  correct.all = FALSE,
+  merge.order = NULL,
+  auto.merge = FALSE,
+  assay.type = "logcounts",
+  BSPARAM = ExactParam(),
+  BNPARAM = KmknnParam(),
+  BPPARAM = SerialParam()
+)
 }
 \arguments{
 \item{...}{One or more log-expression matrices where genes correspond to rows and cells correspond to columns.
@@ -172,8 +185,8 @@ This is better than starting with a large \code{k} as incorrect merging is much 
 
 An additional consideration is that the effect of any given \code{k} will vary with the number of cells in each batch.
 With more cells, a larger \code{k} may be preferable to achieve better merging in the presence of non-orthogonality.
-We can achieve this by setting \code{prop.k}, which allows the choice of \code{k} to adapt to the size of each batch at each merge step.
-This also handles asymmetry in batch sizes via the \code{k1} and \code{k2} arguments in \code{\link{findMutualNN}}.
+We can achieve this by setting \code{prop.k}, e.g., \code{prop.k=0.05} will set \code{k} to 5\% of the number of cells in each batch.
+This allows the choice of \code{k} to adapt to the size of each batch at each merge step and handles asymmetry in batch sizes (via the \code{k1} and \code{k2} arguments in \code{\link{findMutualNN}}).
 }
 
 \section{Controlling the merge order}{

@@ -4,8 +4,7 @@
 \alias{noCorrect}
 \title{No correction}
 \usage{
-noCorrect(..., batch = NULL, subset.row = NULL,
-  assay.type = "logcounts")
+noCorrect(..., batch = NULL, subset.row = NULL, assay.type = "logcounts")
 }
 \arguments{
 \item{...}{One or more log-expression matrices where genes correspond to rows and cells correspond to columns.
