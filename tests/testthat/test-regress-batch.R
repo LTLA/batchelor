@@ -38,6 +38,32 @@ test_that("regressBatches works correctly", {
     expect_equal(subsetted, corrected)
 }) 
 
+set.seed(130000)
+test_that("regressBatches behaves correctly with a design matrix", {
+    means <- 2^rgamma(1000, 2, 1)
+    A1 <- matrix(rpois(10000, lambda=means), ncol=50) # Batch 1 
+    A2 <- matrix(rpois(20000, lambda=means*runif(1000, 0, 2)), ncol=100) # Batch 2
+
+    B1 <- log2(A1 + 1)
+    B2 <- log2(A2 + 1)
+    ref <- regressBatches(B1, B2)
+
+    b <- rep(1:2, c(ncol(A1), ncol(A2)))
+    corrected <- regressBatches(B1, B2, design=model.matrix(~factor(b)))
+    expect_equal(as.matrix(assay(ref)), as.matrix(assay(corrected)))
+
+    # Testing against continuous covariates.
+    combined <- cbind(B1, B2)
+
+    stuff <- rnorm(ncol(combined))
+    corrected2 <- regressBatches(B1, B2, design=model.matrix(~b))
+    expect_equivalent(as.matrix(assay(corrected2)),
+        t(lm.fit(t(combined), x=model.matrix(~b))$residual))
+
+    # Throws an error.
+    expect_error(regressBatches(B1, B2, design=cbind(1)), "total number")
+})
+
 set.seed(130001)
 test_that("regressBatches works correctly with SCE inputs", {
     A1 <- matrix(rpois(10000, lambda=10), nrow=100) # Batch 1 
