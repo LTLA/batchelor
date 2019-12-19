@@ -113,11 +113,12 @@
 #' \emph{Nat. Biotechnol.} 36(5):421
 #' 
 #' @export
-#' @importFrom BiocParallel SerialParam bpstart bpstop bpisup
+#' @importFrom BiocParallel SerialParam bpstart bpstop 
 #' @importFrom S4Vectors metadata metadata<-
 #' @importFrom SummarizedExperiment assay
 #' @importFrom BiocSingular ExactParam
 #' @importFrom BiocNeighbors KmknnParam
+#' @importFrom scater .bpNotSharedOrUp
 mnnCorrect <- function(..., batch=NULL, restrict=NULL, k=20, prop.k=NULL, sigma=0.1, 
     cos.norm.in=TRUE, cos.norm.out=TRUE, svd.dim=0L, var.adj=TRUE, 
     subset.row=NULL, correct.all=FALSE, merge.order=NULL, auto.merge=FALSE, 
@@ -142,7 +143,7 @@ mnnCorrect <- function(..., batch=NULL, restrict=NULL, k=20, prop.k=NULL, sigma=
     }
 
     # Setting up the parallelization environment.
-    if (!bpisup(BPPARAM)) {
+    if (.bpNotSharedOrUp(BPPARAM)) {
         bpstart(BPPARAM)
         on.exit(bpstop(BPPARAM), add=TRUE)
     }

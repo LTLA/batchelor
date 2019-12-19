@@ -48,8 +48,9 @@
 #'
 #' @export
 #' @importFrom BiocNeighbors KmknnParam
-#' @importFrom BiocParallel SerialParam bpstart bpstop bpisup register
+#' @importFrom BiocParallel SerialParam bpstart bpstop 
 #' @importClassesFrom S4Vectors DataFrame
+#' @importFrom scater .bpNotSharedOrUp
 reducedMNN <- function (..., batch=NULL, k=20, prop.k=NULL, restrict=NULL, ndist=3,
     merge.order=NULL, auto.merge=FALSE, min.batch.skip=0,
     BNPARAM=KmknnParam(), BPPARAM=SerialParam())
@@ -61,7 +62,7 @@ reducedMNN <- function (..., batch=NULL, k=20, prop.k=NULL, restrict=NULL, ndist
     restrict <- checkRestrictions(batches, restrict, cells.in.columns=FALSE)
 
     # Setting up the parallelization environment.
-    if (!bpisup(BPPARAM)) {
+    if (.bpNotSharedOrUp(BPPARAM)) {
         bpstart(BPPARAM)
         on.exit(bpstop(BPPARAM), add=TRUE)
     }

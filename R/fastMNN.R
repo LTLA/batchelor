@@ -257,12 +257,13 @@
 #' @export
 #' @importFrom SingleCellExperiment reducedDim
 #' @importFrom SummarizedExperiment assay
-#' @importFrom BiocParallel SerialParam bpstart bpstop bpisup
+#' @importFrom BiocParallel SerialParam bpstart bpstop 
 #' @importFrom BiocNeighbors KmknnParam
 #' @importFrom BiocSingular IrlbaParam
 #' @importClassesFrom S4Vectors List
 #' @importFrom S4Vectors DataFrame metadata<-
 #' @importFrom methods as
+#' @importFrom scater .bpNotSharedOrUp
 fastMNN <- function(..., batch=NULL, k=20, prop.k=NULL, restrict=NULL, cos.norm=TRUE, ndist=3, d=50, weights=NULL,
     merge.order=NULL, auto.merge=FALSE, min.batch.skip=0,
     subset.row=NULL, correct.all=FALSE, assay.type="logcounts", 
@@ -280,7 +281,7 @@ fastMNN <- function(..., batch=NULL, k=20, prop.k=NULL, restrict=NULL, cos.norm=
     }
 
     # Setting up the parallelization environment.
-    if (!bpisup(BPPARAM)) {
+    if (.bpNotSharedOrUp(BPPARAM)) {
         bpstart(BPPARAM)
         on.exit(bpstop(BPPARAM), add=TRUE)
     }

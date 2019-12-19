@@ -90,6 +90,7 @@
 #' @importClassesFrom S4Vectors List
 #' @importFrom BiocGenerics colnames<- rownames<- colnames rownames
 #' @importFrom BiocSingular ExactParam
+#' @importFrom scater .bpNotSharedOrUp
 multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, weights=NULL,
     get.all.genes=FALSE, get.variance=FALSE, preserve.single=FALSE, 
     assay.type="logcounts", BSPARAM=ExactParam(), BPPARAM=SerialParam()) 
@@ -112,7 +113,7 @@ multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, weights=NULL,
     }
 
     # Setting up the parallelization environment.
-    if (!bpisup(BPPARAM)) {
+    if (.bpNotSharedOrUp(BPPARAM)) {
         bpstart(BPPARAM)
         on.exit(bpstop(BPPARAM), add=TRUE)
     }
