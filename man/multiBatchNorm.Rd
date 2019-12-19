@@ -48,7 +48,7 @@ The order of cells is not changed.
 Perform scaling normalization within each batch to provide comparable results to the lowest-coverage batch.
 }
 \details{
-When performing integrative analyses of multiple batches, it is often the case that different batches have large differences in coverage.
+When performing integrative analyses of multiple batches, it is often the case that different batches have large differences in sequencing depth.
 This function removes systematic differences in coverage across batches to simplify downstream comparisons.
 It does so by resaling the size factors using median-based normalization on the ratio of the average counts between batches.
 This is roughly equivalent to the between-cluster normalization described by Lun et al. (2016).
@@ -58,12 +58,6 @@ The \code{\link{logNormCounts}} function will then add the same pseudo-count to 
 By scaling downwards, we favour stronger squeezing of log-fold changes from the pseudo-count, mitigating any technical differences in variance between batches.
 Of course, genuine biological differences will also be shrunk, but this is less of an issue for upregulated genes with large counts.
 
-For comparison, imagine if we ran \code{\link{logNormCounts}} separately in each batch prior to correction.
-In most cases, size factors will be computed within each batch;
-batch-specific application in \code{\link{logNormCounts}} will not account for scaling differences between batches.
-In contrast, \code{multiBatchNorm} will rescale the size factors so that they are comparable across batches.
-This removes at least one difference between batches to facilitate easier correction.
-
 Only genes with library size-adjusted average counts greater than \code{min.mean} will be used for computing the rescaling factors.
 This improves precision and avoids problems with discreteness.
 By default, we use \code{min.mean=1}, which is usually satisfactory but may need to be lowered for very sparse datasets. 
@@ -72,6 +66,19 @@ Users can also set \code{subset.row} to restrict the set of genes used for compu
 By default, normalized values will only be returned for genes specified in the subset.
 Setting \code{normalize.all=TRUE} will return normalized values for all genes.
 }
+\section{Comparison to other normalization strategies}{
+
+For comparison, imagine if we ran \code{\link{logNormCounts}} separately in each batch prior to correction.
+Size factors will be computed within each batch, and batch-specific application in \code{\link{logNormCounts}} will not account for scaling differences between batches.
+In contrast, \code{multiBatchNorm} will rescale the size factors so that they are comparable across batches.
+This removes at least one difference between batches to facilitate easier correction.
+
+\code{\link{cosineNorm}} performs a similar role of equalizing the scale of expression values across batches. 
+However, the advantage of \code{\link{multiBatchNorm}} is that its output is more easily interpreted - 
+the normalized values remain on the log-scale and differences can still be interpreted (roughly) as log-fold changes.
+The output can then be fed into downstream analysis procedures (e.g., HVG detection) in the same manner as typical log-normalized values from \code{\link{logNormCounts}}.
+}
+
 \examples{
 d1 <- matrix(rnbinom(50000, mu=10, size=1), ncol=100)
 sce1 <- SingleCellExperiment(list(counts=d1))

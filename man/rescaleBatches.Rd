@@ -59,9 +59,14 @@ It reverses the log-transformation and scales the underlying counts in each batc
 The assumption here is that each batch contains the same population composition.
 Thus, any scaling difference between batches is technical and must be removed.
 
-This function is equivalent to centering in log-expression space, the simplest application of linear regression methods for batch correction.
+This function is approximately equivalent to centering in log-expression space, the simplest application of linear regression methods for batch correction.
 However, by scaling the raw counts, it avoids loss of sparsity that would otherwise result from centering.
 It also mitigates issues with artificial differences in variance due to log-transformation.
+This is done by always downscaling to the lowest average expression for each gene such that differences in variance are dampened by the addition of the pseudo-count.
+
+Use of \code{rescaleBatches} assumes that the uninteresting factors described in \code{design} are orthogonal to the interesting factors of variation.
+For example, each batch is assumed to have the same composition of cell types.
+If this is not true, the correction will not only be incomplete but may introduce spurious differences.
 
 The output values are always re-log-transformed with the same \code{log.base} and \code{pseudo.count}.
 These can be used directly in place of the input values for downstream operations.

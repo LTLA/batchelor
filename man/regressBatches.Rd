@@ -7,6 +7,7 @@
 regressBatches(
   ...,
   batch = NULL,
+  design = NULL,
   restrict = NULL,
   subset.row = NULL,
   assay.type = "logcounts"
@@ -25,6 +26,10 @@ Alternatively, one or more lists of such objects can be provided, which may be m
 
 \item{batch}{A factor specifying the batch of origin for all cells when only a single object is supplied in \code{...}.
 This is ignored if multiple objects are present.}
+
+\item{design}{A numeric design matrix with number of rows equal to the total number of cells,
+specifying the experimental factors to remove.
+Each row corresponds to a cell in the order supplied in \code{...}.}
 
 \item{restrict}{A list of length equal to the number of objects in \code{...}.
 Each entry of the list corresponds to one batch and specifies the cells to use when computing the correction.}
@@ -49,12 +54,19 @@ Fit a linear model to regress out uninteresting factors of variation.
 }
 \details{
 This function fits a linear model to the log-expression values for each gene and returns the residuals.
-The model is parameterized as a one-way layout with the batch of origin,
+By default, the model is parameterized as a one-way layout with the batch of origin,
 so the residuals represent the expression values after correcting for the batch effect.
+More complex designs should be explicitly specified with the \code{design} argument, e.g., to regress out a covariate,
 
 The novelty of this function is that it returns a \linkS4class{ResidualMatrix} in as the \code{"corrected"} assay.
 This avoids explicitly computing the residuals, which would result in a loss of sparsity or similar problems.
 Rather, the residuals are either computed as needed or are never explicitly computed as all (e.g., during matrix multiplication).
+This means that \code{regressBatches} is faster and lighter than naive regression or even \code{\link{rescaleBatches}}.
+
+Like \code{\link{rescaleBatches}}, this function assumes that the uninteresting factors described in \code{design} are orthogonal to the interesting factors of variation.
+For example, each batch is assumed to have the same composition of cell types.
+In the continuous case (e.g., regression of cell cycle), the assumption is that all cell types are similarly distributed across cell cycle phases.
+If this is not true, the correction will not only be incomplete but can introduce spurious differences.
 
 All genes are used with the default setting of \code{subset.row=NULL}.
 Users can set \code{subset.row} to subset the inputs, though this is purely for convenience as each gene is processed independently of other genes.
