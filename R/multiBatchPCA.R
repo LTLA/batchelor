@@ -127,10 +127,6 @@ multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, weights=NULL,
     }
 
     # Setting up the parallelization environment.
-    old <- getAutoBPPARAM()
-    setAutoBPPARAM(BPPARAM)
-    on.exit(setAutoBPPARAM(old))
-
     if (!bpisup(BPPARAM)) {
         bpstart(BPPARAM)
         on.exit(bpstop(BPPARAM), add=TRUE)
@@ -191,6 +187,11 @@ multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, weights=NULL,
 # Internal function that uses DelayedArray to do the centering and scaling,
 # to avoid actually realizing the matrices in memory.
 {
+    # NOTE: need to set this up here, as fastMNN() calls this function, not multiBatchPCA().
+    old <- getAutoBPPARAM()
+    setAutoBPPARAM(BPPARAM)
+    on.exit(setAutoBPPARAM(old))
+
     FUN <- function(keep) {
         .process_listed_matrices_for_pca(mat.list, weights=weights, subset.row=keep, deferred=bsdeferred(BSPARAM))
     }
@@ -198,7 +199,7 @@ multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, weights=NULL,
     centered <- processed$centered
     scaled <- processed$scaled
     centers <- processed$centers
-
+    
     # Performing an SVD on the untransposed _scaled_ expression matrix,
     # then projecting the _unscaled_ matrices back into this space.
     svd.out <- .run_scaled_SVD(scaled, d=d, get.all.genes=get.all.genes, get.variance=get.variance, 
@@ -344,12 +345,18 @@ multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, weights=NULL,
 #' @importFrom BiocParallel SerialParam
 #' @importFrom BiocSingular ExactParam bsdeferred
 #' @importFrom Matrix crossprod
+#' @importFrom DelayedArray getAutoBPPARAM setAutoBPPARAM
 .multi_pca_single <- function(mat, batch, subset.row=NULL, weights=NULL, d=50, 
     get.all.genes=FALSE, get.variance=FALSE, BSPARAM=ExactParam(), BPPARAM=SerialParam()) 
 # Similar to .multi_pca_list, but avoids the unnecessary
 # overhead of splitting 'mat' into batch-specific matrices
 # when you end up having to put them back together again anyway.
 {
+    # NOTE: need to set this up here, as fastMNN() calls this function, not multiBatchPCA().
+    old <- getAutoBPPARAM()
+    setAutoBPPARAM(BPPARAM)
+    on.exit(setAutoBPPARAM(old))
+
     FUN <- function(keep) {
         .process_single_matrix_for_pca(mat, batch=batch, weights=weights, subset.row=keep, deferred=bsdeferred(BSPARAM))
     }
@@ -360,7 +367,8 @@ multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, weights=NULL,
 
     # Performing an SVD on the untransposed expression matrix,
     # and projecting the _unscaled_ matrices back into this space.
-    svd.out <- .run_scaled_SVD(scaled, d=d, get.all.genes=get.all.genes, get.variance=get.variance, BSPARAM=BSPARAM, BPPARAM=BPPARAM)
+    svd.out <- .run_scaled_SVD(scaled, d=d, get.all.genes=get.all.genes, get.variance=get.variance, 
+        BSPARAM=BSPARAM, BPPARAM=BPPARAM)
     output <- List(as.matrix(crossprod(centered, svd.out$u)))
 
     # Recording the rotation vectors. 

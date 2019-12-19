@@ -503,12 +503,17 @@ mnnCorrect <- function(..., batch=NULL, restrict=NULL, k=20, prop.k=NULL, sigma=
 
 #' @importFrom BiocSingular runSVD ExactParam
 #' @importFrom Matrix rowMeans
-#' @importFrom DelayedArray DelayedArray
+#' @importFrom DelayedArray DelayedArray getAutoBPPARAM setAutoBPPARAM
 #' @importFrom BiocParallel SerialParam
 .get_bio_span <- function(exprs, ndim, subset.row=NULL, BSPARAM=ExactParam(), BPPARAM=SerialParam())
 # Computes the basis matrix of the biological subspace of 'exprs'.
 # The first 'ndim' dimensions are assumed to capture the biological subspace.
 {
+    # Protect against DA parallelization.
+    old <- getAutoBPPARAM()
+    setAutoBPPARAM(BPPARAM)
+    on.exit(setAutoBPPARAM(old))
+
     centered <- DelayedArray(exprs) - rowMeans(exprs)
 
     if (!is.null(subset.row)) {
