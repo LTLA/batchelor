@@ -267,7 +267,7 @@
 #' @export
 #' @importFrom SingleCellExperiment reducedDim
 #' @importFrom SummarizedExperiment assay
-#' @importFrom BiocParallel SerialParam bpstart bpstop bpisup register
+#' @importFrom BiocParallel SerialParam bpstart bpstop bpisup
 #' @importFrom BiocNeighbors KmknnParam
 #' @importFrom BiocSingular IrlbaParam
 #' @importClassesFrom S4Vectors List
@@ -321,10 +321,6 @@ fastMNN <- function(..., batch=NULL, k=20, prop.k=NULL, restrict=NULL, cos.norm=
     restrict <- checkRestrictions(batches, restrict, cells.in.columns=TRUE)
 
     # Setting up the parallelization environment.
-    old <- bpparam()
-    register(BPPARAM)
-    on.exit(register(old))
-
     if (!bpisup(BPPARAM)) {
         bpstart(BPPARAM)
         on.exit(bpstop(BPPARAM), add=TRUE)

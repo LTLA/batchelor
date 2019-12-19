@@ -65,10 +65,6 @@ reducedMNN <- function (..., batch=NULL, k=20, prop.k=NULL, restrict=NULL, ndist
     restrict <- checkRestrictions(batches, restrict, cells.in.columns=FALSE)
 
     # Setting up the parallelization environment.
-    old <- bpparam()
-    register(BPPARAM)
-    on.exit(register(old))
-
     if (!bpisup(BPPARAM)) {
         bpstart(BPPARAM)
         on.exit(bpstop(BPPARAM), add=TRUE)

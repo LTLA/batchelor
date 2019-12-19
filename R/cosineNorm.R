@@ -5,6 +5,8 @@
 #' @param x A gene expression matrix with cells as columns and genes as rows.
 #' @param mode A string specifying the output to be returned.
 #' @param subset.row A vector specifying which features to use to compute the L2 norm.
+#' @param BPPARAM A \linkS4class{BiocParallelParam} object specifying how parallelization is to be performed.
+#' Only used when \code{x} is a \linkS4class{DelayedArray} object.
 #'
 #' @details
 #' Cosine normalization removes scaling differences between expression vectors.
@@ -46,10 +48,18 @@
 #' @export
 #' @importFrom methods is
 #' @importFrom Matrix colSums
-cosineNorm <- function(x, mode=c("matrix", "all", "l2norm"), subset.row=NULL) {
+#' @importFrom BiocParallel SerialParam
+#' @importFrom DelayedArray setAutoBPPARAM getAutoBPPARAM
+cosineNorm <- function(x, mode=c("matrix", "all", "l2norm"), subset.row=NULL, BPPARAM=SerialParam()) {
     if (!is.null(subset.row)) {
         x <- x[subset.row,,drop=FALSE]
     }
+
+    # Setting it up in the case of a parallelized colSums via DelayedArray.
+    old <- getAutoBPPARAM()
+    setAutoBPPARAM(BPPARAM)
+    on.exit(setAutoBPPARAM(old))
+
     l2 <- sqrt(colSums(x^2))
 
     mode <- match.arg(mode)

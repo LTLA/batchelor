@@ -126,6 +126,16 @@ multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, weights=NULL,
         get.all.genes <- TRUE
     }
 
+    # Setting up the parallelization environment.
+    old <- getAutoBPPARAM()
+    setAutoBPPARAM(BPPARAM)
+    on.exit(setAutoBPPARAM(old))
+
+    if (!bpisup(BPPARAM)) {
+        bpstart(BPPARAM)
+        on.exit(bpstop(BPPARAM), add=TRUE)
+    }
+
     # Different function calls for different input modes.
     common.args <- list(subset.row=subset.row, d=d, get.all.genes=get.all.genes, 
         weights=weights, get.variance=get.variance, BSPARAM=BSPARAM, BPPARAM=BPPARAM) 
@@ -170,11 +180,12 @@ multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, weights=NULL,
 ###########################################
 
 #' @importFrom BiocSingular ExactParam bsdeferred
-#' @importFrom BiocParallel SerialParam bpparam register bpisup bpstart bpstop
+#' @importFrom BiocParallel SerialParam bpstart bpstop
 #' @importFrom methods as
 #' @importClassesFrom S4Vectors List
 #' @importFrom S4Vectors metadata<- 
 #' @importFrom Matrix crossprod
+#' @importFrom DelayedArray getAutoBPPARAM setAutoBPPARAM
 .multi_pca_list <- function(mat.list, subset.row=NULL, d=50, weights=NULL,
     get.all.genes=FALSE, get.variance=FALSE, BSPARAM=ExactParam(), BPPARAM=SerialParam()) 
 # Internal function that uses DelayedArray to do the centering and scaling,
@@ -188,20 +199,10 @@ multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, weights=NULL,
     scaled <- processed$scaled
     centers <- processed$centers
 
-    # Setting up the parallelization environment (for crossprod,
-    # but runSVD might as well take advantage of it).
-    old <- bpparam()
-    register(BPPARAM)
-    on.exit(register(old))
-
-    if (!bpisup(BPPARAM)) {
-        bpstart(BPPARAM)
-        on.exit(bpstop(BPPARAM), add=TRUE)
-    }
-
     # Performing an SVD on the untransposed _scaled_ expression matrix,
     # then projecting the _unscaled_ matrices back into this space.
-    svd.out <- .run_scaled_SVD(scaled, d=d, get.all.genes=get.all.genes, get.variance=get.variance, BSPARAM=BSPARAM, BPPARAM=BPPARAM)
+    svd.out <- .run_scaled_SVD(scaled, d=d, get.all.genes=get.all.genes, get.variance=get.variance, 
+        BSPARAM=BSPARAM, BPPARAM=BPPARAM)
 
     output <- centered
     for (idx in seq_along(centered)) {

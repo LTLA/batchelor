@@ -136,7 +136,7 @@
 #' \emph{Nat. Biotechnol.} 36(5):421
 #' 
 #' @export
-#' @importFrom BiocParallel SerialParam bpstart bpstop bpisup register
+#' @importFrom BiocParallel SerialParam bpstart bpstop bpisup
 #' @importFrom S4Vectors metadata metadata<-
 #' @importFrom SummarizedExperiment assay
 #' @importFrom BiocSingular ExactParam
@@ -168,10 +168,6 @@ mnnCorrect <- function(..., batch=NULL, restrict=NULL, k=20, prop.k=NULL, sigma=
     }
 
     # Setting up the parallelization environment.
-    old <- bpparam()
-    register(BPPARAM)
-    on.exit(register(old))
-
     if (!bpisup(BPPARAM)) {
         bpstart(BPPARAM)
         on.exit(bpstop(BPPARAM), add=TRUE)
