@@ -4,7 +4,12 @@
 \alias{cosineNorm}
 \title{Cosine normalization}
 \usage{
-cosineNorm(x, mode = c("matrix", "all", "l2norm"), subset.row = NULL)
+cosineNorm(
+  x,
+  mode = c("matrix", "all", "l2norm"),
+  subset.row = NULL,
+  BPPARAM = SerialParam()
+)
 }
 \arguments{
 \item{x}{A gene expression matrix with cells as columns and genes as rows.}
@@ -12,6 +17,9 @@ cosineNorm(x, mode = c("matrix", "all", "l2norm"), subset.row = NULL)
 \item{mode}{A string specifying the output to be returned.}
 
 \item{subset.row}{A vector specifying which features to use to compute the L2 norm.}
+
+\item{BPPARAM}{A \linkS4class{BiocParallelParam} object specifying how parallelization is to be performed.
+Only used when \code{x} is a \linkS4class{DelayedArray} object.}
 }
 \value{
 If \code{mode="matrix"}, a double-precision matrix of the same dimensions as \code{X} is returned, containing cosine-normalized values.

@@ -4,11 +4,21 @@
 \alias{multiBatchPCA}
 \title{Multi-batch PCA}
 \usage{
-multiBatchPCA(..., batch = NULL, d = 50, subset.row = NULL,
-  weights = NULL, get.all.genes = FALSE, rotate.all = FALSE,
-  get.variance = FALSE, preserve.single = FALSE,
-  assay.type = "logcounts", get.spikes = FALSE,
-  BSPARAM = ExactParam(), BPPARAM = SerialParam())
+multiBatchPCA(
+  ...,
+  batch = NULL,
+  d = 50,
+  subset.row = NULL,
+  weights = NULL,
+  get.all.genes = FALSE,
+  rotate.all = FALSE,
+  get.variance = FALSE,
+  preserve.single = FALSE,
+  assay.type = "logcounts",
+  get.spikes = FALSE,
+  BSPARAM = ExactParam(),
+  BPPARAM = SerialParam()
+)
 }
 \arguments{
 \item{...}{Two or more matrices containing expression values (usually log-normalized).

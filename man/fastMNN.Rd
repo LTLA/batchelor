@@ -4,13 +4,30 @@
 \alias{fastMNN}
 \title{Fast mutual nearest neighbors correction}
 \usage{
-fastMNN(..., batch = NULL, k = 20, prop.k = NULL, restrict = NULL,
-  cos.norm = TRUE, ndist = 3, d = 50, weights = NULL,
-  merge.order = NULL, auto.merge = FALSE, auto.order = NULL,
-  min.batch.skip = 0, subset.row = NULL, correct.all = FALSE,
-  pc.input = FALSE, assay.type = "logcounts", get.spikes = FALSE,
-  use.dimred = NULL, BSPARAM = IrlbaParam(deferred = TRUE),
-  BNPARAM = KmknnParam(), BPPARAM = SerialParam())
+fastMNN(
+  ...,
+  batch = NULL,
+  k = 20,
+  prop.k = NULL,
+  restrict = NULL,
+  cos.norm = TRUE,
+  ndist = 3,
+  d = 50,
+  weights = NULL,
+  merge.order = NULL,
+  auto.merge = FALSE,
+  auto.order = NULL,
+  min.batch.skip = 0,
+  subset.row = NULL,
+  correct.all = FALSE,
+  pc.input = FALSE,
+  assay.type = "logcounts",
+  get.spikes = FALSE,
+  use.dimred = NULL,
+  BSPARAM = IrlbaParam(deferred = TRUE),
+  BNPARAM = KmknnParam(),
+  BPPARAM = SerialParam()
+)
 }
 \arguments{
 \item{...}{One or more log-expression matrices where genes correspond to rows and cells correspond to columns.

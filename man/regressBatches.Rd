@@ -4,8 +4,13 @@
 \alias{regressBatches}
 \title{Regress out batch effects}
 \usage{
-regressBatches(..., batch = NULL, restrict = NULL, subset.row = NULL,
-  assay.type = "logcounts")
+regressBatches(
+  ...,
+  batch = NULL,
+  restrict = NULL,
+  subset.row = NULL,
+  assay.type = "logcounts"
+)
 }
 \arguments{
 \item{...}{Two or more log-expression matrices where genes correspond to rows and cells correspond to columns.

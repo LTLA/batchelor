@@ -4,9 +4,16 @@
 \alias{rescaleBatches}
 \title{Scale counts across batches}
 \usage{
-rescaleBatches(..., batch = NULL, restrict = NULL, log.base = 2,
-  pseudo.count = 1, subset.row = NULL, assay.type = "logcounts",
-  get.spikes = FALSE)
+rescaleBatches(
+  ...,
+  batch = NULL,
+  restrict = NULL,
+  log.base = 2,
+  pseudo.count = 1,
+  subset.row = NULL,
+  assay.type = "logcounts",
+  get.spikes = FALSE
+)
 }
 \arguments{
 \item{...}{Two or more log-expression matrices where genes correspond to rows and cells correspond to columns.

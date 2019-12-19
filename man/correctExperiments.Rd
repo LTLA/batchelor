@@ -4,10 +4,17 @@
 \alias{correctExperiments}
 \title{Correct SingleCellExperiment objects}
 \usage{
-correctExperiments(..., batch = NULL, restrict = NULL,
-  subset.row = NULL, correct.all = FALSE, assay.type = "logcounts",
-  PARAM = FastMnnParam(), combine.assays = NULL,
-  combine.coldata = NULL)
+correctExperiments(
+  ...,
+  batch = NULL,
+  restrict = NULL,
+  subset.row = NULL,
+  correct.all = FALSE,
+  assay.type = "logcounts",
+  PARAM = FastMnnParam(),
+  combine.assays = NULL,
+  combine.coldata = NULL
+)
 }
 \arguments{
 \item{...}{One or more \linkS4class{SingleCellExperiment} objects.
