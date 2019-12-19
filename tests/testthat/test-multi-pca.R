@@ -1,5 +1,5 @@
 # This tests the functions related to multiBatchPCA.
-# library(batchelor); library(testthat); source("test-multi-pca.R")
+# library(batchelor); library(testthat); source("setup.R"); source("test-multi-pca.R")
 
 expect_equal_besides_sign <- function(left, right, ...) {
     ratio <- left/right
@@ -66,6 +66,21 @@ test_that("multi-sample PCA works with subsetting", {
     ref <- multiBatchPCA(test1, test2, d=3, subset.row=l)
     out <- multiBatchPCA(test1[l,], test2[l,], d=3)
     expect_equal(ref, out) 
+})
+
+set.seed(120000111)
+test_that("multi-sample PCA works with other matrix representations", {
+    test1 <- matrix(rnorm(1000), nrow=10)
+    test2 <- matrix(rnorm(2000), nrow=10)
+    ref <- multiBatchPCA(test1, test2, d=4)
+    out <- multiBatchPCA(DelayedArray(test1), DelayedArray(test2), d=4)
+    expect_equal(ref, out)
+
+    combined <- cbind(test1, test2)
+    batch <- rep(1:2, c(ncol(test1), ncol(test2)))
+    ref <- multiBatchPCA(combined, batch=batch, d=4)
+    out <- multiBatchPCA(DelayedArray(combined), batch=batch, d=4)
+    expect_equal(ref, out)
 })
 
 set.seed(12000012)
