@@ -74,6 +74,37 @@ test_that("correctExperiments responds to combining arguments for coldata", {
         "overlapping")
 })
 
+test_that("correctExperiments responds to including rowdata", {
+    merged <- correctExperiments(sce1, sce2, 
+        PARAM=FastMnnParam(BSPARAM=BiocSingular::ExactParam()))
+    expect_true(!is.null(rowData(merged)$rotation))
+    rowData(merged)$rotation <- NULL
+    expect_identical(rowRanges(merged), rowRanges(sce1))
+
+    dummy <- GRanges("chrA", IRanges(1:nrow(sce1), width=1))
+    names(dummy) <- rownames(sce1)
+    rowRanges(sce1) <- dummy
+
+    expect_warning(merged <- correctExperiments(sce1, sce2, 
+        PARAM=FastMnnParam(BSPARAM=BiocSingular::ExactParam())), "ignoring non-identical 'row")
+    expect_true(!is.null(rowData(merged)$rotation))
+    rowData(merged)$rotation <- NULL
+    expect_identical(rowRanges(merged), rowRanges(sce2))
+
+    rowRanges(sce2) <- rowRanges(sce1)
+    merged <- correctExperiments(sce1, sce2, 
+        PARAM=FastMnnParam(BSPARAM=BiocSingular::ExactParam()))
+    expect_true(!is.null(rowData(merged)$rotation))
+    rowData(merged)$rotation <- NULL
+    expect_true(all(rowRanges(merged)==rowRanges(sce1)))
+
+    rowData(sce2)$rotation <- rowData(sce1)$rotation <- 5
+    expect_warning(merged <- correctExperiments(sce1, sce2, 
+        PARAM=FastMnnParam(BSPARAM=BiocSingular::ExactParam())), "overlapping")
+    rowData(merged)$rotation <- NULL
+    expect_true(all(rowRanges(merged)==rowRanges(sce1)))
+})
+
 test_that("correctExperiments respects other arguments", {
     # Respects subsetting.
     merged <- correctExperiments(sce1, sce2, subset.row=1:10,
