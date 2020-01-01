@@ -349,7 +349,7 @@ fastMNN <- function(..., batch=NULL, k=20, prop.k=NULL, restrict=NULL, cos.norm=
     }
 
     if (cos.norm) { 
-        l2 <- cosineNorm(x, mode="l2norm", subset.row=subset.row)
+        l2 <- cosineNorm(x, mode="l2norm", subset.row=subset.row, BPPARAM=BPPARAM)
         x <- .apply_cosine_norm(x, l2)
     }
 
