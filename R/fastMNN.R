@@ -366,7 +366,7 @@ fastMNN <- function(..., batch=NULL, k=20, prop.k=NULL, restrict=NULL, cos.norm=
     }
 
     if (cos.norm) { 
-        all.l2s <- lapply(batch.list, FUN=cosineNorm, mode="l2norm", subset.row=subset.row)
+        all.l2s <- lapply(batch.list, FUN=cosineNorm, mode="l2norm", subset.row=subset.row, BPPARAM=BPPARAM)
         batch.list <- mapply(FUN=.apply_cosine_norm, batch.list, all.l2s, SIMPLIFY=FALSE) 
     }
 
