@@ -53,6 +53,29 @@
 #' }
 #' 
 #' @author Aaron Lun
+#' @examples
+#' # Mocking up some data for multiple batches:
+#' means <- matrix(rnorm(3000), ncol=3)
+#' colnames(means) <- LETTERS[1:3]
+#'
+#' B1 <- means[,sample(LETTERS[1:3], 500, replace=TRUE)]
+#' B1 <- B1 + rnorm(length(B1))
+#'
+#' B2 <- means[,sample(LETTERS[1:3], 500, replace=TRUE)]
+#' B2 <- B2 + rnorm(length(B2)) + rnorm(nrow(B2)) # batch effect.
+#'
+#' # Applying the correction with some made-up clusters:
+#' cluster1 <- kmeans(t(B1), centers=3)$cluster
+#' cluster2 <- kmeans(t(B2), centers=3)$cluster
+#' out <- clusterMNN(B1, B2, clusters=list(cluster1, cluster2)) 
+#'
+#' rd <- reducedDim(out, "corrected") 
+#' plot(rd[,1], rd[,2], col=out$batch)
+#' 
+#' # Using the in-built clustering algorithm:
+#' out2 <- clusterMNN(B1, B2) 
+#' rd2 <- reducedDim(out2, "corrected") 
+#' plot(rd2[,1], rd2[,2], col=out2$batch)
 #'
 #' @references
 #' Lun ATL (2019).
@@ -75,10 +98,12 @@ clusterMNN <- function(..., batch=NULL, restrict=NULL, clusters=NULL, d=50, weig
     pca <- multiBatchPCA(..., batch=batch, BSPARAM=BSPARAM, BPPARAM=BPPARAM, 
         d=d, weights=weights, subset.row=subset.row, get.all.genes=correct.all)
 
-    .cluster_mnn(pca, batch=batch, restrict=restrict, clusters=clusters,
+    output <- .cluster_mnn(pca, batch=batch, restrict=restrict, clusters=clusters,
         k=k, prop.k=prop.k, ndist=ndist, 
         merge.order=merge.order, auto.merge=auto.merge, min.batch.skip=min.batch.skip,
         BNPARAM=BNPARAM, BPPARAM=BPPARAM)
+
+    .convert_to_SCE(output, pca)
 }
 
 #' @export
@@ -171,7 +196,7 @@ reducedClusterMNN <- function(..., batch=NULL, restrict=NULL, clusters=NULL,
         renamed[[i]] <- rep(output$batch[indices[1]], nrow(curbatch))
     }
 
-    DataFrame(corrected=I(do.call(rbind, batches)), batch=unlist(renamed))
+    DataFrame(corrected=I(do.call(rbind, as.list(batches))), batch=unlist(renamed))
 }
 
 #' @importFrom stats kmeans
