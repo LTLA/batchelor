@@ -1,7 +1,7 @@
 #' @export
 #' @importFrom scater .bpNotSharedOrUp
 #' @importFrom BiocParallel bpstart bpstop
-clusterMNN <- function(..., batch=NULL, clusters=NULL, d=50, weights=NULL,
+clusterMNN <- function(..., batch=NULL, restrict=NULL, clusters=NULL, d=50, weights=NULL,
     k=1, prop.k=0, ndist=3, merge.order=NULL, auto.merge=FALSE, min.batch.skip=0,
     subset.row=NULL, correct.all=FALSE, assay.type="logcounts",
     BSPARAM=IrlbaParam(deferred=TRUE), BNPARAM=KmknnParam(), BPPARAM=SerialParam()) 
@@ -15,14 +15,14 @@ clusterMNN <- function(..., batch=NULL, clusters=NULL, d=50, weights=NULL,
     pca <- multiBatchPCA(..., batch=batch, BSPARAM=BSPARAM, BPPARAM=BPPARAM, 
         d=d, weights=weights, subset.row=subset.row, get.all.genes=correct.all)
 
-    .cluster_mnn(batches, restrict=restrict, clusters=clusters,
+    .cluster_mnn(pca, batch=batch, restrict=restrict, clusters=clusters,
         k=k, prop.k=prop.k, ndist=ndist, 
         merge.order=merge.order, auto.merge=auto.merge, min.batch.skip=min.batch.skip,
         BNPARAM=BNPARAM, BPPARAM=BPPARAM)
 }
 
 #' @export
-reducedClusterMNN <- function(..., batch=NULL, clusters=NULL, 
+reducedClusterMNN <- function(..., batch=NULL, restrict=NULL, clusters=NULL, 
     k=1, prop.k=0, ndist=3, merge.order=NULL, auto.merge=FALSE, min.batch.skip=0,
     BNPARAM=KmknnParam(), BPPARAM=SerialParam()) 
 {
@@ -34,7 +34,7 @@ reducedClusterMNN <- function(..., batch=NULL, clusters=NULL,
         pca <- batches
     }
 
-    .cluster_mnn(batches, restrict=restrict, clusters=clusters,
+    .cluster_mnn(batches, batch=batch, restrict=restrict, clusters=clusters,
         k=k, prop.k=prop.k, ndist=ndist, 
         merge.order=merge.order, auto.merge=auto.merge, min.batch.skip=min.batch.skip,
         BNPARAM=BNPARAM, BPPARAM=BPPARAM)
@@ -44,10 +44,10 @@ reducedClusterMNN <- function(..., batch=NULL, clusters=NULL,
 #' @importFrom utils tail
 #' @importFrom BiocNeighbors queryKNN
 #' @importFrom S4Vectors DataFrame
-.cluster_mnn <- function(batches, restrict, clusters, ..., BNPARAM) {
+.cluster_mnn <- function(batches, batch, restrict, clusters, ..., BNPARAM, BPPARAM) {
     # Checking input clusters.
     if (is.null(clusters)) {
-        clusters <- .generate_kmeans_clusters(batches, restrict, BNPARAM)
+        clusters <- .generate_kmeans_clusters(batches, restrict, BNPARAM, BPPARAM)
     } else if (!is.null(batch)) {
         clusters <- split(clusters, batch)
     } else {
@@ -66,10 +66,13 @@ reducedClusterMNN <- function(..., batch=NULL, clusters=NULL,
     centers <- vector("list", length(clusters))
     for (i in seq_along(batches)) {
         if (!is.null(curres <- restrict[[i]])) {
-            centers[[i]] <- rowsum(batches[[i]], clusters[[i]])
+            cls <- clusters[[i]][curres]
+            mat <- rowsum(batches[[i]][curres,,drop=FALSE], cls)
         } else {
-            centers[[i]] <-  rowsum(batches[[i]][curres,,drop=FALSE], clusters[[i]][curres])
+            cls <- clusters[[i]]
+            mat <- rowsum(batches[[i]], cls)
         }
+        centers[[i]] <- mat/as.numeric(table(cls)[rownames(mat)])
     }
 
     output <- do.call(reducedMNN, c(centers, list(..., BNPARAM=BNPARAM, BPPARAM=BPPARAM)))
@@ -85,36 +88,40 @@ reducedClusterMNN <- function(..., batch=NULL, clusters=NULL,
         indices <- last + seq_len(nrow(curcenter))
         last <- tail(indices, 1L)
 
-        sigma <- queryKNN(query=curbatch, X=curcenter, k=1, BNPARAM=BNPARAM, 
-            BPPARAM=BPPARAM, get.distance=TRUE)$distance
         corrected <- output$corrected[indices,,drop=FALSE]
         delta <- corrected - curcenter
+#        closest <- queryKNN(query=curbatch, X=curcenter, k=1, BNPARAM=BNPARAM, 
+#            BPPARAM=BPPARAM, get.distance=FALSE)$index
+        sigma <- queryKNN(query=curbatch, X=curcenter, k=1, BNPARAM=BNPARAM, 
+            BPPARAM=BPPARAM, get.distance=TRUE)$distance[,1]
 
         adj <- 0
         total <- 0
         tbatch <- t(curbatch)
         for (j in seq_len(nrow(curcenter))) {
             d2 <- colSums((tbatch - curcenter[j,])^2)
-            weight <- exp(- d2/sigma^2) # no need to worry about underflow, there is always a weight of 1 somewhere.
+            weight <- exp(- d2/sigma^2) # no need to worry about underflow, there is always a weight of exp(-1) somewhere.
             adj <- adj + outer(weight, delta[j,])
             total <- total + weight
         }
     
         batches[[i]] <- batches[[i]] + adj/total
-        renamed[[i]] <- rep(out$batch[indices[1]], nrow(curbatch))
+#        batches[[i]] <- batches[[i]] + delta[closest,,drop=FALSE]
+        renamed[[i]] <- rep(output$batch[indices[1]], nrow(curbatch))
     }
 
-    DataFrame(corrected=I(do.call(rbind, batches)), batch=renamed)
+    DataFrame(corrected=I(do.call(rbind, batches)), batch=unlist(renamed))
 }
 
 #' @importFrom stats kmeans
-#' @importFrom BiocSingular queryKNN
-.generate_kmeans_clusters <- function(batches, restrict, BNPARAM) {
+#' @importFrom BiocNeighbors queryKNN
+.generate_kmeans_clusters <- function(batches, restrict, BNPARAM, BPPARAM) {
     clusters <- list()
-    for (i in seq_along(clusters)) {
+    for (i in seq_along(batches)) {
         curbatch <- batches[[i]]
         if (is.null(curres <- restrict[[i]])) {
             clusters[[i]] <- kmeans(curbatch, centers=sqrt(nrow(curbatch)))$cluster
+
         } else {
             subbatch <- curbatch[curres,,drop=FALSE]
             k.out <- kmeans(subbatch, centers=sqrt(nrow(subbatch)))
