@@ -11,11 +11,18 @@
 #' @return
 #' For \code{clusterMNN}, 
 #' a \linkS4class{SingleCellExperiment} containing per-cell expression values where each row is a gene and each column is a cell.
-#' This has the same format as the output of \code{\link{fastMNN}} with the exception of the metadata.
+#' This has the same format as the output of \code{\link{fastMNN}}
+#' but with an additional \code{cluster} field in the \code{\link{colData}} containing the cluster identity of each cell.
 #'
 #' For \code{reducedClusterMNN}, 
 #' a \linkS4class{DataFrame} is returned containing the corrected low-dimensional values.
-#' This has the same format as the output of \code{\link{reducedMNN}} with the exception of the metadata.
+#' This has the same format as the output of \code{\link{reducedMNN}} 
+#' but with an additional \code{cluster} field containing the cluster identity of each cell.
+#'
+#' In both cases, the \code{merge.info} in the \code{\link{metadata}} has the same format as the output of \code{\link{fastMNN}}.
+#' However, the \code{pairs} and \code{lost.var} refer to the cluster centroids, not the cells.
+#' An additional \code{clusters} DataFrame is provided that can be row-indexed by the values in \code{pairs} 
+#' to determine the identity of the clusters in each MNN pair.
 #'
 #' @details
 #' These functions are motivated by the scenario where each batch has been clustered separately
@@ -50,6 +57,10 @@
 #' Such cells form undesirable MNNs with larger clusters of cells in other batches, 
 #' preventing those clusters from merging with each other (see Lun, 2019).
 #' Provided that these cells do not form separate clusters, their effect on \code{clusterMNN} is mitigated.
+#' \item Obviously, if the clustering is not appropriate, \code{clusterMNN} will perform poorly.
+#' This is less of an issue in the expected use case where meaningful, user-curated \code{clusters} are provided.
+#' The automated k-means step can occasionally be problematic depending on the random initialization,
+#' so some inspection of the output \code{cluster} per cell may be warranted if the input \code{clusters} is set to \code{NULL}.
 #' }
 #' 
 #' @author Aaron Lun
@@ -65,8 +76,8 @@
 #' B2 <- B2 + rnorm(length(B2)) + rnorm(nrow(B2)) # batch effect.
 #'
 #' # Applying the correction with some made-up clusters:
-#' cluster1 <- kmeans(t(B1), centers=3)$cluster
-#' cluster2 <- kmeans(t(B2), centers=3)$cluster
+#' cluster1 <- kmeans(t(B1), centers=10)$cluster
+#' cluster2 <- kmeans(t(B2), centers=10)$cluster
 #' out <- clusterMNN(B1, B2, clusters=list(cluster1, cluster2)) 
 #'
 #' rd <- reducedDim(out, "corrected") 
@@ -126,10 +137,10 @@ reducedClusterMNN <- function(..., batch=NULL, restrict=NULL, clusters=NULL,
         BNPARAM=BNPARAM, BPPARAM=BPPARAM)
 }
 
-
 #' @importFrom utils tail
 #' @importFrom BiocNeighbors queryKNN
-#' @importFrom S4Vectors DataFrame
+#' @importFrom S4Vectors DataFrame metadata metadata<-
+#' @importFrom BiocGenerics rbind
 .cluster_mnn <- function(batches, batch, restrict, clusters, ..., BNPARAM, BPPARAM) {
     # Checking input clusters.
     if (is.null(clusters)) {
@@ -179,7 +190,7 @@ reducedClusterMNN <- function(..., batch=NULL, restrict=NULL, clusters=NULL,
 #        closest <- queryKNN(query=curbatch, X=curcenter, k=1, BNPARAM=BNPARAM, 
 #            BPPARAM=BPPARAM, get.distance=FALSE)$index
         sigma <- queryKNN(query=curbatch, X=curcenter, k=1, BNPARAM=BNPARAM, 
-            BPPARAM=BPPARAM, get.distance=TRUE)$distance[,1]
+            BPPARAM=BPPARAM, get.index=FALSE)$distance[,1]
 
         adj <- 0
         total <- 0
@@ -196,7 +207,19 @@ reducedClusterMNN <- function(..., batch=NULL, restrict=NULL, clusters=NULL,
         renamed[[i]] <- rep(output$batch[indices[1]], nrow(curbatch))
     }
 
-    DataFrame(corrected=I(do.call(rbind, as.list(batches))), batch=unlist(renamed))
+    final <- DataFrame(
+        corrected=I(do.call(rbind, as.list(batches))), 
+        batch=unlist(renamed),
+        cluster=unlist(clusters)
+    )
+
+    metadata(final) <- metadata(output)
+    metadata(final)$clusters <- DataFrame(
+        batch=output$batch,
+        cluster=rownames(output)
+    )
+
+    final
 }
 
 #' @importFrom stats kmeans
