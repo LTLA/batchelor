@@ -27,7 +27,8 @@
 #' @details
 #' These functions are motivated by the scenario where each batch has been clustered separately
 #' (and each cluster has already been annotated with some meaningful biological state).
-#' The aim is to perform the correction in a manner that is more likely to preserve these meaningful within-batch clusters.
+#' We want to perform correction to examine the relationships between clusters across batches,
+#' but in a manner that is more likely to preserve these meaningful within-batch clusters.
 #' This is achieved by performing the correction on the cluster centroids and then applying the changes to the per-cell values.
 #' 
 #' In \code{clusterMNN}, \code{\link{multiBatchPCA}} is called to obtain a low-dimensional representation,
@@ -83,22 +84,22 @@
 #' rd <- reducedDim(out, "corrected") 
 #' plot(rd[,1], rd[,2], col=out$batch)
 #' 
-#' # Using the in-built clustering algorithm:
-#' out2 <- clusterMNN(B1, B2) 
-#' rd2 <- reducedDim(out2, "corrected") 
-#' plot(rd2[,1], rd2[,2], col=out2$batch)
-#'
 #' @references
 #' Lun ATL (2019).
 #' A discussion of the known failure points of the fastMNN algorithm.
 #' \url{https://marionilab.github.io/FurtherMNN2018/theory/failure.html}
+#'
 #' @export
 #' @importFrom scater .bpNotSharedOrUp
 #' @importFrom BiocParallel bpstart bpstop
-clusterMNN <- function(..., batch=NULL, restrict=NULL, clusters=NULL, d=50, weights=NULL,
-    k=1, prop.k=0, ndist=3, merge.order=NULL, auto.merge=FALSE, min.batch.skip=0,
+#' @importFrom utils tail
+#' @importFrom BiocNeighbors queryKNN
+#' @importFrom S4Vectors DataFrame metadata metadata<-
+#' @importFrom BiocGenerics rbind
+clusterMNN <- function(..., batch=NULL, restrict=NULL, clusters=NULL, 
+    cos.norm=TRUE, merge.order=NULL, auto.merge=FALSE, min.batch.skip=0,
     subset.row=NULL, correct.all=FALSE, assay.type="logcounts",
-    BSPARAM=IrlbaParam(deferred=TRUE), BNPARAM=KmknnParam(), BPPARAM=SerialParam()) 
+    BSPARAM=ExactParam(), BNPARAM=KmknnParam(), BPPARAM=SerialParam()) 
 {
     # Setting up the parallelization environment.
     if (.bpNotSharedOrUp(BPPARAM)) {
@@ -106,143 +107,126 @@ clusterMNN <- function(..., batch=NULL, restrict=NULL, clusters=NULL, d=50, weig
         on.exit(bpstop(BPPARAM), add=TRUE)
     }
 
-    pca <- multiBatchPCA(..., batch=batch, BSPARAM=BSPARAM, BPPARAM=BPPARAM, 
-        d=d, weights=weights, subset.row=subset.row, get.all.genes=correct.all)
-
-    output <- .cluster_mnn(pca, batch=batch, restrict=restrict, clusters=clusters,
-        k=k, prop.k=prop.k, ndist=ndist, 
-        merge.order=merge.order, auto.merge=auto.merge, min.batch.skip=min.batch.skip,
-        BNPARAM=BNPARAM, BPPARAM=BPPARAM)
-
-    .convert_to_SCE(output, pca)
-}
-
-#' @export
-#' @rdname clusterMNN
-reducedClusterMNN <- function(..., batch=NULL, restrict=NULL, clusters=NULL, 
-    k=1, prop.k=0, ndist=3, merge.order=NULL, auto.merge=FALSE, min.batch.skip=0,
-    BNPARAM=KmknnParam(), BPPARAM=SerialParam()) 
-{
     batches <- list(...)
-    checkBatchConsistency(batches, cells.in.columns=FALSE)
-    if (length(batches)==1L) {
-        pca <- divideIntoBatches(batches[[1]], batch=batch, byrow=FALSE)
-    } else {
-        pca <- batches
+    if (!is.null(batch)) {
+        divided <- divideIntoBatches(x=batches[[1]], restrict=restrict[[1]], batch=batch, byrow=FALSE)
+        restrict <- divided$restrict
+        batches <- divided$batches
+        if (!is.function(clusters)) {
+            clusters <- split(clusters, batch)
+        }
+    } 
+
+    if (cos.norm) { 
+        l2 <- lapply(batches, cosineNorm, mode="l2norm", subset.row=subset.row, BPPARAM=BPPARAM)
+        batches <- mapply(batches, l2, FUN=.apply_cosine_norm, SIMPLIFY=FALSE)
     }
 
-    .cluster_mnn(batches, batch=batch, restrict=restrict, clusters=clusters,
-        k=k, prop.k=prop.k, ndist=ndist, 
-        merge.order=merge.order, auto.merge=auto.merge, min.batch.skip=min.batch.skip,
-        BNPARAM=BNPARAM, BPPARAM=BPPARAM)
+    cluster.out <- .format_clusters(batches=batches, batch=batch, clusters=clusters, 
+        restrict=restrict, subset.row=subset.row)
+
+    # PCA is strictly for allowing us to impute genes outside of subset.row,
+    # and to allow us to return a low-rank matrix of per-cell expression values.
+    # There is no signal:noise trade-off because we ask for the maximum 'd'.
+    pca <- do.call(multiBatchPCA, c(cluster.out$centers, 
+        list(BSPARAM=BSPARAM, d=sum(vapply(cluster.out$centers, ncol, 0L)) - 1L, 
+            get.all.genes=correct.all, subset.row=subset.row)))
+
+    merge.out <- do.call(reducedMNN, c(as.list(pca), 
+        list(k=1, merge.order=merge.order, auto.merge=auto.merge, 
+            BNPARAM=BNPARAM, BPPARAM=BPPARAM)))
+
+    prop.out <- .propagate_to_cells(batches, pca, merge.out, 
+        BNPARAM=BNPARAM, BPPARAM=BPPARAM,
+        correct.all=correct.all, subset.row=subset.row)
+
+    .convert_to_SCE(prop.out, pca)
 }
 
-#' @importFrom utils tail
-#' @importFrom BiocNeighbors queryKNN
-#' @importFrom S4Vectors DataFrame metadata metadata<-
-#' @importFrom BiocGenerics rbind
-.cluster_mnn <- function(batches, batch, restrict, clusters, ..., BNPARAM, BPPARAM) {
-    # Checking input clusters.
+#' @importFrom DelayedArray DelayedArray colsum
+#' @importFrom Matrix t
+.format_clusters <- function(batches, batch, clusters, restrict, subset.row=NULL) {
     if (is.null(clusters)) {
-        clusters <- .generate_kmeans_clusters(batches, restrict, BNPARAM, BPPARAM)
-    } else if (!is.null(batch)) {
-        clusters <- split(clusters, batch)
-    } else {
-        if (length(clusters)!=length(batches)) {
-            stop("'...' and 'clusters' should be of the same length")
-        }
-        for (i in seq_along(clusters)) {
-            if (nrow(batches[[i]])!=length(clusters[[i]])) {
-                stop("corresponding entries of '...' and 'clusters' should have the same number of cells")
-            }
+        stop("not yet supported")
+    } 
+    if (length(clusters)!=length(batches)) {
+        stop("'...' and 'clusters' should be of the same length")
+    }
+    for (i in seq_along(clusters)) {
+        if (ncol(batches[[i]])!=length(clusters[[i]])) {
+            stop("corresponding entries of '...' and 'clusters' should have the same number of cells")
         }
     }
 
-    # Performing MNN on the cluster centroids, which is relatively easy.
     clusters <- lapply(clusters, as.character)
     centers <- vector("list", length(clusters))
+
     for (i in seq_along(batches)) {
+        B <- DelayedArray(batches[[i]])
+        C <- clusters[[i]]
         if (!is.null(curres <- restrict[[i]])) {
-            cls <- clusters[[i]][curres]
-            mat <- rowsum(batches[[i]][curres,,drop=FALSE], cls)
+            cls <- C[curres]
+            mat <- colsum(B[,curres,drop=FALSE], cls)
         } else {
-            cls <- clusters[[i]]
-            mat <- rowsum(batches[[i]], cls)
+            cls <- C
+            mat <- colsum(B, cls)
         }
-        centers[[i]] <- mat/as.numeric(table(cls)[rownames(mat)])
+        centers[[i]] <- t(t(mat)/as.numeric(table(C)[colnames(mat)]))
     }
 
-    output <- do.call(reducedMNN, c(centers, list(..., BNPARAM=BNPARAM, BPPARAM=BPPARAM)))
+    names(centers) <- names(clusters) <- names(batches)
+    list(centers=centers, clusters=clusters)
+}
 
-    # Smoothing the correction applied to the clusters and applying it to the cells.
-    # Each cell's smoothing bandwidth is set to the distance from its assigned cluster.
+#' @importFrom stats median
+#' @importFrom Matrix colSums crossprod rowSums t
+#' @importFrom BiocNeighbors queryKNN
+#' @importFrom S4Vectors metadata DataFrame
+#' @importFrom utils tail
+#' @importFrom scater .subset2index
+.propagate_to_cells <- function(batches, pca, after, subset.row, correct.all, BNPARAM, BPPARAM) {
+    pca.center <- metadata(pca)$centers
+    pca.rotation <- metadata(pca)$rotation
+
+    subset.row <- .subset2index(subset.row, batches[[1]], byrow=TRUE)
+    if (correct.all) {
+        pca.rotation <- pca.rotation[subset.row,,drop=FALSE]        
+    }
+
     last <- 0L
     renamed <- vector("list", length(batches))
 
     for (i in seq_along(batches)) {
-        curbatch <- batches[[i]]
-        curcenter <- centers[[i]]
-        indices <- last + seq_len(nrow(curcenter))
+        curbatch <- crossprod(batches[[i]][subset.row,], pca.rotation)
+        centroids <- pca[[i]]
+        indices <- last + seq_len(nrow(centroids))
         last <- tail(indices, 1L)
 
-        corrected <- output$corrected[indices,,drop=FALSE]
-        delta <- corrected - curcenter
-#        closest <- queryKNN(query=curbatch, X=curcenter, k=1, BNPARAM=BNPARAM, 
-#            BPPARAM=BPPARAM, get.distance=FALSE)$index
-        sigma <- queryKNN(query=curbatch, X=curcenter, k=1, BNPARAM=BNPARAM, 
-            BPPARAM=BPPARAM, get.index=FALSE)$distance[,1]
+        corrected <- after$corrected[indices,,drop=FALSE]
+        delta <- corrected - centroids
+        sigma <- median(queryKNN(query=curbatch, X=centroids, k=1, 
+            BNPARAM=BNPARAM, BPPARAM=BPPARAM, get.index=FALSE)$distance[,1])
 
-        adj <- 0
-        total <- 0
+        # Using a two-pass Gaussian kernel to avoid underflow.
         tbatch <- t(curbatch)
-        for (j in seq_len(nrow(curcenter))) {
-            d2 <- colSums((tbatch - curcenter[j,])^2)
-            weight <- exp(- d2/sigma^2) # no need to worry about underflow, there is always a weight of exp(-1) somewhere.
-            adj <- adj + outer(weight, delta[j,])
-            total <- total + weight
+        weights <- matrix(0, nrow(curbatch), nrow(centroids))
+        for (j in seq_len(nrow(centroids))) {
+            weights[,j] <- -colSums((tbatch - centroids[j,])^2)
+        }
+        weights <- weights/sigma^2
+
+        top.weight <- weights[cbind(seq_len(nrow(weights)), max.col(weights))]
+        norm.weights <- exp(weights - top.weight)
+        norm.weights <- norm.weights/rowSums(norm.weights)
+
+        adj <- curbatch
+        for (j in seq_len(nrow(centroids))) {
+            adj <- adj + outer(norm.weights[,j], delta[j,])
         }
     
-        batches[[i]] <- batches[[i]] + adj/total
-#        batches[[i]] <- batches[[i]] + delta[closest,,drop=FALSE]
-        renamed[[i]] <- rep(output$batch[indices[1]], nrow(curbatch))
+        batches[[i]] <- adj
+        renamed[[i]] <- rep(after$batch[indices[1]], nrow(curbatch))
     }
 
-    final <- DataFrame(
-        corrected=I(do.call(rbind, as.list(batches))), 
-        batch=unlist(renamed),
-        cluster=unlist(clusters)
-    )
-
-    metadata(final) <- metadata(output)
-    metadata(final)$clusters <- DataFrame(
-        batch=output$batch,
-        cluster=rownames(output)
-    )
-
-    final
-}
-
-#' @importFrom stats kmeans
-#' @importFrom BiocNeighbors queryKNN
-.generate_kmeans_clusters <- function(batches, restrict, BNPARAM, BPPARAM) {
-    clusters <- list()
-    for (i in seq_along(batches)) {
-        curbatch <- batches[[i]]
-        if (is.null(curres <- restrict[[i]])) {
-            clusters[[i]] <- kmeans(curbatch, centers=sqrt(nrow(curbatch)))$cluster
-
-        } else {
-            subbatch <- curbatch[curres,,drop=FALSE]
-            k.out <- kmeans(subbatch, centers=sqrt(nrow(subbatch)))
-            full.out <- integer(nrow(curbatch))
-            full.out[curres] <- k.out$cluster
-
-            leftovers <- !seq_len(nrow(curbatch)) %in% curres
-            closest <- queryKNN(X=k.out$centers, query=curbatch[leftovers,,drop=FALSE], k=1, 
-                BNPARAM=BNPARAM, BPPARAM=BPPARAM, get.distance=FALSE)$index
-            full.out[leftovers] <- closest
-            clusters[[i]] <- full.out
-        }
-    }
-    clusters
+    DataFrame(corrected=I(do.call(rbind, batches)), batch=unlist(renamed))
 }
