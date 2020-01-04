@@ -96,6 +96,7 @@
 #' @importFrom BiocNeighbors queryKNN
 #' @importFrom S4Vectors DataFrame metadata metadata<-
 #' @importFrom BiocGenerics rbind
+#' @importFrom igraph make_graph components
 clusterMNN <- function(..., batch=NULL, restrict=NULL, clusters=NULL, 
     cos.norm=TRUE, merge.order=NULL, auto.merge=FALSE, min.batch.skip=0,
     subset.row=NULL, correct.all=FALSE, assay.type="logcounts",
@@ -140,7 +141,16 @@ clusterMNN <- function(..., batch=NULL, restrict=NULL, clusters=NULL,
         BNPARAM=BNPARAM, BPPARAM=BPPARAM,
         correct.all=correct.all, subset.row=subset.row)
 
-    .convert_to_SCE(prop.out, pca)
+    output <- .convert_to_SCE(prop.out, pca)
+    metadata(output) <- metadata(merge.out)
+    metadata(output)$cluster <- DataFrame(cluster=rownames(merge.out), batch=merge.out$batch)
+    
+    # Identifying clusters of clusters across batches.
+    all.pairs <- unlist(metadata(output)$merge.info$pairs)
+    g <- make_graph(rbind(all.pairs$left, all.pairs$right), n=nrow(merge.out), directed=FALSE)
+    metadata(output)$cluster$meta <- components(g)$membership
+
+    output
 }
 
 #' @importFrom DelayedArray DelayedArray colsum
