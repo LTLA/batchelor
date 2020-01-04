@@ -200,14 +200,20 @@ clusterMNN <- function(..., batch=NULL, restrict=NULL, clusters=NULL,
 
     subset.row <- .subset2index(subset.row, batches[[1]], byrow=TRUE)
     if (correct.all) {
-        pca.rotation <- pca.rotation[subset.row,,drop=FALSE]        
+        # Undoing the expansion to all vectors.
+        pca.rotation <- pca.rotation[subset.row,,drop=FALSE]
+        pca.center <- pca.center[subset.row] 
     }
+    pca.adj <- drop(pca.center %*% pca.rotation)
 
     last <- 0L
     renamed <- vector("list", length(batches))
 
     for (i in seq_along(batches)) {
-        curbatch <- crossprod(batches[[i]][subset.row,], pca.rotation)
+        curbatch <- batches[[i]][subset.row,,drop=FALSE]
+        curbatch <- crossprod(curbatch, pca.rotation)
+        curbatch <- t(t(curbatch) - pca.adj)
+
         centroids <- pca[[i]]
         indices <- last + seq_len(nrow(centroids))
         last <- tail(indices, 1L)
