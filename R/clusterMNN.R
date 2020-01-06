@@ -196,7 +196,7 @@ clusterMNN <- function(..., batch=NULL, restrict=NULL, clusters=NULL,
 }
 
 #' @importFrom stats median
-#' @importFrom Matrix colSums crossprod rowSums t
+#' @importFrom Matrix colSums crossprod t
 #' @importFrom BiocNeighbors queryKNN
 #' @importFrom S4Vectors metadata DataFrame
 #' @importFrom utils tail
@@ -230,27 +230,36 @@ clusterMNN <- function(..., batch=NULL, restrict=NULL, clusters=NULL,
         sigma <- median(queryKNN(query=curbatch, X=centroids, k=1,
             subset=restrict[[i]],
             BNPARAM=BNPARAM, BPPARAM=BPPARAM, get.index=FALSE)$distance[,1])
-
-        # Using a two-pass Gaussian kernel to avoid underflow.
-        tbatch <- t(curbatch)
-        weights <- matrix(0, nrow(curbatch), nrow(centroids))
-        for (j in seq_len(nrow(centroids))) {
-            weights[,j] <- -colSums((tbatch - centroids[j,])^2)
-        }
-        weights <- weights/sigma^2
-
-        top.weight <- weights[cbind(seq_len(nrow(weights)), max.col(weights))]
-        norm.weights <- exp(weights - top.weight)
-        norm.weights <- norm.weights/rowSums(norm.weights)
-
-        adj <- curbatch
-        for (j in seq_len(nrow(centroids))) {
-            adj <- adj + outer(norm.weights[,j], delta[j,])
-        }
-    
-        batches[[i]] <- adj
+   
+        batches[[i]] <- .smooth_gaussian_from_centroids(curbatch, 
+            centers=centroids, sigma=sigma, delta=delta)
         renamed[[i]] <- rep(after$batch[indices[1]], nrow(curbatch))
     }
 
     DataFrame(corrected=I(do.call(rbind, batches)), batch=unlist(renamed))
+}
+
+#' @importFrom Matrix rowSums colSums t
+.smooth_gaussian_from_centroids <- function(x, centers, sigma, delta) 
+# Using a two-pass Gaussian kernel to avoid underflow.
+{
+    tbatch <- t(x)
+    ncenters <- nrow(centers)
+    ncells <- nrow(x)
+
+    weights <- matrix(0, ncells, ncenters)
+    for (j in seq_len(ncenters)) {
+        weights[,j] <- -colSums((tbatch - centers[j,])^2)
+    }
+    weights <- weights/sigma^2
+
+    top.weight <- weights[cbind(seq_len(ncells), max.col(weights))]
+    norm.weights <- exp(weights - top.weight)
+    norm.weights <- norm.weights/rowSums(norm.weights)
+
+    for (j in seq_len(ncenters)) {
+        x <- x + outer(norm.weights[,j], delta[j,])
+    }
+
+    x
 }

@@ -42,6 +42,27 @@ test_that("clusterMNN's full-rank PCA preserves relative distances effect", {
     expect_equal(as.matrix(out), as.matrix(ref))
 })
 
+test_that("clusterMNN performs the careful gaussian smoothing correctly", {
+    pcs <- matrix(rnorm(1000), ncol=20)
+    centers <- matrix(rnorm(200), ncol=20)
+    delta <- matrix(rnorm(200), ncol=20) - centers
+
+    output <- batchelor:::.smooth_gaussian_from_centroids(pcs, 
+        centers=centers, sigma=0.5, delta=delta)
+
+    # Computing it the naive way:
+    distances <- matrix(0, nrow(pcs), nrow(centers))
+    for (i in seq_len(ncol(distances))) {
+        distances[,i] <- colSums((t(pcs) - centers[i,])^2)
+    }
+
+    w <- exp(-distances/0.5^2)
+    w <- w/rowSums(w)
+    ref <- pcs + w %*% delta
+
+    expect_equal(ref, output)
+})
+
 test_that("clusterMNN can correct beyond the subset", {
     ref <- clusterMNN(B1, B2, clusters=list(cluster1, cluster2))
 
