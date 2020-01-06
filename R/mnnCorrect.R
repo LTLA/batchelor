@@ -437,13 +437,21 @@ mnnCorrect <- function(..., batch=NULL, restrict=NULL, k=20, prop.k=NULL, sigma=
 # Internal functions for correction.
 
 #' @importFrom Matrix t
+#' @importFrom scater sumCountsAcrossCells
+#' @importFrom SummarizedExperiment assay
+#' @importFrom S4Vectors DataFrame
 .compute_correction_vectors <- function(data1, data2, mnn1, mnn2, tdata2, sigma) 
 # Computes the batch correction vector for each cell in 'data2'.
 # 'tdata2' should also be supplied to compute distances 
 # (this may not be the same as 't(data2)' due to normalization, subsetting).
 {      
-    vect <- data1[mnn1,,drop=FALSE] - data2[mnn2,,drop=FALSE]    
-    cell.vect <- .Call(cxx_smooth_gaussian_kernel, vect, mnn2-1L, tdata2, sigma)
+    vect <- data1[mnn1,,drop=FALSE] - data2[mnn2,,drop=FALSE]
+    averaged <- sumCountsAcrossCells(t(vect), DataFrame(ID=mnn2), average=TRUE)
+
+    cell.vect <- .Call(cxx_smooth_gaussian_kernel, 
+        assay(averaged, withDimnames=FALSE), 
+        averaged$ID-1L, tdata2, sigma)
+
     t(cell.vect)
 }
 

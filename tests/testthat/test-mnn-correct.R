@@ -37,13 +37,29 @@ test_that("Batch vectors are correctly calculated", {
         d <- as.matrix(dist(data2))
         w <- exp(-d^2/s2)
 
+        # Normalizing for differences in MNN density around each cell in
+        # dataset 2 involved in a MNN pair. (Inner transposition is not 
+        # technically necessary for a symmetric matrix, but whatever.)
         mnn.dens <- rowSums(w[,unique(mnn2)])
+
+        # Expanding for the number of times a cell in dataset 2 is involved in
+        # a MNN pair, and dividing the weight appropriately. This is equivalent
+        # to averaging across all pairwise vectors for a given MNN-involved
+        # cell in dataset 2.
         N <- tabulate(mnn2, nbins=nrow(data2))
+
+        # Applying the two effects above to create a kernel. Each row here
+        # represents a cell in dataset 2, and each column represents a 
+        # cell in dataset 2 that is in a MNN pair (possibly multiple times).
         kernel <- t(w/(N*mnn.dens))[,mnn2]
 
+        # We want to compute the smoothed average for each cell, so we
+        # normalize by the total weight across all MNN-involved cells.
         kernel <- kernel/rowSums(kernel)
+
         vect <- data1[mnn1,] - data2[mnn2,]
         out <- kernel %*% vect
+
         dimnames(out) <- NULL
         return(out)
     }
