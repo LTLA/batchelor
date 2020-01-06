@@ -96,12 +96,20 @@ clusterMNN <- function(..., batch=NULL, restrict=NULL, clusters=NULL,
         on.exit(bpstop(BPPARAM), add=TRUE)
     }
 
-    if (!is.null(batch)) {
+    if (unified <- (length(batches)==1L)) {
+        if (is.null(batch)) {
+            stop("'batch' must be specified if '...' has only one object")
+        }
+
         divided <- divideIntoBatches(x=batches[[1]], restrict=restrict[[1]], batch=batch, byrow=FALSE)
         restrict <- divided$restrict
         batches <- divided$batches
+
         if (!is.function(clusters)) {
-            clusters <- split(clusters, batch)
+            if (length(clusters)!=1L) {
+                stop("'clusters' must be a list of length 1 when '...' contains one element")
+            }
+            clusters <- split(clusters[[1]], batch)
         }
     } 
 
@@ -113,18 +121,18 @@ clusterMNN <- function(..., batch=NULL, restrict=NULL, clusters=NULL,
     cluster.out <- .format_clusters(batches=batches, batch=batch, clusters=clusters, 
         restrict=restrict, subset.row=subset.row)
 
-    # PCA is strictly for allowing us to impute genes outside of subset.row,
-    # and to allow us to return a low-rank matrix of per-cell expression values.
-    # There is no signal:noise trade-off because we ask for the maximum 'd'.
-    pca <- do.call(multiBatchPCA, c(cluster.out$centers, 
-        list(BSPARAM=BSPARAM, d=sum(vapply(cluster.out$centers, ncol, 0L)) - 1L, 
-            get.all.genes=correct.all, subset.row=subset.row)))
+    pca <- .full_rank_pca(cluster.out$centers, subset.row=subset.row, correct.all=correct.all,
+        BSPARAM=BSPARAM, BPPARAM=BPPARAM)
 
-    merge.out <- do.call(reducedMNN, c(as.list(pca), 
-        list(k=1, merge.order=merge.order, auto.merge=auto.merge, 
-            BNPARAM=BNPARAM, BPPARAM=BPPARAM)))
+    merge.out <- do.call(reducedMNN, 
+        c(as.list(pca), 
+            list(k=1, merge.order=merge.order, auto.merge=auto.merge, 
+                BNPARAM=BNPARAM, BPPARAM=BPPARAM)
+        )
+    )
 
-    prop.out <- .propagate_to_cells(batches, pca, merge.out, 
+    prop.out <- .propagate_to_cells(batches, restrict=restrict,
+        pca=pca, after=merge.out, 
         BNPARAM=BNPARAM, BPPARAM=BPPARAM,
         correct.all=correct.all, subset.row=subset.row)
 
@@ -137,11 +145,15 @@ clusterMNN <- function(..., batch=NULL, restrict=NULL, clusters=NULL,
     g <- make_graph(rbind(all.pairs$left, all.pairs$right), n=nrow(merge.out), directed=FALSE)
     metadata(output)$cluster$meta <- components(g)$membership
 
+    if (unified) {
+        output <- output[,divided$reorder]
+    }
+
     output
 }
 
-#' @importFrom DelayedArray DelayedArray colsum
 #' @importFrom Matrix t
+#' @importFrom scater sumCountsAcrossCells
 .format_clusters <- function(batches, batch, clusters, restrict, subset.row=NULL) {
     if (is.null(clusters)) {
         stop("not yet supported")
@@ -155,24 +167,32 @@ clusterMNN <- function(..., batch=NULL, restrict=NULL, clusters=NULL,
         }
     }
 
-    clusters <- lapply(clusters, as.character)
     centers <- vector("list", length(clusters))
-
     for (i in seq_along(batches)) {
-        B <- DelayedArray(batches[[i]])
+        B <- batches[[i]]
         C <- clusters[[i]]
         if (!is.null(curres <- restrict[[i]])) {
-            cls <- C[curres]
-            mat <- colsum(B[,curres,drop=FALSE], cls)
-        } else {
-            cls <- C
-            mat <- colsum(B, cls)
+            C <- C[curres]
+            B <- B[,curres,drop=FALSE]
         }
-        centers[[i]] <- t(t(mat)/as.numeric(table(C)[colnames(mat)]))
+        centers[[i]] <- sumCountsAcrossCells(B, C, average=TRUE)
     }
 
     names(centers) <- names(clusters) <- names(batches)
     list(centers=centers, clusters=clusters)
+}
+
+.full_rank_pca <- function(centers, correct.all, subset.row, BSPARAM, BPPARAM) {
+    # PCA is strictly for allowing us to impute genes outside of subset.row,
+    # and to allow us to return a low-rank matrix of per-cell expression values.
+    # There is no signal:noise trade-off because we ask for the maximum 'd'.
+    do.call(multiBatchPCA, 
+        c(centers,
+            list(BSPARAM=BSPARAM, BPPARAM=BPPARAM,
+                get.all.genes=correct.all, subset.row=subset.row,
+                d=sum(vapply(centers, ncol, 0L)) - 1L)
+        )
+    )
 }
 
 #' @importFrom stats median
@@ -181,7 +201,7 @@ clusterMNN <- function(..., batch=NULL, restrict=NULL, clusters=NULL,
 #' @importFrom S4Vectors metadata DataFrame
 #' @importFrom utils tail
 #' @importFrom scater .subset2index
-.propagate_to_cells <- function(batches, pca, after, subset.row, correct.all, BNPARAM, BPPARAM) {
+.propagate_to_cells <- function(batches, restrict, pca, after, subset.row, correct.all, BNPARAM, BPPARAM) {
     pca.center <- metadata(pca)$centers
     pca.rotation <- metadata(pca)$rotation
 
@@ -207,7 +227,8 @@ clusterMNN <- function(..., batch=NULL, restrict=NULL, clusters=NULL,
 
         corrected <- after$corrected[indices,,drop=FALSE]
         delta <- corrected - centroids
-        sigma <- median(queryKNN(query=curbatch, X=centroids, k=1, 
+        sigma <- median(queryKNN(query=curbatch, X=centroids, k=1,
+            subset=restrict[[i]],
             BNPARAM=BNPARAM, BPPARAM=BPPARAM, get.index=FALSE)$distance[,1])
 
         # Using a two-pass Gaussian kernel to avoid underflow.
