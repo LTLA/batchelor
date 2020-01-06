@@ -29,7 +29,7 @@ test_that("clusterMNN behaves like fastMNN on pseudo-bulk samples", {
     expect_identical(metadata(output)$cluster$batch, rep(1:2, c(ncol(norm1), ncol(norm2))))
 })
 
-test_that("clusterMNN's full-rank PCA preserves relative distances effect", {
+test_that("clusterMNN's full-rank PCA preserves relative distances", {
     stuff1 <- matrix(rnorm(1000), nrow=20)
     stuff2 <- matrix(rnorm(500), nrow=20)
     stuff3 <- matrix(rnorm(2000), nrow=20)
@@ -61,6 +61,34 @@ test_that("clusterMNN performs the careful gaussian smoothing correctly", {
     ref <- pcs + w %*% delta
 
     expect_equal(ref, output)
+})
+
+set.seed(10000002)
+test_that("clusterMNN's propagation of the correction vectors works correctly", {
+    cluster <- rep(1:3, each=100)
+    y <- matrix(cluster, ncol=300, nrow=50, byrow=TRUE)
+
+    # This set of tests relies on the sigma being small enough that 
+    # each cell is really only affected by its closest cluster.
+    y1 <- y + runif(length(y), -0.01, 0.01)
+    y2 <- y + runif(length(y), -0.01, 0.01)
+
+    # Introduce an orthogonal batch effect to avoid edge case failure from fastMNN.
+    y1 <- rbind(y1, 0)
+    y2 <- rbind(y2, 1000)
+
+    # Turn off cosine normalization to avoid weird effects from the 1000 above.
+    out <- clusterMNN(y1, y2, cos.norm=FALSE, clusters=list(cluster, cluster))
+
+    # Check that the cluster means are the same between batches after
+    # correction, indicating the propagation of the per-center batch correction
+    # to to per-cell corrected coordinates was successful.
+    rd <- reducedDim(out)
+    for (i in unique(cluster)) {
+        LEFT <- rd[out$batch==1 & out$cluster==i,]
+        RIGHT <- rd[out$batch==2 & out$cluster==i,]
+        expect_equal(colMeans(LEFT), colMeans(RIGHT))
+    }
 })
 
 test_that("clusterMNN can correct beyond the subset", {

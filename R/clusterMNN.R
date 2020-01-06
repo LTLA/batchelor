@@ -136,7 +136,10 @@ clusterMNN <- function(..., batch=NULL, restrict=NULL, clusters=NULL,
         BNPARAM=BNPARAM, BPPARAM=BPPARAM,
         correct.all=correct.all, subset.row=subset.row)
 
+    # Formatting the output.
     output <- .convert_to_SCE(prop.out, pca)
+    output$cluster <- unlist(cluster.out$clusters)
+
     metadata(output) <- metadata(merge.out)
     metadata(output)$cluster <- DataFrame(cluster=rownames(merge.out), batch=merge.out$batch)
     
