@@ -2,6 +2,14 @@
 \title{batchelor News}
 \encoding{UTF-8}
 
+\section{Version 1.4.0}{\itemize{
+\item Support the use of arbitrary design matrices in regressBatches().
+
+\item Allow lists of objects to be directly passed into the ... for many functions.
+
+\item Added the clusterMNN() function for performing MNN on cluster centroids.
+}}
+
 \section{Version 1.2.0}{\itemize{
 \item Deprecated rotate.all= in favour of get.all.genes= in multiBatchPCA().
 

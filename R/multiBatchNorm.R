@@ -81,7 +81,7 @@
 #'
 #' @export
 #' @importFrom BiocGenerics sizeFactors sizeFactors<- cbind
-#' @importMethodsFrom scater logNormCounts librarySizeFactors
+#' @importFrom scater logNormCounts librarySizeFactors
 multiBatchNorm <- function(..., batch=NULL, assay.type="counts", norm.args=list(), 
     min.mean=1, subset.row=NULL, normalize.all=FALSE, preserve.single=TRUE)
 {
