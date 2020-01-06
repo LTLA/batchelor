@@ -307,7 +307,9 @@ Further MNN algorithm development.
 
 \code{\link{reducedMNN}}, for a version of the function that operates in low-dimensional space.
 
-\code{\link{mnnCorrect}} for the \dQuote{classic} version of the MNN correction algorithm.
+\code{\link{mnnCorrect}}, for the \dQuote{classic} version of the MNN correction algorithm.
+
+\code{\link{clusterMNN}}, for the cluster-based version of this approach.
 }
 \author{
 Aaron Lun

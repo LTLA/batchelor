@@ -92,6 +92,8 @@ out2 <- reducedMNN(pcs[[1]], pcs[[2]])
 \code{\link{multiBatchPCA}}, to obtain the values to be corrected.
 
 \code{\link{fastMNN}}, for the version that operates on gene-expression values.
+
+\code{\link{clusterMNN}}, for an application on cluster centroids.
 }
 \author{
 Aaron Lun

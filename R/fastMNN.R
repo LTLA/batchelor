@@ -232,7 +232,9 @@
 #'
 #' \code{\link{reducedMNN}}, for a version of the function that operates in low-dimensional space.
 #'
-#' \code{\link{mnnCorrect}} for the \dQuote{classic} version of the MNN correction algorithm.
+#' \code{\link{mnnCorrect}}, for the \dQuote{classic} version of the MNN correction algorithm.
+#'
+#' \code{\link{clusterMNN}}, for the cluster-based version of this approach.
 #'
 #' @examples
 #' B1 <- matrix(rnorm(10000, -1), ncol=50) # Batch 1 

@@ -64,8 +64,15 @@
 #' 
 #' @references
 #' Lun ATL (2019).
+#' Cluster-based mutual nearest neighbors correction 
+#' \url{https://marionilab.github.io/FurtherMNN2018/theory/clusters.html}
+#' 
+#' Lun ATL (2019).
 #' A discussion of the known failure points of the fastMNN algorithm.
 #' \url{https://marionilab.github.io/FurtherMNN2018/theory/failure.html}
+#'
+#' @seealso
+#' \code{\link{reducedMNN}}, which is used internally to perform the correction.
 #'
 #' @export
 #' @importFrom scater .bpNotSharedOrUp

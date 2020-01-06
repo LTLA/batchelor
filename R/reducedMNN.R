@@ -46,6 +46,8 @@
 #'
 #' \code{\link{fastMNN}}, for the version that operates on gene-expression values.
 #'
+#' \code{\link{clusterMNN}}, for an application on cluster centroids.
+#'
 #' @export
 #' @importFrom BiocNeighbors KmknnParam
 #' @importFrom BiocParallel SerialParam bpstart bpstop 
