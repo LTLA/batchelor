@@ -447,11 +447,7 @@ mnnCorrect <- function(..., batch=NULL, restrict=NULL, k=20, prop.k=NULL, sigma=
 {      
     vect <- data1[mnn1,,drop=FALSE] - data2[mnn2,,drop=FALSE]
     averaged <- sumCountsAcrossCells(t(vect), DataFrame(ID=mnn2), average=TRUE)
-
-    cell.vect <- .Call(cxx_smooth_gaussian_kernel, 
-        assay(averaged, withDimnames=FALSE), 
-        averaged$ID-1L, tdata2, sigma)
-
+    cell.vect <- smooth_gaussian_kernel(assay(averaged, withDimnames=FALSE), averaged$ID-1L, tdata2, sigma)
     t(cell.vect)
 }
 
@@ -469,7 +465,7 @@ mnnCorrect <- function(..., batch=NULL, restrict=NULL, k=20, prop.k=NULL, sigma=
 
     restrict1 <- .col_subset_to_index(data1, restrict1) - 1L
     restrict2 <- .col_subset_to_index(data2, restrict2) - 1L
-    scaling <- .Call(cxx_adjust_shift_variance, data1, data2, cell.vect, sigma, restrict1, restrict2)
+    scaling <- adjust_shift_variance(data1, data2, cell.vect, sigma, restrict1, restrict2)
 
     scaling <- pmax(scaling, 1)
     scaling * correction

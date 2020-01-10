@@ -1,4 +1,4 @@
-#include "batchelor.h"
+#include "Rcpp.h"
 
 #include "utils.h"
 #include "beachmat/numeric_matrix.h"
@@ -9,24 +9,18 @@
 #include <stdexcept>
 #include <cmath>
 
-/* Perform smoothing with the Gaussian kernel */
-
-SEXP smooth_gaussian_kernel(SEXP averaged, SEXP index, SEXP data, SEXP sigma) {
-    BEGIN_RCPP
+//[[Rcpp::export(rng=false)]]
+SEXP smooth_gaussian_kernel(Rcpp::NumericMatrix averaged, Rcpp::IntegerVector index, Rcpp::RObject data, double sigma2) {
     auto mat=beachmat::create_numeric_matrix(data);
     const size_t ncells=mat->get_ncol();
     const size_t ngenes_for_dist=mat->get_nrow();
 
-    Rcpp::NumericMatrix Averaged(averaged);
-    const size_t ngenes=Averaged.nrow();
-    const size_t nmnn=Averaged.ncol();
+    const size_t ngenes=averaged.nrow();
+    const size_t nmnn=averaged.ncol();
 
-    Rcpp::IntegerVector Index(index);
-    if (nmnn!=Index.size()) {
+    if (nmnn!=index.size()) {
         throw std::runtime_error("'index' must have length equal to number of rows in 'averaged'");
     }
-
-    const double s2=check_numeric_scalar(sigma, "sigma");
 
     // Setting up output constructs.
     Rcpp::NumericMatrix output(ngenes, ncells); // yes, this is 'ngenes' not 'ngenes_for_dist'.
@@ -39,7 +33,7 @@ SEXP smooth_gaussian_kernel(SEXP averaged, SEXP index, SEXP data, SEXP sigma) {
         other_incoming(mat.get(), false);
 
     // Using distances between cells and MNN-involved cells to smooth the correction vector per cell.
-    auto iIt=Index.begin();
+    auto iIt=index.begin();
     for (size_t i=0; i<nmnn; ++i, ++iIt) {
         mnn_incoming.fill(*iIt);
         auto mnn_iIt=mnn_incoming.get_values();
@@ -59,14 +53,14 @@ SEXP smooth_gaussian_kernel(SEXP averaged, SEXP index, SEXP data, SEXP sigma) {
 
             // Compute log-probabilities using a Gaussian kernel based on the squared distances.
             // We keep things logged to avoid float underflow, and just ignore the constant bit at the front.
-            curdist2/=-s2;
+            curdist2/=-sigma2;
         }
         
         // We sum the probabilities to get the relative MNN density. 
         // This requires some care as the probabilities are still logged at this point.
         double density=0;
         bool starting=true;
-        for (const auto& other_mnn : Index) {
+        for (const auto& other_mnn : index) {
             if (starting) {
                 density=distances2[other_mnn];
                 starting=false;
@@ -78,7 +72,7 @@ SEXP smooth_gaussian_kernel(SEXP averaged, SEXP index, SEXP data, SEXP sigma) {
         // Each correction vector is weighted by the Gaussian probability (to account for distance)
         // and density (to avoid being dominated by high-density regions).
         // Summation (and then division, see below) yields smoothed correction vectors.
-        const auto& correction = Averaged.column(i);
+        const auto& correction = averaged.column(i);
         auto oIt=output.begin();
         auto eIt=exponent.begin();
 
@@ -126,5 +120,4 @@ SEXP smooth_gaussian_kernel(SEXP averaged, SEXP index, SEXP data, SEXP sigma) {
     }
 
     return output;
-    END_RCPP
 }

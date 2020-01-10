@@ -147,7 +147,7 @@ test_that("Variance shift adjustment is correctly performed", {
     }
 
     TEST <- function(data1, data2, cell.vect, sigma) {
-        .Call(batchelor:::cxx_adjust_shift_variance, data1, data2, cell.vect, 
+        batchelor:::adjust_shift_variance(data1, data2, cell.vect, 
             sigma, seq_len(ncol(data1))-1L, seq_len(ncol(data2))-1L)
     }
 

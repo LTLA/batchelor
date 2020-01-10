@@ -1,29 +1,27 @@
-#include "batchelor.h"
+#include "Rcpp.h"
 
 #include "utils.h"
 
 #include <algorithm>
 
-SEXP find_mutual_nns (SEXP left, SEXP right) {
-    BEGIN_RCPP
-    const Rcpp::IntegerMatrix L(left), R(right);
-    const int nnR=R.ncol();
- 
-    std::vector<int> sortedR(R.size());
+//[[Rcpp::export(rng=false)]]
+Rcpp::List find_mutual_nns (Rcpp::IntegerMatrix left, Rcpp::IntegerMatrix right) {
+    const int nnR=right.ncol();
+    std::vector<int> sortedR(right.size());
     std::deque<int> mutualL, mutualR;
 
     // Sorting the elements on the right.
     auto sIt=sortedR.begin();
-    for (int r=0; r<R.nrow(); ++r) {
-        const auto currow=R.row(r);
+    for (int r=0; r<right.nrow(); ++r) {
+        const auto currow=right.row(r);
         std::copy(currow.begin(), currow.end(), sIt);
         std::sort(sIt, sIt+nnR);
         sIt+=nnR;
     }
 
     // Running through the elements on the left, and doing a binary search.
-    for (int l=0; l<L.nrow(); ++l) {
-        const auto currow=L.row(l);
+    for (int l=0; l<left.nrow(); ++l) {
+        const auto currow=left.row(l);
         const int tocheck=l+1;
 
         for (const auto& curval : currow) {
@@ -40,5 +38,4 @@ SEXP find_mutual_nns (SEXP left, SEXP right) {
 
     return Rcpp::List::create(Rcpp::IntegerVector(mutualL.begin(), mutualL.end()),
                               Rcpp::IntegerVector(mutualR.begin(), mutualR.end()));
-    END_RCPP
 }

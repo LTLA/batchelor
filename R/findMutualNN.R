@@ -43,7 +43,7 @@ findMutualNN <- function(data1, data2, k1, k2=k1, BNPARAM=KmknnParam(), BPPARAM=
     data2 <- as.matrix(data2)
     W21 <- queryKNN(data2, query=data1, k=k2, BNPARAM=BNPARAM, BPPARAM=BPPARAM, get.distance=FALSE)
     W12 <- queryKNN(data1, query=data2, k=k1, BNPARAM=BNPARAM, BPPARAM=BPPARAM, get.distance=FALSE)
-    out <- .Call(cxx_find_mutual_nns, W21$index, W12$index)
+    out <- find_mutual_nns(W21$index, W12$index)
     names(out) <- c("first", "second")
     return(out)
 }

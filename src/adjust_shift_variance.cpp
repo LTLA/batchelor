@@ -1,4 +1,4 @@
-#include "batchelor.h"
+#include "Rcpp.h"
 
 #include "utils.h"
 #include "beachmat/numeric_matrix.h"
@@ -29,8 +29,10 @@ double sq_distance_to_line(const double* ref, const double* grad, const double* 
     return dist;
 }
 
-SEXP adjust_shift_variance(SEXP data1, SEXP data2, SEXP vect, SEXP sigma, SEXP restrict1, SEXP restrict2) {
-    BEGIN_RCPP
+//[[Rcpp::export(rng=false)]]
+Rcpp::NumericVector adjust_shift_variance(Rcpp::RObject data1, Rcpp::RObject data2, Rcpp::RObject vect, 
+    double sigma2, Rcpp::IntegerVector restrict1, Rcpp::IntegerVector restrict2) 
+{
     auto d1=beachmat::create_numeric_matrix(data1);
     auto d2=beachmat::create_numeric_matrix(data2);
     auto v=beachmat::create_numeric_matrix(vect);
@@ -44,8 +46,6 @@ SEXP adjust_shift_variance(SEXP data1, SEXP data2, SEXP vect, SEXP sigma, SEXP r
     if (ncells!=v->get_nrow()) {
         throw std::runtime_error("number of cells do not match up between matrices");
     }        
-
-    const double s2=check_numeric_scalar(sigma, "sigma");
 
     auto restricted1=check_subset_vector(restrict1, d1->get_ncol());
     auto restricted2=check_subset_vector(restrict2, d2->get_ncol());
@@ -100,7 +100,7 @@ SEXP adjust_shift_variance(SEXP data1, SEXP data2, SEXP vect, SEXP sigma, SEXP r
                     const double sameproj=std::inner_product(grad.begin(), grad.end(), samecell, 0.0); // Projection
                     const double samedist=sq_distance_to_line(curcell, grad.begin(), samecell, working); // Distance.
                     
-                    log_prob=-samedist/s2;
+                    log_prob=-samedist/sigma2;
                     if (sameproj > curproj) {
                         add_prob=false;
                     }
@@ -133,7 +133,7 @@ SEXP adjust_shift_variance(SEXP data1, SEXP data2, SEXP vect, SEXP sigma, SEXP r
                 auto othercell=tmpcell_other.get_values();
                 distance1[other].first=std::inner_product(grad.begin(), grad.end(), othercell, 0.0); // Projection
                 const double otherdist=sq_distance_to_line(curcell, grad.begin(), othercell, working); // Distance.
-                distance1[other].second=-otherdist/s2;
+                distance1[other].second=-otherdist/sigma2;
 
                 if (starting_total) {
                     totalprob1=distance1[other].second;
@@ -173,7 +173,6 @@ SEXP adjust_shift_variance(SEXP data1, SEXP data2, SEXP vect, SEXP sigma, SEXP r
         output[cell]=(ref_quan - curproj)/l2norm;
     }
     
-    return(output);
-    END_RCPP
+    return output;
 }
 
