@@ -47,11 +47,11 @@ Rcpp::NumericVector adjust_shift_variance(Rcpp::RObject data1, Rcpp::RObject dat
         throw std::runtime_error("number of cells do not match up between matrices");
     }        
 
-    auto restricted1=check_subset_vector(restrict1, d1->get_ncol());
-    auto restricted2=check_subset_vector(restrict2, d2->get_ncol());
+    check_subset_vector(restrict1, d1->get_ncol());
+    check_subset_vector(restrict2, d2->get_ncol());
 
     std::vector<double> working(ngenes);
-    std::vector<std::pair<double, double> > distance1(restricted1.size());
+    std::vector<std::pair<double, double> > distance1(restrict1.size());
     Rcpp::NumericVector output(ncells);
 
     // Temporary objects for beachmat extraction.
@@ -89,7 +89,7 @@ Rcpp::NumericVector adjust_shift_variance(Rcpp::RObject data1, Rcpp::RObject dat
             double totalprob2=0;
             bool starting_prob=true, starting_total=true;
 
-            for (size_t same : restricted2) {
+            for (size_t same : restrict2) {
                 bool add_prob=true;
                 double log_prob=0;
 
@@ -128,8 +128,8 @@ Rcpp::NumericVector adjust_shift_variance(Rcpp::RObject data1, Rcpp::RObject dat
         double totalprob1=0;
         {
             bool starting_total=true;
-            for (size_t other=0; other<restricted1.size(); ++other) {
-                tmpcell_other.fill(restricted1[other]);
+            for (size_t other=0; other<restrict1.size(); ++other) {
+                tmpcell_other.fill(restrict1[other]);
                 auto othercell=tmpcell_other.get_values();
                 distance1[other].first=std::inner_product(grad.begin(), grad.end(), othercell, 0.0); // Projection
                 const double otherdist=sq_distance_to_line(curcell, grad.begin(), othercell, working); // Distance.
