@@ -164,6 +164,7 @@ clusterMNN <- function(..., batch=NULL, restrict=NULL, clusters=NULL,
 
 #' @importFrom Matrix t
 #' @importFrom scater sumCountsAcrossCells
+#' @importFrom SummarizedExperiment assay
 .format_clusters <- function(batches, batch, clusters, restrict, subset.row=NULL) {
     if (is.null(clusters)) {
         stop("not yet supported")
@@ -185,7 +186,7 @@ clusterMNN <- function(..., batch=NULL, restrict=NULL, clusters=NULL,
             C <- C[curres]
             B <- B[,curres,drop=FALSE]
         }
-        centers[[i]] <- sumCountsAcrossCells(B, C, average=TRUE)
+        centers[[i]] <- assay(sumCountsAcrossCells(B, C, average=TRUE))
     }
 
     names(centers) <- names(clusters) <- names(batches)
