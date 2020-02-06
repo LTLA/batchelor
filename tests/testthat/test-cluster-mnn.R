@@ -21,7 +21,7 @@ test_that("clusterMNN behaves like fastMNN on pseudo-bulk samples", {
     library(scater)
     norm1 <- sumCountsAcrossCells(cosineNorm(B1), cluster1, average=TRUE)
     norm2 <- sumCountsAcrossCells(cosineNorm(B2), cluster2, average=TRUE)
-    ref <- fastMNN(norm1, norm2, cos.norm=FALSE, k=1, 
+    ref <- fastMNN(assay(norm1), assay(norm2), cos.norm=FALSE, k=1, 
         BSPARAM=BiocSingular::ExactParam())
 
     expect_identical(metadata(output)$merge.info, metadata(ref)$merge.info)
