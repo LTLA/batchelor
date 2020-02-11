@@ -7,6 +7,9 @@
 #' @param ... One or more \linkS4class{SingleCellExperiment} objects.
 #' If multiple objects are supplied, each object is assumed to contain all and only cells from a single batch.
 #' If a single object is supplied, \code{batch} should also be specified.
+#'
+#' Alternatively, one or more lists of SingleCellExperiments can be provided;
+#' this may be more convenient for programmatic use.
 #' @param assay.type A string or integer scalar specifying the assay to use for correction.
 #' @inheritParams batchCorrect
 #' @param combine.assays Character vector specifying the assays from each entry of \code{...} to combine together without correction.
@@ -60,7 +63,7 @@
 correctExperiments <- function(..., batch=NULL, restrict=NULL, subset.row=NULL, correct.all=FALSE, assay.type="logcounts", 
     PARAM=FastMnnParam(), combine.assays=NULL, combine.coldata=NULL, include.rowdata=TRUE) 
 {
-    x <- list(...)
+    x <- .unpack_batches(...)
     args <- c(x, list(subset.row=subset.row, correct.all=correct.all, batch=batch))
     merged <- do.call(batchCorrect, c(args, list(restrict=restrict, assay.type=assay.type, PARAM=PARAM)))
 

@@ -7,6 +7,9 @@
 #'
 #' If multiple objects are supplied, each object is assumed to contain all and only cells from a single batch.
 #' If a single object is supplied, \code{batch} should also be specified.
+#'
+#' Alternatively, one or more lists of SingleCellExperiments can be provided;
+#' this may be more convenient for programmatic use.
 #' @param batch A factor specifying the batch of origin for all cells when only a single object is supplied in \code{...}.
 #' This is ignored if multiple objects are present.
 #' @param assay.type A string specifying which assay values contains the counts.
@@ -15,6 +18,7 @@
 #' @param subset.row A vector specifying which features to use for normalization.
 #' @param normalize.all A logical scalar indicating whether normalized values should be returned for all genes.
 #' @param preserve.single A logical scalar indicating whether to combine the results into a single matrix if only one object was supplied in \code{...}.
+#' @param BPPARAM A \linkS4class{BiocParallelParam} object specifying whether library size calculations should be parallelized. 
 #' 
 #' @details
 #' When performing integrative analyses of multiple batches, it is often the case that different batches have large differences in sequencing depth.
@@ -83,12 +87,18 @@
 #' @importFrom BiocGenerics sizeFactors sizeFactors<- cbind
 #' @importFrom scater logNormCounts librarySizeFactors
 multiBatchNorm <- function(..., batch=NULL, assay.type="counts", norm.args=list(), 
-    min.mean=1, subset.row=NULL, normalize.all=FALSE, preserve.single=TRUE)
+    min.mean=1, subset.row=NULL, normalize.all=FALSE, preserve.single=TRUE, BPPARAM=SerialParam())
 {
-    batches <- list(...)
+    batches <- .unpack_batches(...)
     checkBatchConsistency(batches)
     if (length(batches)==0L) { 
         stop("at least one SingleCellExperiment must be supplied") 
+    }
+
+    # Setting up the parallelization environment.
+    if (.bpNotSharedOrUp(BPPARAM)) {
+        bpstart(BPPARAM)
+        on.exit(bpstop(BPPARAM), add=TRUE)
     }
 
     if (length(batches)==1L) {
@@ -104,8 +114,8 @@ multiBatchNorm <- function(..., batch=NULL, assay.type="counts", norm.args=list(
             collected[[i]] <- batches[[1]][,by.batch[[i]],drop=FALSE]
         }
 
-        output <- do.call(multiBatchNorm, c(collected, list(assay.type=assay.type, 
-            norm.args=norm.args, min.mean=min.mean, subset.row=subset.row)))
+        output <- multiBatchNorm(collected, assay.type=assay.type, norm.args=norm.args, 
+            min.mean=min.mean, subset.row=subset.row, BPPARAM=BPPARAM)
 
         if (preserve.single) {
             output <- do.call(cbind, output)
@@ -121,7 +131,7 @@ multiBatchNorm <- function(..., batch=NULL, assay.type="counts", norm.args=list(
 
         cursf <- sizeFactors(current)
         if (is.null(cursf)) {
-            cursf <- librarySizeFactors(current, exprs_values=assay.type, subset_row=subset.row)
+            cursf <- librarySizeFactors(current, exprs_values=assay.type, subset_row=subset.row, BPPARAM=BPPARAM)
         }
 
         centering <- mean(cursf)
