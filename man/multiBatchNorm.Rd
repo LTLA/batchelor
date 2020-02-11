@@ -12,7 +12,8 @@ multiBatchNorm(
   min.mean = 1,
   subset.row = NULL,
   normalize.all = FALSE,
-  preserve.single = TRUE
+  preserve.single = TRUE,
+  BPPARAM = SerialParam()
 )
 }
 \arguments{
@@ -20,7 +21,10 @@ multiBatchNorm(
 Each object should contain the same number of rows, corresponding to the same genes in the same order.
 
 If multiple objects are supplied, each object is assumed to contain all and only cells from a single batch.
-If a single object is supplied, \code{batch} should also be specified.}
+If a single object is supplied, \code{batch} should also be specified.
+
+Alternatively, one or more lists of SingleCellExperiments can be provided.
+This may be more convenient for programmatic use.}
 
 \item{batch}{A factor specifying the batch of origin for all cells when only a single object is supplied in \code{...}.
 This is ignored if multiple objects are present.}
@@ -36,6 +40,8 @@ This is ignored if multiple objects are present.}
 \item{normalize.all}{A logical scalar indicating whether normalized values should be returned for all genes.}
 
 \item{preserve.single}{A logical scalar indicating whether to combine the results into a single matrix if only one object was supplied in \code{...}.}
+
+\item{BPPARAM}{A \linkS4class{BiocParallelParam} object specifying whether library size calculations should be parallelized.}
 }
 \value{
 A list of SingleCellExperiment objects with normalized log-expression values in the \code{"logcounts"} assay (depending on values in \code{norm.args}).

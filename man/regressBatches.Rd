@@ -22,7 +22,8 @@ Objects of different types can be mixed together.
 If multiple objects are supplied, each object is assumed to contain all and only cells from a single batch.
 If a single object is supplied, it is assumed to contain cells from all batches, so \code{batch} should also be specified.
 
-Alternatively, one or more lists of such objects can be provided, which may be more convenient for programmatic use.}
+Alternatively, one or more lists of matrices or SingleCellExpermients can be provided.
+This may be more convenient for programmatic use.}
 
 \item{batch}{A factor specifying the batch of origin for all cells when only a single object is supplied in \code{...}.
 This is ignored if multiple objects are present.}
