@@ -163,3 +163,20 @@ test_that("multiBatchNorm behaves correctly with a single batch", {
     alt3c <- multiBatchNorm(combined[,o], batch=rep(1:3, each=ncol(X))[o])
     expect_equal(alt3c, alt3a[,o])
 })
+
+set.seed(20013)
+test_that("multiBatchNorm behaves correctly with an input list", {
+    X2 <- X
+    counts(X2) <- counts(X2) * 2L
+    X3 <- X
+    counts(X3) <- counts(X3) * 3L
+
+    ref <- multiBatchNorm(X, X2, X3)
+    alt1 <- multiBatchNorm(X, list(X2, X3))
+    expect_identical(ref, alt1)
+
+    alt2 <- multiBatchNorm(list(X, X2, X3))
+    expect_identical(ref, alt2)
+})
+
+
