@@ -95,6 +95,9 @@ multiBatchNorm <- function(..., batch=NULL, assay.type="counts", norm.args=list(
         stop("at least one SingleCellExperiment must be supplied") 
     }
 
+    norm.args <- c(norm.args, list(exprs_values=assay.type, center_size_factors=FALSE))
+    needs.subset <- !normalize.all && !is.null(subset.row)
+
     # Setting up the parallelization environment.
     if (.bpNotSharedOrUp(BPPARAM)) {
         bpstart(BPPARAM)
@@ -102,6 +105,7 @@ multiBatchNorm <- function(..., batch=NULL, assay.type="counts", norm.args=list(
     }
 
     if (length(batches)==1L) {
+        sce <- batches[[1]]
         if (is.null(batch)) { 
             stop("'batch' must be specified if '...' has only one object")
         }
@@ -109,22 +113,40 @@ multiBatchNorm <- function(..., batch=NULL, assay.type="counts", norm.args=list(
         # We have to split them up for calcAverage anyway,
         # so there's no point writing special code here (unlike multiBatchPCA).
         by.batch <- split(seq_along(batch), batch)
-        collected <- by.batch
+        batches <- by.batch
         for (i in seq_along(by.batch)) {
-            collected[[i]] <- batches[[1]][,by.batch[[i]],drop=FALSE]
+            batches[[i]] <- sce[,by.batch[[i]],drop=FALSE]
         }
-
-        output <- multiBatchNorm(collected, assay.type=assay.type, norm.args=norm.args, 
-            min.mean=min.mean, subset.row=subset.row, BPPARAM=BPPARAM)
-
-        if (preserve.single) {
-            output <- do.call(cbind, output)
-            return(output[,order(unlist(by.batch))])
-        } else {
-            return(output)
-        }
+    } else {
+        preserve.single <- FALSE
     }
 
+    batches <- .rescale_size_factors(batches, assay.type=assay.type, 
+        subset.row=subset.row, min.mean=min.mean, BPPARAM=BPPARAM)
+
+    if (preserve.single) {
+        # Reuse sce here to avoid unnecessary cbind to reform a single object.
+        if (needs.subset) {
+            sce <- sce[subset.row,]
+        }
+
+        all.sf <- unlist(lapply(batches, sizeFactors), use.names=FALSE)
+        reorder <- order(unlist(by.batch))
+        sizeFactors(sce) <- all.sf[reorder]
+
+        do.call(logNormCounts, c(list(x=sce), norm.args))
+    } else {
+        if (needs.subset) {
+            batches <- lapply(batches, FUN="[", i=subset.row, ) # empty argument is important!
+        }
+
+        mapply(FUN=logNormCounts, batches, MoreArgs=norm.args, SIMPLIFY=FALSE)
+    }
+}
+
+#' @importFrom scater librarySizeFactors
+#' @importFrom BiocGenerics sizeFactors sizeFactors<-
+.rescale_size_factors <- function(batches, assay.type, subset.row, min.mean, BPPARAM) {
     # Centering the endogenous size factors.
     for (b in seq_along(batches)) {
         current <- batches[[b]]
@@ -140,18 +162,20 @@ multiBatchNorm <- function(..., batch=NULL, assay.type="counts", norm.args=list(
     }
 
     # Adjusting size factors.
-    rescale <- .compute_batch_rescaling(batches, subset.row=subset.row, assay.type=assay.type, 
-        min.mean=min.mean, BPPARAM=BPPARAM)
-    batches <- .rescale_size_factors(batches, rescale)
+    rescaling <- .compute_batch_rescaling(batches, subset.row=subset.row,
+        assay.type=assay.type, min.mean=min.mean, BPPARAM=BPPARAM)
 
-    if (!normalize.all && !is.null(subset.row)) {
-        batches <- lapply(batches, FUN="[", i=subset.row, ) # empty argument is important!
+    for (idx in seq_along(batches)) {
+        current <- batches[[idx]]
+        cursf <- sizeFactors(current)
+
+        # Adjusting the size factors for the new reference.
+        cursf <- cursf / rescaling[idx] 
+        sizeFactors(current) <- cursf
+        batches[[idx]] <- current
     }
 
-    # Applying the normalization.   
-    mapply(FUN=logNormCounts, batches, 
-        MoreArgs=c(list(exprs_values=assay.type, center_size_factors=FALSE), norm.args), 
-        SIMPLIFY=FALSE)
+    batches
 }
 
 #' @importFrom scater calculateAverage 
@@ -178,13 +202,18 @@ multiBatchNorm <- function(..., batch=NULL, assay.type="counts", norm.args=list(
             grand.mean <- (first.ave/first.sum + second.ave/second.sum)/2 * (first.sum + second.sum)/2
             keep <- grand.mean >= min.mean
 
-            curratio <- median(second.ave[keep]/first.ave[keep])
-            if (!is.finite(curratio) || curratio==0) {
+            # Computing it twice for exactly equal results when order of batches is rearranged.
+            kept.f <- first.ave[keep]
+            kept.s <- second.ave[keep]
+            curratio1 <- median(kept.s/kept.f)
+            curratio2 <- median(kept.f/kept.s)
+
+            if (!is.finite(curratio1) || curratio1==0 || !is.finite(curratio2) || curratio2==0) {
                 stop("median ratio of averages between batches is not finite")
             }
 
-            collected.ratios[first,second] <- curratio
-            collected.ratios[second,first] <- 1/curratio
+            collected.ratios[first,second] <- curratio1
+            collected.ratios[second,first] <- curratio2
         }
     }
 
@@ -192,21 +221,3 @@ multiBatchNorm <- function(..., batch=NULL, assay.type="counts", norm.args=list(
     smallest <- which.min(apply(collected.ratios, 2, min, na.rm=TRUE))
     collected.ratios[,smallest]
 }
-
-#' @importFrom BiocGenerics sizeFactors sizeFactors<-
-.rescale_size_factors <- function(batches, rescaling, assay.type)
-# Applying the chosen rescaling.
-{
-    for (idx in seq_along(batches)) {
-        current <- batches[[idx]]
-        cursf <- sizeFactors(current)
-
-        # Adjusting the size factors for the new reference.
-        cursf <- cursf / rescaling[idx] 
-        sizeFactors(current) <- cursf
-        batches[[idx]] <- current
-    }
-
-    batches
-}
-
