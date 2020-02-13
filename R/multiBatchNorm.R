@@ -18,7 +18,7 @@
 #' @param subset.row A vector specifying which features to use for normalization.
 #' @param normalize.all A logical scalar indicating whether normalized values should be returned for all genes.
 #' @param preserve.single A logical scalar indicating whether to combine the results into a single matrix if only one object was supplied in \code{...}.
-#' @param BPPARAM A \linkS4class{BiocParallelParam} object specifying whether library size calculations should be parallelized. 
+#' @param BPPARAM A \linkS4class{BiocParallelParam} object specifying whether calculations should be parallelized. 
 #' 
 #' @details
 #' When performing integrative analyses of multiple batches, it is often the case that different batches have large differences in sequencing depth.
@@ -140,7 +140,8 @@ multiBatchNorm <- function(..., batch=NULL, assay.type="counts", norm.args=list(
     }
 
     # Adjusting size factors.
-    rescale <- .compute_batch_rescaling(batches, subset.row=subset.row, assay.type=assay.type, min.mean=min.mean)
+    rescale <- .compute_batch_rescaling(batches, subset.row=subset.row, assay.type=assay.type, 
+        min.mean=min.mean, BPPARAM=BPPARAM)
     batches <- .rescale_size_factors(batches, rescale)
 
     if (!normalize.all && !is.null(subset.row)) {
@@ -156,12 +157,13 @@ multiBatchNorm <- function(..., batch=NULL, assay.type="counts", norm.args=list(
 #' @importFrom scater calculateAverage 
 #' @importFrom stats median
 #' @importFrom BiocGenerics sizeFactors sizeFactors<-
-.compute_batch_rescaling <- function(batches, subset.row, assay.type, min.mean) 
+.compute_batch_rescaling <- function(batches, subset.row, assay.type, min.mean, BPPARAM) 
 # Computes the median ratios (a la DESeq normalization),
 # finds the smallest ratio and uses that as the reference.
 {
     nbatches <- length(batches)
-    collected.ave <- lapply(batches, FUN=calculateAverage, exprs_values=assay.type, subset_row=subset.row)
+    collected.ave <- lapply(batches, FUN=calculateAverage, exprs_values=assay.type, 
+        subset_row=subset.row, BPPARAM=BPPARAM)
 
     collected.ratios <- matrix(1, nbatches, nbatches)
     for (first in seq_len(nbatches-1L)) {
