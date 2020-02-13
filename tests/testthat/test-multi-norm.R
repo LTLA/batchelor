@@ -13,6 +13,7 @@ sizeFactors(X) <- runif(ncol(X))
 
 set.seed(20011)
 test_that("multiBatchNorm works properly", {
+    # Using fixed scaling for exact checks.
     X2 <- X
     counts(X2) <- counts(X2) * 2L
     X3 <- X
@@ -46,6 +47,12 @@ test_that("multiBatchNorm works properly", {
 
 set.seed(200111)
 test_that("multiBatchNorm size factor centering logic is correct", {
+    # Tests with even numbers of genes are unnecessarily fragile due to the
+    # lack of symmetry for the median (i.e., med(x/y)!=1/med(y/x)). This causes
+    # slight differences that break the conceptual tests below. 
+    ngenes <- 999
+    X <- X[seq_len(ngenes),]
+
     dummy2 <- matrix(rnbinom(ngenes*ncells, mu=means * 10, size=5), ncol=ncells, nrow=ngenes)
     rownames(dummy2) <- paste0("X", seq_len(ngenes))
     X2 <- SingleCellExperiment(list(counts=dummy2))
@@ -76,7 +83,9 @@ test_that("multiBatchNorm behaves correctly with mean filtering", {
     X2 <- SingleCellExperiment(list(counts=dummy2))
     sizeFactors(X2) <- runif(ncol(X2))
 
-    # Creating a reference function using calculateAverage() explicitly.
+    # Creating a reference function using calculateAverage() explicitly. This
+    # compares all other batches to the first batch, which is assumed to be the
+    # lowest-coverage.
     library(scater)
     REFFUN <- function(..., min.mean=1) {
 	    batches <- list(...)
@@ -88,9 +97,12 @@ test_that("multiBatchNorm behaves correctly with mean filtering", {
         for (second in 2:nbatches) {
 	        second.ave <- collected.ave[[second]]
             keep <- calculateAverage(cbind(first.ave, second.ave)) >= min.mean
-            collected.ratios[second] <- median(second.ave[keep]/first.ave[keep]) 
+            collected.ratios[second] <- median(first.ave[keep]/second.ave[keep]) 
 		}
-		collected.ratios
+
+        # Again, we compute 1/med(first/second) rather than med(second/first),
+        # as these are not exactly equal (especially for small numbers of genes).
+		1/collected.ratios
     }
 
     out <- multiBatchNorm(X, X2, min.mean=1)
@@ -136,9 +148,9 @@ test_that("multiBatchNorm behaves correctly with subsetting", {
 set.seed(20013)
 test_that("multiBatchNorm behaves correctly with a single batch", {
     X2 <- X
-    counts(X2) <- counts(X2) * 2L
+    counts(X2) <- counts(X2) * runif(nrow(X), 1.5, 2.5)
     X3 <- X
-    counts(X3) <- counts(X3) * 3L
+    counts(X3) <- counts(X3) * runif(nrow(X), 2.5, 3.5)
 
     ref <- multiBatchNorm(X, X2, X3)
     combined <- cbind(X, X2, X3)
@@ -152,16 +164,48 @@ test_that("multiBatchNorm behaves correctly with a single batch", {
     alt2 <- multiBatchNorm(combined, batch=rep(3:1, each=ncol(X)), preserve.single=FALSE)
     expect_equal(unname(alt2[3:1]), unname(alt))
 
-    # Works if we ask to preserve.single.
-    alt3a <- multiBatchNorm(combined, batch=rep(1:3, each=ncol(X)))
-    expect_equal(alt3a, do.call(cbind, alt))
+    # Behaves correctly with subsetting and normalize.all=TRUE.
+    reref <- multiBatchNorm(combined[1:100,], batch=rep(1:3, each=ncol(X)), preserve.single=FALSE)
+    alt3 <- multiBatchNorm(combined, batch=rep(1:3, each=ncol(X)), subset.row=1:100, preserve.single=FALSE)
+    expect_identical(reref, alt3)
 
-    alt3b <- multiBatchNorm(combined, batch=rep(3:1, each=ncol(X)))
-    expect_equal(alt3a, alt3b)
+    alt4 <- multiBatchNorm(combined, batch=rep(1:3, each=ncol(X)), subset.row=100:1,
+        preserve.single=FALSE, normalize.all=TRUE)
+    for (i in seq_along(ref)) {
+        expect_identical(dim(alt4[[i]]), dim(ref[[i]]))
+        expect_equal(logcounts(reref[[i]])[1:100,], logcounts(alt4[[i]])[1:100,])
+        expect_equal(sizeFactors(reref[[i]]), sizeFactors(alt4[[i]]))
+    }
+})
 
+set.seed(20014)
+test_that("multiBatchNorm behaves correctly with a single batch and preserving single-ness", {
+    X2 <- X
+    counts(X2) <- counts(X2) * runif(nrow(X), 1.5, 2.5)
+    X3 <- X
+    counts(X3) <- counts(X3) * runif(nrow(X), 2.5, 3.5)
+
+    combined <- cbind(X, X2, X3)
+    alt <- multiBatchNorm(combined, batch=rep(1:3, each=ncol(X)), preserve.single=FALSE)
+    alt2 <- multiBatchNorm(combined, batch=rep(1:3, each=ncol(X)))
+
+    alt <- do.call(cbind, alt)
+    int_metadata(alt) <- int_metadata(alt2) 
+    expect_equal(alt2, alt)
+
+    # Handles subsetting.
+    alt3a <- multiBatchNorm(combined[1:100,], batch=rep(1:3, each=ncol(X)))
+    alt3b <- multiBatchNorm(combined, batch=rep(3:1, each=ncol(X)), subset.row=1:100)
+    expect_equal(alt3a[1:100,], alt3b)
+
+    alt3c <- multiBatchNorm(combined, batch=rep(3:1, each=ncol(X)), subset.row=100:1, normalize.all=TRUE)
+    expect_equal(alt3a[1:100,], alt3c[1:100,])
+    expect_identical(dim(alt3c), dim(combined))
+
+    # Handles reordering smoothly.
     o <- sample(ncol(combined))
-    alt3c <- multiBatchNorm(combined[,o], batch=rep(1:3, each=ncol(X))[o])
-    expect_equal(alt3c, alt3a[,o])
+    alt4 <- multiBatchNorm(combined[,o], batch=rep(1:3, each=ncol(X))[o])
+    expect_equal(alt4, alt2[,o])
 })
 
 set.seed(20013)
