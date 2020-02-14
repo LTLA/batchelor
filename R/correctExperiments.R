@@ -9,7 +9,7 @@
 #' If a single object is supplied, \code{batch} should also be specified.
 #'
 #' Alternatively, one or more lists of SingleCellExperiments can be provided;
-#' this may be more convenient for programmatic use.
+#' this is flattened so that it is as if the objects inside were passed directly to \code{...}.
 #' @param assay.type A string or integer scalar specifying the assay to use for correction.
 #' @inheritParams batchCorrect
 #' @param combine.assays Character vector specifying the assays from each entry of \code{...} to combine together without correction.

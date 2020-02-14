@@ -13,7 +13,7 @@
 #' This requires \code{batch} to also be specified.
 #'
 #' Alternatively, one or more lists of matrices or SingleCellExperiments can be provided;
-#' this may be more convenient for programmatic use.
+#' this is flattened as if the objects inside were passed directly to \code{...}.
 #' @param batch A factor specifying the batch identity of each cell in the input data.
 #' Ignored if \code{...} contains more than one argument.
 #' @param weights Numeric vector, logical scalar or list specifying the weighting scheme to use, see below for details.

@@ -11,7 +11,7 @@
 #' If a single object is supplied, it is assumed to contain cells from all batches, so \code{batch} should also be specified.
 #' 
 #' Alternatively, one or more lists of matrices or SingleCellExperiments can be provided;
-#' this may be more convenient for programmatic use.
+#' this is flattened as if the objects inside were passed directly to \code{...}.
 #' @param batch A factor specifying the batch of origin for all cells when only a single object is supplied in \code{...}.
 #' This is ignored if multiple objects are present.
 #' @param restrict A list of length equal to the number of objects in \code{...}.
