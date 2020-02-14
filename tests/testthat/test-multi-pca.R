@@ -304,9 +304,45 @@ test_that("multi-sample PCA works with deferred operations", {
     expect_equal(ref, out)
 })
 
+####################################################
+
+set.seed(12000051)
+test_that("weight interpreter works as expected", {
+    # With named inputs.
+    ncells <- c(A=100, B=200, C=50)
+    X <- batchelor:::.construct_weight_vector(ncells, NULL)
+    expect_identical(names(ncells), names(X))
+    expect_true(all(X==1))
+
+    X2 <- batchelor:::.construct_weight_vector(ncells, TRUE)
+    expect_identical(X, X2)
+
+    X <- batchelor:::.construct_weight_vector(ncells, FALSE)
+    expect_identical(ncells, X)
+
+    X <- batchelor:::.construct_weight_vector(ncells, list("A", list("B", "C")))
+    expect_identical(X, c(A=0.5, B=0.25, C=0.25))
+
+    X <- batchelor:::.construct_weight_vector(ncells, list(2, list(1, 3)))
+    expect_identical(X, c(A=0.25, B=0.5, C=0.25))
+
+    # With unnamed inputs.
+    ncells <- c(100, 200, 50)
+    X <- batchelor:::.construct_weight_vector(ncells, NULL)
+    expect_identical(X, rep(1, length(ncells)))
+
+    X2 <- batchelor:::.construct_weight_vector(ncells, TRUE)
+    expect_identical(X, X2)
+
+    X <- batchelor:::.construct_weight_vector(ncells, FALSE)
+    expect_identical(ncells, X)
+
+    X <- batchelor:::.construct_weight_vector(ncells, list(2, list(1, 3)))
+    expect_identical(X, c(0.25, 0.5, 0.25))
+})
+
 set.seed(1200006)
 test_that("multi-sample PCA works with additional weights", {
-              library(testthat); library(batchelor)
     test1 <- matrix(rnorm(1000), nrow=10)
     test2 <- matrix(rnorm(2000), nrow=10)
 
@@ -334,4 +370,42 @@ test_that("multi-sample PCA works with additional weights", {
     expect_error(multiBatchPCA(A=test1, B=test2, d=5, weights=c(A=1, B=0.5), "same as names"))
     expect_error(multiBatchPCA(combined, batch=batch, d=5, weights=c(A=1), "should be named"))
 })
+
+set.seed(12000051)
+test_that("weight interpreter works for more stressful tree-based structures", {
+    # With named inputs.
+    ncells <- c(A=100, B=200, C=50, D=20, E=5)
+    X <- batchelor:::.construct_weight_vector(ncells, list("E", list("D", list("A", "B", "C"))))
+    expect_identical(X, 1/c(A=2*2*3, B=2*2*3, C=2*2*3, D=2*2, E=2))
+
+    X <- batchelor:::.construct_weight_vector(ncells, list("E", "D", list("A", "B", "C")))
+    expect_identical(X, 1/c(A=3*3, B=3*3, C=3*3, D=3, E=3))
+
+    X <- batchelor:::.construct_weight_vector(ncells, list("E", "D", "A", list("B", "C")))
+    expect_identical(X, 1/c(A=4, B=4*2, C=4*2, D=4, E=4))
+
+    X <- batchelor:::.construct_weight_vector(ncells, list(list("D", "A", "E"), list("B", "C")))
+    expect_identical(X, 1/c(A=2*3, B=2*2, C=2*2, D=2*3, E=2*3))
+
+    expect_error(batchelor:::.construct_weight_vector(ncells, list(list("D", "A", "E"), list("B", "F"))), "do not match")
+
+    # With unnamed inputs.
+    ncells2 <- unname(ncells)
+    X <- batchelor:::.construct_weight_vector(ncells2, list(5, 1, 3, 2, 4))
+    expect_identical(X, rep(1/5, length(ncells2)))
+
+    X <- batchelor:::.construct_weight_vector(ncells2, list(list(5, 1), list(3, 2, 4)))
+    expect_identical(X, 1/c(2*2, 2*3, 2*3, 2*3, 2*2))
+
+    expect_error(batchelor:::.construct_weight_vector(ncells2, list(list(1, 4), list(3, 2, 2))), "invalid")
+
+    # Actual test.
+    test1 <- matrix(rnorm(1000), nrow=10)
+    test2 <- matrix(rnorm(2000), nrow=10)
+
+    ref <- multiBatchPCA(test1, test2, d=5)
+    reweighted <- multiBatchPCA(test1, test1, test2, test2, test2, d=5, 
+        weights=list(list(1,2), list(3, 4, 5)))
+})
+
 
