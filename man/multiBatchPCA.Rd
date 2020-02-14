@@ -20,13 +20,17 @@ multiBatchPCA(
 }
 \arguments{
 \item{...}{Two or more matrices containing expression values (usually log-normalized).
-Each matrix is assumed to represent one batch and should contain the same number of rows, corresponding to the same genes (in the same order).
+Each matrix is assumed to represent one batch and should contain the same number of rows, 
+corresponding to the same genes in the same order.
 
 Alternatively, two or more \linkS4class{SingleCellExperiment} objects containing these matrices.
 Note the same restrictions described above for gene expression matrix inputs.
 
 Alternatively, one matrix or SingleCellExperiment can be supplied containing cells from all batches. 
-This requires \code{batch} to also be specified.}
+This requires \code{batch} to also be specified.
+
+Alternatively, one or more lists of matrices or SingleCellExperiments can be provided;
+this is flattened as if the objects inside were passed directly to \code{...}.}
 
 \item{batch}{A factor specifying the batch identity of each cell in the input data.
 Ignored if \code{...} contains more than one argument.}
@@ -35,8 +39,7 @@ Ignored if \code{...} contains more than one argument.}
 
 \item{subset.row}{A vector specifying which features to use for correction.}
 
-\item{weights}{Numeric vector of length equal to the number of entries in \code{...}, specifying the scaling of the weight of each batch.
-This defaults to 1 for all batches.}
+\item{weights}{Numeric vector, logical scalar or list specifying the weighting scheme to use, see below for details.}
 
 \item{get.all.genes}{A logical scalar indicating whether the reported rotation vectors should include genes 
 that are excluded by a non-\code{NULL} value of \code{subset.row}.}
@@ -77,17 +80,35 @@ This ensures that the low-dimensional space can distinguish subpopulations in sm
 Otherwise, batches with a large number of cells would dominate the PCA, i.e., the definition of the mean vector and covariance matrix.
 This may reduce resolution of unique subpopulations in smaller batches that differ in a different dimension to the subspace of the larger batches.
 
-When \code{weights} is set, this will scale the weight of each batch by the specified value. 
-For example, each batch may represent one replicate, with multiple replicates per study.
-In such cases, it may be more appropriate to ensure that each \emph{study} has equal weight.
-This is done by assigning a value of \code{weights} to each replicate that is inversely proportional to the number of replicates in the same study - see Examples.
-
 Setting \code{get.all.genes=TRUE} will report rotation vectors that span all genes, even when only a subset of genes are used for the PCA.
 This is done by projecting all non-used genes into the low-dimensional \dQuote{cell space} defined by the first \code{d} components.
 
 If \code{BSPARAM} is defined with \code{deferred=TRUE}, the per-gene centering and per-cell scaling will be manually deferred during matrix multiplication.
 This can greatly improve speeds when the input matrices are sparse, as deferred operations avoids loss of sparsity (at the cost of numerical precision).
 }
+\section{Tuning the weighting}{
+
+By default, \code{weights=NULL} or \code{TRUE} will use the default weights,
+i.e., the reciprocal of the number of cells in each batch.
+This equalizes the contribution of batches with different numbers of cells as described above.
+
+If \code{weights=FALSE}, no weighting is performed.
+This means that larger batches will drive the PCA,
+which may be desirable when dealing with technical replicates where there is no concern about unique subpopulations in smaller batches.
+
+If \code{weights} is a numeric vector, it is expect to be of the same length (and, if named, have the same names) as the entries in \code{...}.
+Each entry of the vector is used to scale the default weight of the corresponding batch.
+This allows users to fine-tune the contribution of each batch;
+for example, each batch may represent one replicate, with multiple replicates per study.
+In such cases, it may be more appropriate to ensure that each \emph{study} has equal weight.
+This is done by assigning a value of \code{weights} to each replicate that is inversely proportional to the number of replicates in the same study - see Examples.
+
+Alternatively, \code{weights} can be a list representing a tree-like structure, 
+identical to the tree controlling the merge order in \code{\link{fastMNN}}.
+Here, weights are scaled so that each partition in the tree yields subtrees with identical scaled weights (summed across each subtree's children).
+This allows us to easily adjust the weighting scheme for hierarchical batch structures like the replicate-study scenario described above.
+}
+
 \examples{
 d1 <- matrix(rnorm(5000), ncol=100)
 d1[1:10,1:10] <- d1[1:10,1:10] + 2 # unique population in d1
@@ -107,6 +128,9 @@ points(out[[2]][,1], out[[2]][,2], col="blue")
 # weight as 'd1'.
 d3 <- d2 + 5
 out <- multiBatchPCA(d1, d2, d3, weights=c(1, 0.5, 0.5))
+
+alt <- multiBatchPCA(d1, d2, d3, weights=list(1, list(2, 3))) 
+stopifnot(all.equal(out, alt)) # As they are the same.
 
 }
 \seealso{

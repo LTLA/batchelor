@@ -23,8 +23,8 @@ Each object should contain the same number of rows, corresponding to the same ge
 If multiple objects are supplied, each object is assumed to contain all and only cells from a single batch.
 If a single object is supplied, \code{batch} should also be specified.
 
-Alternatively, one or more lists of SingleCellExperiments can be provided.
-This may be more convenient for programmatic use.}
+Alternatively, one or more lists of SingleCellExperiments can be provided;
+this is flattened as if the objects inside were passed directly to \code{...}.}
 
 \item{batch}{A factor specifying the batch of origin for all cells when only a single object is supplied in \code{...}.
 This is ignored if multiple objects are present.}
@@ -41,7 +41,7 @@ This is ignored if multiple objects are present.}
 
 \item{preserve.single}{A logical scalar indicating whether to combine the results into a single matrix if only one object was supplied in \code{...}.}
 
-\item{BPPARAM}{A \linkS4class{BiocParallelParam} object specifying whether library size calculations should be parallelized.}
+\item{BPPARAM}{A \linkS4class{BiocParallelParam} object specifying whether calculations should be parallelized.}
 }
 \value{
 A list of SingleCellExperiment objects with normalized log-expression values in the \code{"logcounts"} assay (depending on values in \code{norm.args}).
