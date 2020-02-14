@@ -3,13 +3,17 @@
 #' Perform a principal components analysis across multiple gene expression matrices to project all cells to a common low-dimensional space.
 #'
 #' @param ... Two or more matrices containing expression values (usually log-normalized).
-#' Each matrix is assumed to represent one batch and should contain the same number of rows, corresponding to the same genes (in the same order).
+#' Each matrix is assumed to represent one batch and should contain the same number of rows, 
+#' corresponding to the same genes in the same order.
 #'
 #' Alternatively, two or more \linkS4class{SingleCellExperiment} objects containing these matrices.
 #' Note the same restrictions described above for gene expression matrix inputs.
 #'
 #' Alternatively, one matrix or SingleCellExperiment can be supplied containing cells from all batches. 
 #' This requires \code{batch} to also be specified.
+#'
+#' Alternatively, one or more lists of matrices or SingleCellExperiments can be provided;
+#' this may be more convenient for programmatic use.
 #' @param batch A factor specifying the batch identity of each cell in the input data.
 #' Ignored if \code{...} contains more than one argument.
 #' @param weights Numeric vector of length equal to the number of entries in \code{...}, specifying the scaling of the weight of each batch.
@@ -101,7 +105,7 @@ multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, weights=NULL,
 # written by Aaron Lun
 # created 4 July 2018
 {
-    originals <- mat.list <- list(...)
+    originals <- mat.list <- .unpack_batches(...)
     if (length(mat.list)==0L) {
         stop("at least one batch must be specified") 
     }
@@ -210,15 +214,7 @@ multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, weights=NULL,
 #' @importFrom BiocSingular DeferredMatrix
 #' @importFrom Matrix t rowMeans
 .process_listed_matrices_for_pca <- function(mat.list, weights, subset.row, deferred=FALSE) {
-    if (is.null(weights)) {
-        weights <- rep(1, length(mat.list))
-    } else {
-        if (!is.null(names(weights)) && !identical(names(mat.list), names(weights))) {
-            stop("'names(weights)' should be the same as names of '...'")
-        } else if (length(mat.list)!=length(weights)) {
-            stop("'length(weights)' should be the same as number of entries in '...'")
-        }
-    }
+    weights <- .construct_weight_vector(vapply(mat.list, ncol, 0L), weights)
 
     # Computing the grand average of centers, and using that to center each batch.
     # (Not using batch-specific centers, which makes compositional assumptions.)
@@ -273,6 +269,60 @@ multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, weights=NULL,
     }
 
     list(centered=centered, scaled=scaled, centers=grand.centers)
+}
+
+###########################################
+
+# Returns a vector of weights for each batch. If 'ncells' is named, the output
+# is also expected to be named, as this is used in the single matrix
+# implementation below.
+.construct_weight_vector <- function(ncells, weights) {
+    if (is.null(weights) || isTRUE(weights)) {
+        ncells[] <- 1
+        ncells
+    } else if (is.list(weights)) {
+        # Assume that we have a tree, and each split is of equal weight.
+        w <- unlist(.get_list_weights(weights))
+        ids <- unlist(weights)
+
+        if (is.numeric(ids)) {
+            if (all.equal(sort(ids), seq_along(ncells))) {
+                stop("invalid integer indices in tree-like 'weights'")
+            }
+        } else if (is.character(ids)) {
+            if (!identical(sort(ids), names(ncells))) {
+                stop("names in tree-like 'weights' do not match names in '...'")
+            }
+        } else {
+            stop("invalid children type in tree-like 'weights'")
+        }
+
+        # Piggy-backing off a named 'ncells' vector.
+        ncells[ids] <- w
+        ncells
+    } else if (isFALSE(weights)) {
+        ncells
+    } else {
+        if (!is.null(names(weights)) && !identical(names(ncells), names(weights))) {
+            stop("'names(weights)' should be the same as names of '...'")
+        } else if (length(ncells)!=length(weights)) {
+            stop("'length(weights)' should be the same as number of entries in '...'")
+        }
+        weights
+    }
+}
+
+# Recurse through the tree and assign equal weight at each split.
+# This allows us to handle the weighting for hierarchical batches.
+.get_list_weights <- function(tree, current=1) {
+    for (i in seq_along(tree)) {
+        if (is.list(tree[[i]])) {
+            tree[[i]] <- .get_list_weights(tree[[i]], current=current*1/length(tree))
+        } else {
+            tree[[i]] <- current 
+        }
+    }
+    tree
 }
 
 ###########################################
@@ -375,15 +425,7 @@ multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, weights=NULL,
     tab <- as.numeric(tab) 
     names(tab) <- nms
 
-    if (!is.null(weights)) {
-        weights <- weights[levels(batch)]
-        if (any(is.na(weights))) {
-            stop("'weights' should be named with all levels of 'batch'")
-        }
-    } else {
-        weights <- tab
-        weights[] <- 1
-    }
+    weights <- .construct_weight_vector(tab, weights)
 
     if (!is.null(subset.row)) {
         x <- x[subset.row,,drop=FALSE]
