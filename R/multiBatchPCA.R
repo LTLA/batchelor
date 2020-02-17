@@ -308,7 +308,7 @@ multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, weights=NULL,
                 stop("invalid integer indices in tree-like 'weights'")
             }
         } else if (is.character(ids)) {
-            if (!identical(sort(ids), names(ncells))) {
+            if (!identical(unname(sort(ids)), names(ncells))) {
                 stop("names in tree-like 'weights' do not match names in '...'")
             }
         } else {
@@ -334,14 +334,18 @@ multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, weights=NULL,
 # This allows us to handle the weighting for hierarchical batches.
 .get_list_weights <- function(tree, current=1) {
     reweight <- current/length(tree)
-    for (i in seq_along(tree)) {
-        if (is.list(tree[[i]])) {
-            tree[[i]] <- .get_list_weights(tree[[i]], current=reweight)
-        } else {
-            tree[[i]] <- reweight
+    if (!is.list(tree)) {
+        rep(reweight, length(tree))
+    } else {
+        for (i in seq_along(tree)) {
+            if (is.list(tree[[i]]) || length(tree[[i]]) > 1L) {
+                tree[[i]] <- .get_list_weights(tree[[i]], current=reweight)
+            } else {
+                tree[[i]] <- reweight
+            }
         }
+        tree
     }
-    tree
 }
 
 ###########################################
