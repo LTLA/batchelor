@@ -637,6 +637,26 @@ test_that("fastMNN works correctly with weighting of PCs", {
     expect_equal(out.pre$batch, out.norm$batch)
 })
 
+set.seed(120000541)
+test_that("fastMNN works correctly with no PCA", {
+    B1 <- matrix(rnorm(10000, 0), nrow=100) # Batch 1
+    B2 <- matrix(rnorm(20000, 1), nrow=100) # Batch 2
+
+    no.pc <- fastMNN(B1, B2, d=NA, cos.norm=FALSE)
+    ref <- reducedMNN(t(B1), t(B2))
+    expect_identical(ref$corrected, reducedDim(no.pc))
+})
+
+set.seed(120000542)
+test_that("fastMNN reports PC statistics correctly", {
+    B1 <- matrix(rnorm(10000, 0), nrow=100) # Batch 1
+    B2 <- matrix(rnorm(20000, 1), nrow=100) # Batch 2
+
+    out <- fastMNN(B1, B2, get.variance=TRUE)
+    expect_true(!is.null(metadata(out)$pca.info$var.total))
+    expect_true(!is.null(metadata(out)$pca.info$var.explained))
+})
+
 set.seed(1200006)
 test_that("fastMNN fails on silly inputs", {
     B1 <- matrix(rnorm(10000), nrow=100) # Batch 1 

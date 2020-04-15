@@ -11,19 +11,20 @@
 #' If a single object is supplied, it is assumed to contain cells from all batches, so \code{batch} should also be specified.
 #' 
 #' Alternatively, one or more lists of matrices or SingleCellExperiments can be provided;
-#' this is flattened as if the objects inside were passed directly to \code{...}.
+#' this is flattened as if the objects inside each list were passed directly to \code{...}.
 #' @param batch A factor specifying the batch of origin for all cells when only a single object is supplied in \code{...}.
 #' This is ignored if multiple objects are present.
 #' @param restrict A list of length equal to the number of objects in \code{...}.
 #' Each entry of the list corresponds to one batch and specifies the cells to use when computing the correction.
 #' @param k An integer scalar specifying the number of nearest neighbors to consider when identifying MNNs.
 #' @param prop.k A numeric scalar in (0, 1) specifying the proportion of cells in each dataset to use for mutual nearest neighbor searching.
-#' If set, \code{k} for the search in each batch is redefined as \code{max(k, prop.k*N)} where \code{N} is the number of cells in that batch.
+#' If set, the number of nearest neighbors used for the MNN search in each batch is redefined as \code{max(k, prop.k*N)} where \code{N} is the number of cells in that batch.
 #' @param cos.norm A logical scalar indicating whether cosine normalization should be performed on the input data prior to PCA.
 #' @param ndist A numeric scalar specifying the threshold beyond which neighbours are to be ignored when computing correction vectors.
 #' Each threshold is defined as a multiple of the number of median distances.
-#' @param d Number of dimensions to use for dimensionality reduction in \code{\link{multiBatchPCA}}.
-#' @param weights Numeric scalar of weights to use in \code{\link{multiBatchPCA}}.
+#' @param d Numeric scalar specifying the number of dimensions to use for dimensionality reduction in \code{\link{multiBatchPCA}}.
+#' If \code{NA}, no dimensionality reduction is performed and any matrices in \code{...} are used as-is.
+#' @param weights,get.variance Further arguments to pass to \code{\link{multiBatchPCA}}.
 #' @param merge.order An integer vector containing the linear merge order of batches in \code{...}.
 #' Alternatively, a list of lists representing a tree structure specifying a hierarchical merge order.
 #' @param auto.merge Logical scalar indicating whether to automatically identify the \dQuote{best} merge order.
@@ -60,9 +61,13 @@
 #' This is true regardless of the value of \code{merge.order} and \code{auto.merge},
 #' which only affects the internal merge order of the batches.
 #' 
-#' The metadata of the output object contains \code{merge.info}, 
-#' a \linkS4class{DataFrame} of diagnostic information about each merge step.
+#' Additionally, the metadata of the output object contains:
+#' \itemize{
+#' \item \code{merge.info}, a \linkS4class{DataFrame} of diagnostic information about each merge step.
 #' See the \dQuote{Merge diagnostics} section for more details.
+#' \item \code{pca.info}, a list of metadata produced by \code{\link{multiBatchPCA}},
+#' such as the variance explained when \code{get.variance=TRUE}.
+#' }
 #' 
 #' @details
 #' This function provides a variant of the \code{\link{mnnCorrect}} function, modified for speed and more robust performance.
@@ -267,7 +272,8 @@
 #' @importFrom S4Vectors DataFrame metadata<-
 #' @importFrom methods as
 #' @importFrom scater .bpNotSharedOrUp
-fastMNN <- function(..., batch=NULL, k=20, prop.k=NULL, restrict=NULL, cos.norm=TRUE, ndist=3, d=50, weights=NULL,
+fastMNN <- function(..., batch=NULL, k=20, prop.k=NULL, restrict=NULL, cos.norm=TRUE, ndist=3, 
+    d=50, weights=NULL, get.variance=FALSE,
     merge.order=NULL, auto.merge=FALSE, min.batch.skip=0,
     subset.row=NULL, correct.all=FALSE, assay.type="logcounts", 
     BSPARAM=IrlbaParam(deferred=TRUE), BNPARAM=KmknnParam(), BPPARAM=SerialParam()) 
@@ -291,7 +297,8 @@ fastMNN <- function(..., batch=NULL, k=20, prop.k=NULL, restrict=NULL, cos.norm=
 
     # Performing the MNN search.
     common.args <-list(k=k, prop.k=prop.k, cos.norm=cos.norm, ndist=ndist, 
-        d=d, weights=weights, subset.row=subset.row, correct.all=correct.all, 
+        d=d, weights=weights, get.variance=get.variance,
+        subset.row=subset.row, correct.all=correct.all, 
         min.batch.skip=min.batch.skip, 
         merge.order=merge.order, auto.merge=auto.merge, 
         BSPARAM=BSPARAM, BNPARAM=BNPARAM, BPPARAM=BPPARAM)
@@ -320,7 +327,9 @@ fastMNN <- function(..., batch=NULL, k=20, prop.k=NULL, restrict=NULL, cos.norm=
 
 #' @importFrom BiocSingular ExactParam 
 #' @importFrom BiocParallel SerialParam
-.fast_mnn_list <- function(batch.list, ..., subset.row=NULL, cos.norm=TRUE, d=50, weights=NULL,
+#' @importFrom Matrix t
+.fast_mnn_list <- function(batch.list, ..., subset.row=NULL, cos.norm=TRUE, 
+    d=50, weights=NULL, get.variance=FALSE,
     correct.all=FALSE, BSPARAM=ExactParam(), BPPARAM=SerialParam()) 
 {
     nbatches <- length(batch.list) 
@@ -333,8 +342,14 @@ fastMNN <- function(..., batch=NULL, k=20, prop.k=NULL, restrict=NULL, cos.norm=
         batch.list <- mapply(FUN=.apply_cosine_norm, batch.list, all.l2s, SIMPLIFY=FALSE) 
     }
 
-    pc.mat <- .multi_pca_list(batch.list, d=d, weights=weights, subset.row=subset.row,
-        get.all.genes=correct.all, BSPARAM=BSPARAM, BPPARAM=BPPARAM)
+    if (!is.na(d)) {
+        pc.mat <- .multi_pca_list(batch.list, d=d, weights=weights, get.variance=get.variance,
+            subset.row=subset.row, get.all.genes=correct.all, BSPARAM=BSPARAM, BPPARAM=BPPARAM)
+    } else {
+        pc.mat <- lapply(batch.list, t)
+        pc.mat <- lapply(pc.mat, as.matrix)
+        pc.mat <- List(pc.mat)
+    }
 
     out <- .fast_mnn(batches=pc.mat, ..., BPPARAM=BPPARAM)
     .convert_to_SCE(out, pc.mat)
@@ -343,8 +358,10 @@ fastMNN <- function(..., batch=NULL, k=20, prop.k=NULL, restrict=NULL, cos.norm=
 #' @importFrom BiocSingular ExactParam
 #' @importFrom BiocParallel SerialParam
 #' @importFrom S4Vectors List metadata metadata<-
+#' @importFrom Matrix t
 .fast_mnn_single <- function(x, batch, restrict=NULL, ..., subset.row=NULL, cos.norm=TRUE, 
-    d=50, weights=NULL, correct.all=FALSE, BSPARAM=ExactParam(), BPPARAM=SerialParam()) 
+    d=50, weights=NULL, get.variance=FALSE,
+    correct.all=FALSE, BSPARAM=ExactParam(), BPPARAM=SerialParam()) 
 {
     batch <- factor(batch)
     if (nlevels(batch) < 2L) { 
@@ -356,8 +373,13 @@ fastMNN <- function(..., batch=NULL, k=20, prop.k=NULL, restrict=NULL, cos.norm=
         x <- .apply_cosine_norm(x, l2)
     }
 
-    mat <- .multi_pca_single(x, batch=batch, d=d, weights=weights, subset.row=subset.row,
-        get.all.genes=correct.all, BSPARAM=BSPARAM, BPPARAM=BPPARAM)
+    if (!is.na(d)) {
+        mat <- .multi_pca_single(x, batch=batch, d=d, weights=weights, get.variance=get.variance,
+            subset.row=subset.row, get.all.genes=correct.all, BSPARAM=BSPARAM, BPPARAM=BPPARAM)
+    } else {
+        mat <- as.matrix(t(x))
+        mat <- List(mat)
+    }
 
     divided <- divideIntoBatches(mat[[1]], batch=batch, restrict=restrict, byrow=TRUE)
     output <- .fast_mnn(batches=divided$batches, restrict=divided$restricted, ..., BPPARAM=BPPARAM)
@@ -366,6 +388,7 @@ fastMNN <- function(..., batch=NULL, k=20, prop.k=NULL, restrict=NULL, cos.norm=
     d.reo <- divided$reorder
     output <- output[d.reo,,drop=FALSE]
     metadata(output)$merge.info$pairs <- .reindex_pairings(metadata(output)$merge.info$pairs, d.reo)
+
     .convert_to_SCE(output, mat)
 }
 
@@ -643,15 +666,29 @@ fastMNN <- function(..., batch=NULL, k=20, prop.k=NULL, restrict=NULL, cos.norm=
     }
 }
 
-#' @importFrom S4Vectors metadata DataFrame
+#' @importFrom S4Vectors metadata DataFrame make_zero_col_DFrame
 #' @importFrom BiocSingular LowRankMatrix
 #' @importFrom SingleCellExperiment SingleCellExperiment
 .convert_to_SCE <- function(corrected.df, pc.mat) {
-    rot <- metadata(pc.mat)$rotation
-    mat <- LowRankMatrix(rot, corrected.df$corrected)
+    pc.extras <- metadata(pc.mat)
+
+    rot <- pc.extras$rotation
+    if (!is.null(rot)) {
+        mat <- LowRankMatrix(rot, corrected.df$corrected)
+        rdf <- DataFrame(rotation=I(rot))
+        pc.extras$rotation <- NULL # no need to store this in the metadata.
+    } else {
+        mat <- t(corrected.df$corrected)
+        rdf <- make_zero_col_DFrame(nrow=nrow(mat))
+        rownames(rdf) <- rownames(mat)
+    }
+
+    all.meta <- metadata(corrected.df)
+    all.meta$pca.info <- pc.extras
+
     SingleCellExperiment(list(reconstructed=mat),
         colData=DataFrame(batch=corrected.df$batch),
-        rowData=DataFrame(rotation=I(rot)),
-        metadata=metadata(corrected.df),
+        rowData=rdf,
+        metadata=all.meta,
         reducedDims=list(corrected=corrected.df$corrected))
 }
