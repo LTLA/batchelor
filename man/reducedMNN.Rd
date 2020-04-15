@@ -32,7 +32,7 @@ This is ignored if multiple objects are present.}
 \item{k}{An integer scalar specifying the number of nearest neighbors to consider when identifying MNNs.}
 
 \item{prop.k}{A numeric scalar in (0, 1) specifying the proportion of cells in each dataset to use for mutual nearest neighbor searching.
-If set, \code{k} for the search in each batch is redefined as \code{max(k, prop.k*N)} where \code{N} is the number of cells in that batch.}
+If set, the number of nearest neighbors used for the MNN search in each batch is redefined as \code{max(k, prop.k*N)} where \code{N} is the number of cells in that batch.}
 
 \item{restrict}{A list of length equal to the number of objects in \code{...}.
 Each entry of the list corresponds to one batch and specifies the cells to use when computing the correction.}

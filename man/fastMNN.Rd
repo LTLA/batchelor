@@ -14,6 +14,7 @@ fastMNN(
   ndist = 3,
   d = 50,
   weights = NULL,
+  get.variance = FALSE,
   merge.order = NULL,
   auto.merge = FALSE,
   min.batch.skip = 0,
@@ -35,7 +36,7 @@ If multiple objects are supplied, each object is assumed to contain all and only
 If a single object is supplied, it is assumed to contain cells from all batches, so \code{batch} should also be specified.
 
 Alternatively, one or more lists of matrices or SingleCellExperiments can be provided;
-this is flattened as if the objects inside were passed directly to \code{...}.}
+this is flattened as if the objects inside each list were passed directly to \code{...}.}
 
 \item{batch}{A factor specifying the batch of origin for all cells when only a single object is supplied in \code{...}.
 This is ignored if multiple objects are present.}
@@ -43,7 +44,7 @@ This is ignored if multiple objects are present.}
 \item{k}{An integer scalar specifying the number of nearest neighbors to consider when identifying MNNs.}
 
 \item{prop.k}{A numeric scalar in (0, 1) specifying the proportion of cells in each dataset to use for mutual nearest neighbor searching.
-If set, \code{k} for the search in each batch is redefined as \code{max(k, prop.k*N)} where \code{N} is the number of cells in that batch.}
+If set, the number of nearest neighbors used for the MNN search in each batch is redefined as \code{max(k, prop.k*N)} where \code{N} is the number of cells in that batch.}
 
 \item{restrict}{A list of length equal to the number of objects in \code{...}.
 Each entry of the list corresponds to one batch and specifies the cells to use when computing the correction.}
@@ -53,9 +54,10 @@ Each entry of the list corresponds to one batch and specifies the cells to use w
 \item{ndist}{A numeric scalar specifying the threshold beyond which neighbours are to be ignored when computing correction vectors.
 Each threshold is defined as a multiple of the number of median distances.}
 
-\item{d}{Number of dimensions to use for dimensionality reduction in \code{\link{multiBatchPCA}}.}
+\item{d}{Numeric scalar specifying the number of dimensions to use for dimensionality reduction in \code{\link{multiBatchPCA}}.
+If \code{NA}, no dimensionality reduction is performed and any matrices in \code{...} are used as-is.}
 
-\item{weights}{Numeric scalar of weights to use in \code{\link{multiBatchPCA}}.}
+\item{weights, get.variance}{Further arguments to pass to \code{\link{multiBatchPCA}}.}
 
 \item{merge.order}{An integer vector containing the linear merge order of batches in \code{...}.
 Alternatively, a list of lists representing a tree structure specifying a hierarchical merge order.}
@@ -101,9 +103,13 @@ i.e., all cells from the first object (in their provided order), then all cells 
 This is true regardless of the value of \code{merge.order} and \code{auto.merge},
 which only affects the internal merge order of the batches.
 
-The metadata of the output object contains \code{merge.info}, 
-a \linkS4class{DataFrame} of diagnostic information about each merge step.
+Additionally, the metadata of the output object contains:
+\itemize{
+\item \code{merge.info}, a \linkS4class{DataFrame} of diagnostic information about each merge step.
 See the \dQuote{Merge diagnostics} section for more details.
+\item \code{pca.info}, a list of metadata produced by \code{\link{multiBatchPCA}},
+such as the variance explained when \code{get.variance=TRUE}.
+}
 }
 \description{
 Correct for batch effects in single-cell expression data using a fast version of the mutual nearest neighbors (MNN) method.

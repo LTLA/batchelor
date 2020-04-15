@@ -3,11 +3,14 @@
 \encoding{UTF-8}
 
 \section{Version 1.4.0}{\itemize{
-\item Support the use of arbitrary design matrices in regressBatches().
+\item Support the use of arbitrary design matrices in \code{regressBatches()}.
 
-\item Allow lists of objects to be directly passed into the ... for many functions.
+\item Allow lists of objects to be directly passed into the \code{...} for many functions.
 
-\item Added the clusterMNN() function for performing MNN on cluster centroids.
+\item Added the \code{clusterMNN()} function for performing MNN on cluster centroids.
+
+\item Added \code{get.variance=} option to \code{fastMNN()} to return variance explained from PCA.
+Support \code{d=NA} to skip the PCA step altogether.
 }}
 
 \section{Version 1.2.0}{\itemize{

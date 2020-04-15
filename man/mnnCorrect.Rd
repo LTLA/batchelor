@@ -35,7 +35,7 @@ If multiple objects are supplied, each object is assumed to contain all and only
 If a single object is supplied, it is assumed to contain cells from all batches, so \code{batch} should also be specified.
 
 Alternatively, one or more lists of matrices or SingleCellExperiments can be provided;
-this is flattened as if the objects inside were passed directly to \code{...}.}
+this is flattened as if the objects inside each list were passed directly to \code{...}.}
 
 \item{batch}{A factor specifying the batch of origin for all cells when only a single object is supplied in \code{...}.
 This is ignored if multiple objects are present.}
@@ -46,7 +46,7 @@ Each entry of the list corresponds to one batch and specifies the cells to use w
 \item{k}{An integer scalar specifying the number of nearest neighbors to consider when identifying MNNs.}
 
 \item{prop.k}{A numeric scalar in (0, 1) specifying the proportion of cells in each dataset to use for mutual nearest neighbor searching.
-If set, \code{k} for the search in each batch is redefined as \code{max(k, prop.k*N)} where \code{N} is the number of cells in that batch.}
+If set, the number of nearest neighbors used for the MNN search in each batch is redefined as \code{max(k, prop.k*N)} where \code{N} is the number of cells in that batch.}
 
 \item{sigma}{A numeric scalar specifying the bandwidth of the Gaussian smoothing kernel used to compute the correction vector for each cell.}
 
