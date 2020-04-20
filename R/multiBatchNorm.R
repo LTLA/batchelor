@@ -121,26 +121,32 @@ multiBatchNorm <- function(..., batch=NULL, assay.type="counts", norm.args=list(
         preserve.single <- FALSE
     }
 
-    batches <- .rescale_size_factors(batches, assay.type=assay.type, 
+    sfs <- .rescale_size_factors(batches, assay.type=assay.type, 
         subset.row=subset.row, min.mean=min.mean, BPPARAM=BPPARAM)
 
     if (preserve.single) {
-        # Reuse sce here to avoid unnecessary cbind to reform a single object.
         if (needs.subset) {
             sce <- sce[subset.row,]
         }
 
-        all.sf <- unlist(lapply(batches, sizeFactors), use.names=FALSE)
+        all.sf <- unlist(sfs, use.names=FALSE)
         reorder <- order(unlist(by.batch))
         sizeFactors(sce) <- all.sf[reorder]
 
         do.call(logNormCounts, c(list(x=sce), norm.args))
+
     } else {
-        if (needs.subset) {
-            batches <- lapply(batches, FUN="[", i=subset.row, ) # empty argument is important!
+        for (i in seq_along(batches)) {
+            current <- batches[[i]]
+            sizeFactors(current) <- sfs[[i]]
+            if (needs.subset) {
+                current <- current[subset.row,,drop=FALSE]
+            }
+            current <- do.call(logNormCounts, c(list(x=current), norm.args))
+            batches[[i]] <- current
         }
 
-        mapply(FUN=logNormCounts, batches, MoreArgs=norm.args, SIMPLIFY=FALSE)
+        batches
     }
 }
 
@@ -153,7 +159,8 @@ multiBatchNorm <- function(..., batch=NULL, assay.type="counts", norm.args=list(
 
         cursf <- sizeFactors(current)
         if (is.null(cursf)) {
-            cursf <- librarySizeFactors(current, exprs_values=assay.type, subset_row=subset.row, BPPARAM=BPPARAM)
+            cursf <- librarySizeFactors(current, exprs_values=assay.type, 
+                subset_row=subset.row, BPPARAM=BPPARAM)
         }
 
         centering <- mean(cursf)
@@ -161,18 +168,15 @@ multiBatchNorm <- function(..., batch=NULL, assay.type="counts", norm.args=list(
         batches[[b]] <- current
     }
 
-    # Adjusting size factors.
+    # Adjusting size factors to the lowest-coverage reference.
     rescaling <- .compute_batch_rescaling(batches, subset.row=subset.row,
         assay.type=assay.type, min.mean=min.mean, BPPARAM=BPPARAM)
 
     for (idx in seq_along(batches)) {
         current <- batches[[idx]]
         cursf <- sizeFactors(current)
-
-        # Adjusting the size factors for the new reference.
         cursf <- cursf / rescaling[idx] 
-        sizeFactors(current) <- cursf
-        batches[[idx]] <- current
+        batches[[idx]] <- cursf
     }
 
     batches
