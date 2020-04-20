@@ -35,11 +35,16 @@
 #' If \code{combine.assays} contains a field that overlaps with the name of the corrected assay from \code{\link{batchCorrect}},
 #' a warning will be raised and the corrected assay will be preferentially retained.
 #'
-#' Any column metadata fields that are shared will also be included in the merged object by default (tunable by setting \code{combine.coldata}).
-#' If any existing field is named \code{"batch"}, it will be ignored in favor of that produced by \code{\link{batchCorrect}} and a warning is emitted.
+#' Any column metadata fields that are shared will also be included in the merged object if \code{combine.coldata=TRUE}.
+#' If any existing field has the same name as any \code{\link{colData}} field produced by \code{\link{batchCorrect}},
+#' it will be ignored in favor of the latter.
 #'
-#' Row metadata is only included in the merged object if \code{include.rowdata=TRUE} \emph{and} all row metadata objects are identical across objects in \code{...}.
-#' If not, a warning is emitted and no row metadata is attached to the merged object.
+#' Row metadata from \code{...} is included in the merged object if \code{include.rowdata=TRUE}.
+#' In such cases, only non-conflicting row data fields are preserved,
+#' i.e., fields with different names or identically named fields with the same values between objects in \code{...}.
+#' Any conflicting fields are ignored with a warning.
+#' \code{rowRanges} are only preserved if they are identical (ignoring the \code{\link{mcols}}) for all objects in \code{...}.
+#'
 #' @author Aaron Lun
 #' @examples
 #' sce1 <- scater::mockSCE()
@@ -71,11 +76,13 @@ correctExperiments <- function(..., batch=NULL, restrict=NULL, subset.row=NULL, 
     if (is.null(combine.assays)) {
         combine.assays <- Reduce(intersect, lapply(x, assayNames))
     }
+
     merged.assays <- assayNames(merged)
     if (any(combine.assays %in% merged.assays)) {
         warning("ignoring assays with same name as 'batchCorrect' output")
         combine.assays <- setdiff(combine.assays, merged.assays)
     }
+
     for (nm in combine.assays) {
         nocorrect <- do.call(batchCorrect, c(args, list(assay.type=nm, PARAM=NoCorrectParam())))
         assay(merged, nm) <- assay(nocorrect)
@@ -85,6 +92,7 @@ correctExperiments <- function(..., batch=NULL, restrict=NULL, subset.row=NULL, 
     if (is.null(combine.coldata)) {
         combine.coldata <- Reduce(intersect, lapply(x, FUN=function(y) colnames(colData(y))))
     }
+
     merged.coldata <- colnames(colData(merged))
     if (any(combine.coldata %in% merged.coldata)) {
           warning("ignoring 'colData' fields overlapping 'batchCorrect' output")
@@ -96,35 +104,79 @@ correctExperiments <- function(..., batch=NULL, restrict=NULL, subset.row=NULL, 
         colData(merged) <- cbind(colData(merged), do.call(rbind, collected))
     }
 
-    # Adding additional rowRanges only if they are identical across objects.
+    # Adding additional rowRanges.
     if (include.rowdata) {
-        all.rd <- lapply(x, FUN=rowRanges)
-        is.id <- TRUE
-        for (i in seq_len(length(all.rd)-1L)) {
-            if (is.id <- identical(all.rd[[1]], all.rd[[i+1]])) {
-                break
-            }
+        all.rrw <- lapply(x, FUN=rowRanges)
+        combined <- .accumulate_rowdata(all.rrw)
+        combined.rd <- combined$df
+        combined.rr <- combined$ranges
+
+        if (!correct.all && !is.null(subset.row)) {
+            combined.rd <- combined.rd[subset.row,,drop=FALSE]
+            combined.rr <- combined.rr[subset.row]
         }
 
-        if (!is.id) {
-            warning("ignoring non-identical 'rowRanges' fields")
-        } else {
-            merged.rd <- rowData(merged) 
-            replacement <- all.rd[[1]]
-            if (!correct.all && !is.null(subset.row)) {
-                replacement <- replacement[subset.row,]
-            }
-
-            combined <- cbind(mcols(replacement), merged.rd)
-            skip <- duplicated(colnames(combined), fromLast=TRUE)
-            if (any(skip)) {
-                warning("ignoring 'rowData' fields overlapping 'batchCorrect' output")
-            }
-
-            mcols(replacement) <- combined[,!skip,drop=FALSE]
-            rowRanges(merged) <- replacement
+        merged.rd <- rowData(merged) 
+        shared <- intersect(colnames(merged.rd), colnames(combined.rd))
+        if (length(shared)) {
+            warning("ignoring 'rowData' fields overlapping 'batchCorrect' output")
+            combined.rd <- combined.rd[,setdiff(colnames(combined.rd), shared),drop=FALSE]
         }
+
+        if (!is.null(combined.rr)) {
+            rowRanges(merged) <- combined.rr
+        }
+        rowData(merged) <- cbind(merged.rd, combined.rd)
     }
 
     merged
+}
+
+#' @importFrom S4Vectors mcols mcols<- DataFrame make_zero_col_DFrame
+.accumulate_rowdata <- function(all.ranges) {
+    all.rd <- lapply(all.ranges, mcols)
+    all.ranges <- lapply(all.ranges, FUN=function(x) {
+        mcols(x) <- NULL
+        x
+    })
+  
+    out.ranges <- all.ranges[[1]]
+    for (i in seq_len(length(all.ranges)-1L)) {
+        if (!identical(out.ranges, all.ranges[[i+1]])) {
+            out.ranges <- NULL
+            warning("ignoring non-identical 'rowRanges' fields")
+            break
+        }
+    }
+
+    all.names <- lapply(all.rd, colnames) 
+    universe <- Reduce(union, all.names)
+    existing <- vector("list", length(universe))
+    names(existing) <- universe
+    blacklisted <- character(0)
+
+    for (i in seq_along(all.rd)) {
+        current <- all.rd[[i]]
+        for (j in colnames(current)) {
+            values <- current[[j]]
+            previous <- existing[[j]]
+
+            if (is.null(previous)) {
+                existing[[j]] <- values
+            } else if (!identical(previous, values)) {
+                warning("ignoring non-identical '", j, "' field in 'rowData'")
+                blacklisted <- c(blacklisted, j)
+            }
+        }
+    }
+
+    existing <- existing[setdiff(names(existing), blacklisted)]
+    out.df <- if (length(existing)) {
+        existing <- lapply(existing, I)
+        DataFrame(existing)
+    } else {
+        make_zero_col_DFrame(length(all.ranges[[1]]))
+    }
+
+    list(ranges=out.ranges, df=out.df)
 }

@@ -81,16 +81,18 @@ test_that("correctExperiments responds to combining arguments for coldata", {
 test_that("correctExperiments responds to including rowdata", {
     merged <- correctExperiments(sce1, sce2, 
         PARAM=FastMnnParam(BSPARAM=BiocSingular::ExactParam()))
+
     expect_true(!is.null(rowData(merged)$rotation))
     rowData(merged)$rotation <- NULL
     expect_identical(rowRanges(merged), rowRanges(sce1))
 
+    # Handles rowRanges correctly.
     dummy <- GRanges("chrA", IRanges(1:nrow(sce1), width=1))
     names(dummy) <- rownames(sce1)
     rowRanges(sce1) <- dummy
 
     expect_warning(merged <- correctExperiments(sce1, sce2, 
-        PARAM=FastMnnParam(BSPARAM=BiocSingular::ExactParam())), "ignoring non-identical 'row")
+        PARAM=FastMnnParam(BSPARAM=BiocSingular::ExactParam())), "ignoring non-identical 'rowRanges'")
     expect_true(!is.null(rowData(merged)$rotation))
     rowData(merged)$rotation <- NULL
     expect_identical(rowRanges(merged), rowRanges(sce2))
@@ -102,11 +104,40 @@ test_that("correctExperiments responds to including rowdata", {
     rowData(merged)$rotation <- NULL
     expect_true(all(rowRanges(merged)==rowRanges(sce1)))
 
+    # Handles rowData correctly.
+    rowData(sce1)$blah <- runif(nrow(sce1))
+    rowData(sce1)$stuff <- sample(LETTERS, nrow(sce1), replace=TRUE)
+    rowData(sce2)$blah <- runif(nrow(sce2))
+
+    expect_warning(merged <- correctExperiments(sce1, sce2, 
+        PARAM=FastMnnParam(BSPARAM=BiocSingular::ExactParam())), "ignoring non-identical 'blah'")
+
+    expect_identical(rowRanges(merged)$stuff, rowData(sce1)$stuff)
+    expect_true(is.null(rowRanges(merged)$blah))
+
+    rowData(sce2)$blah <- rowData(sce1)$blah
+    expect_warning(merged <- correctExperiments(sce1, sce2, 
+        PARAM=FastMnnParam(BSPARAM=BiocSingular::ExactParam())), NA)
+
+    expect_identical(rowRanges(merged)$blah, rowData(sce1)$blah)
+
+    # Handles conflicts with the batchCorrect output.
     rowData(sce2)$rotation <- rowData(sce1)$rotation <- 5
     expect_warning(merged <- correctExperiments(sce1, sce2, 
         PARAM=FastMnnParam(BSPARAM=BiocSingular::ExactParam())), "overlapping")
+
+    expect_true(!is.null(dim(rowData(merged)$rotation)))
     rowData(merged)$rotation <- NULL
     expect_true(all(rowRanges(merged)==rowRanges(sce1)))
+
+    # Handles subset.row correctly.
+    expect_warning(merged <- correctExperiments(sce1, sce2, subset.row=10:1,
+        PARAM=FastMnnParam(BSPARAM=BiocSingular::ExactParam())))
+    expect_identical(rowData(merged)$stuff, rowData(sce1)$stuff[10:1])
+
+    expect_warning(merged <- correctExperiments(sce1, sce2, subset.row=10:1, correct.all=TRUE,
+        PARAM=FastMnnParam(BSPARAM=BiocSingular::ExactParam())))
+    expect_identical(rowData(merged)$stuff, rowData(sce1)$stuff)
 })
 
 test_that("correctExperiments respects other arguments", {
