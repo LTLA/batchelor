@@ -75,11 +75,15 @@ This will usually contain uncorrected values from each batch that have been simp
 If \code{combine.assays} contains a field that overlaps with the name of the corrected assay from \code{\link{batchCorrect}},
 a warning will be raised and the corrected assay will be preferentially retained.
 
-Any column metadata fields that are shared will also be included in the merged object by default (tunable by setting \code{combine.coldata}).
-If any existing field is named \code{"batch"}, it will be ignored in favor of that produced by \code{\link{batchCorrect}} and a warning is emitted.
+Any column metadata fields that are shared will also be included in the merged object if \code{combine.coldata=TRUE}.
+If any existing field has the same name as any \code{\link{colData}} field produced by \code{\link{batchCorrect}},
+it will be ignored in favor of the latter.
 
-Row metadata is only included in the merged object if \code{include.rowdata=TRUE} \emph{and} all row metadata objects are identical across objects in \code{...}.
-If not, a warning is emitted and no row metadata is attached to the merged object.
+Row metadata from \code{...} is included in the merged object if \code{include.rowdata=TRUE}.
+In such cases, only non-conflicting row data fields are preserved,
+i.e., fields with different names or identically named fields with the same values between objects in \code{...}.
+Any conflicting fields are ignored with a warning.
+\code{rowRanges} are only preserved if they are identical (ignoring the \code{\link{mcols}}) for all objects in \code{...}.
 }
 \examples{
 sce1 <- scater::mockSCE()

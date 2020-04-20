@@ -11,6 +11,8 @@
 
 \item Added \code{get.variance=} option to \code{fastMNN()} to return variance explained from PCA.
 Support \code{d=NA} to skip the PCA step altogether.
+
+\item Modified \code{correctExperiments()} to preserve non-conflicting \code{rowData()} fields.
 }}
 
 \section{Version 1.2.0}{\itemize{
