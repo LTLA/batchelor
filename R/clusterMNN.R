@@ -75,7 +75,7 @@
 #' \code{\link{reducedMNN}}, which is used internally to perform the correction.
 #'
 #' @export
-#' @importFrom scater .bpNotSharedOrUp
+#' @importFrom scuttle .bpNotSharedOrUp
 #' @importFrom BiocParallel bpstart bpstop
 #' @importFrom utils tail
 #' @importFrom BiocNeighbors queryKNN
@@ -163,7 +163,7 @@ clusterMNN <- function(..., batch=NULL, restrict=NULL, clusters=NULL,
 }
 
 #' @importFrom Matrix t
-#' @importFrom scater sumCountsAcrossCells
+#' @importFrom scuttle sumCountsAcrossCells
 #' @importFrom SummarizedExperiment assay
 .format_clusters <- function(batches, batch, clusters, restrict, subset.row=NULL) {
     if (is.null(clusters)) {
@@ -211,7 +211,7 @@ clusterMNN <- function(..., batch=NULL, restrict=NULL, clusters=NULL,
 #' @importFrom BiocNeighbors queryKNN
 #' @importFrom S4Vectors metadata DataFrame
 #' @importFrom utils tail
-#' @importFrom scater .subset2index
+#' @importFrom scuttle .subset2index
 .propagate_to_cells <- function(batches, restrict, pca, after, subset.row, correct.all, BNPARAM, BPPARAM) {
     pca.center <- metadata(pca)$centers
     pca.rotation <- metadata(pca)$rotation

@@ -271,7 +271,7 @@
 #' @importClassesFrom S4Vectors List
 #' @importFrom S4Vectors DataFrame metadata<-
 #' @importFrom methods as
-#' @importFrom scater .bpNotSharedOrUp
+#' @importFrom scuttle .bpNotSharedOrUp
 fastMNN <- function(..., batch=NULL, k=20, prop.k=NULL, restrict=NULL, cos.norm=TRUE, ndist=3, 
     d=50, weights=NULL, get.variance=FALSE,
     merge.order=NULL, auto.merge=FALSE, min.batch.skip=0,

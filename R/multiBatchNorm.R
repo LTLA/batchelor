@@ -13,7 +13,7 @@
 #' @param batch A factor specifying the batch of origin for all cells when only a single object is supplied in \code{...}.
 #' This is ignored if multiple objects are present.
 #' @param assay.type A string specifying which assay values contains the counts.
-#' @param norm.args A named list of further arguments to pass to \code{\link[scater]{logNormCounts}}.
+#' @param norm.args A named list of further arguments to pass to \code{\link[scuttle]{logNormCounts}}.
 #' @param min.mean A numeric scalar specifying the minimum (library size-adjusted) average count of genes to be used for normalization.
 #' @param subset.row A vector specifying which features to use for normalization.
 #' @param normalize.all A logical scalar indicating whether normalized values should be returned for all genes.
@@ -63,7 +63,7 @@
 #' @seealso
 #' \code{\link{mnnCorrect}} and \code{\link{fastMNN}}, for methods that can benefit from rescaling.
 #'
-#' \code{\link[scater]{logNormCounts}} for the calculation of log-transformed normalized expression values.
+#' \code{\link[scuttle]{logNormCounts}} for the calculation of log-transformed normalized expression values.
 #' 
 #' @examples
 #' d1 <- matrix(rnbinom(50000, mu=10, size=1), ncol=100)
@@ -85,7 +85,7 @@
 #'
 #' @export
 #' @importFrom BiocGenerics sizeFactors sizeFactors<- cbind
-#' @importFrom scater logNormCounts librarySizeFactors
+#' @importFrom scuttle logNormCounts librarySizeFactors
 multiBatchNorm <- function(..., batch=NULL, assay.type="counts", norm.args=list(), 
     min.mean=1, subset.row=NULL, normalize.all=FALSE, preserve.single=TRUE, BPPARAM=SerialParam())
 {
@@ -150,7 +150,7 @@ multiBatchNorm <- function(..., batch=NULL, assay.type="counts", norm.args=list(
     }
 }
 
-#' @importFrom scater librarySizeFactors
+#' @importFrom scuttle librarySizeFactors
 #' @importFrom BiocGenerics sizeFactors sizeFactors<-
 .rescale_size_factors <- function(batches, assay.type, subset.row, min.mean, BPPARAM) {
     # Centering the endogenous size factors.
@@ -182,7 +182,7 @@ multiBatchNorm <- function(..., batch=NULL, assay.type="counts", norm.args=list(
     batches
 }
 
-#' @importFrom scater calculateAverage 
+#' @importFrom scuttle calculateAverage 
 #' @importFrom stats median
 #' @importFrom BiocGenerics sizeFactors sizeFactors<-
 .compute_batch_rescaling <- function(batches, subset.row, assay.type, min.mean, BPPARAM) 

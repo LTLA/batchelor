@@ -112,7 +112,7 @@
 #' @importClassesFrom S4Vectors List
 #' @importFrom BiocGenerics colnames<- rownames<- colnames rownames
 #' @importFrom BiocSingular ExactParam
-#' @importFrom scater .bpNotSharedOrUp
+#' @importFrom scuttle .bpNotSharedOrUp
 multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, weights=NULL,
     get.all.genes=FALSE, get.variance=FALSE, preserve.single=FALSE, 
     assay.type="logcounts", BSPARAM=ExactParam(), BPPARAM=SerialParam()) 

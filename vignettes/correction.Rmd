@@ -54,10 +54,10 @@ sce2
 ```
 
 We apply some quick-and-dirty quality control to both datasets,
-using the outlier detection strategy from the `r Biocpkg('scater')` package.
+using the outlier detection strategy from the `r Biocpkg('scuttle')` package.
 
 ```{r}
-library(scater)
+library(scuttle)
 sce1 <- addPerCellQC(sce1, subsets=list(Mito=grep("mt-", rownames(sce1))))
 qc1 <- quickPerCellQC(colData(sce1), percent_subsets="subsets_Mito_percent")
 sce1 <- sce1[,!qc1$discard]
@@ -102,8 +102,9 @@ Here, we combine the two `SingleCellExperiment` objects without any correction u
 and we informally verify that cells from different batches are separated using a $t$-SNE plot.
 
 ```{r}
-library(scater)
 combined <- correctExperiments(A=sce1, B=sce2, PARAM=NoCorrectParam())
+
+library(scater)
 combined <- runPCA(combined, subset_row=chosen.hvgs)
 combined <- runTSNE(combined, dimred="PCA")
 plotTSNE(combined, colour_by="batch")

@@ -32,7 +32,7 @@ test_that("multiBatchNorm works properly", {
 
     # Checking it returns the same object as logNormCounts().
     solo.out <- multiBatchNorm(X3, X3)
-    ref <- scater::logNormCounts(X3)
+    ref <- scuttle::logNormCounts(X3)
     expect_equal(solo.out[[1]], ref)
     expect_equal(solo.out[[2]], ref)
 
@@ -40,7 +40,7 @@ test_that("multiBatchNorm works properly", {
     Xtmp <- X
     sizeFactors(Xtmp) <- NULL
     out <- multiBatchNorm(Xtmp, Xtmp)
-    ref <- scater::librarySizeFactors(Xtmp)
+    ref <- scuttle::librarySizeFactors(Xtmp)
     expect_equal(sizeFactors(out[[1]]), ref)
     expect_equal(sizeFactors(out[[2]]), ref)
 })
@@ -63,15 +63,15 @@ test_that("multiBatchNorm size factor centering logic is correct", {
     expect_equal(mean(sizeFactors(out[[1]])), 1)
     expect_equal(sizeFactors(X)/mean(sizeFactors(X)), sizeFactors(out[[1]]))
 
-    ave1 <- scater::calculateAverage(X)
-    ave2 <- scater::calculateAverage(X2)
+    ave1 <- scuttle::calculateAverage(X)
+    ave2 <- scuttle::calculateAverage(X2)
     M <- median(ave2/ave1)
     expect_equal(mean(sizeFactors(out[[2]])), M)
     expect_equal(sizeFactors(X2)/mean(sizeFactors(X2)), sizeFactors(out[[2]]) / M)
 
     # Normalized values have no composition biases.
-    ave1 <- scater::calculateAverage(out[[1]])
-    ave2 <- scater::calculateAverage(out[[2]]) / M # as calculateAverage automatically centers out[[2]]'s SFs.
+    ave1 <- scuttle::calculateAverage(out[[1]])
+    ave2 <- scuttle::calculateAverage(out[[2]]) / M # as calculateAverage automatically centers out[[2]]'s SFs.
     expect_equal(1, median(ave2/ave1))
 })
 
@@ -86,7 +86,7 @@ test_that("multiBatchNorm behaves correctly with mean filtering", {
     # Creating a reference function using calculateAverage() explicitly. This
     # compares all other batches to the first batch, which is assumed to be the
     # lowest-coverage.
-    library(scater)
+    library(scuttle)
     REFFUN <- function(..., min.mean=1) {
 	    batches <- list(...)
 	    nbatches <- length(batches)

@@ -52,7 +52,7 @@
 #' @importFrom BiocNeighbors KmknnParam
 #' @importFrom BiocParallel SerialParam bpstart bpstop 
 #' @importClassesFrom S4Vectors DataFrame
-#' @importFrom scater .bpNotSharedOrUp
+#' @importFrom scuttle .bpNotSharedOrUp
 reducedMNN <- function (..., batch=NULL, k=20, prop.k=NULL, restrict=NULL, ndist=3,
     merge.order=NULL, auto.merge=FALSE, min.batch.skip=0,
     BNPARAM=KmknnParam(), BPPARAM=SerialParam())

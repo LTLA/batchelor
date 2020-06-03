@@ -75,7 +75,7 @@ cosineNorm <- function(x, mode=c("matrix", "all", "l2norm"), subset.row=NULL, BP
     }
 }
 
-#' @importFrom scater normalizeCounts
+#' @importFrom scuttle normalizeCounts
 .apply_cosine_norm <- function(x, l2) {
     l2 <- pmax(1e-8, l2) # protect against zero-L2.
     normalizeCounts(x, size_factors=l2, center_size_factors=FALSE, log=FALSE)

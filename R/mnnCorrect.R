@@ -48,7 +48,7 @@
 #' Note that setting \code{correct.all=TRUE} will not alter the corrected expression values for the subsetted genes.
 #' 
 #' @section Expected type of input data:
-#' The input expression values should generally be log-transformed, e.g., log-counts, see \code{\link[scater]{logNormCounts}} for details.
+#' The input expression values should generally be log-transformed, e.g., log-counts, see \code{\link[scuttle]{logNormCounts}} for details.
 #' They should also be normalized within each data set to remove cell-specific biases in capture efficiency and sequencing depth.
 #' By default, a further cosine normalization step is performed on the supplied expression data to eliminate gross scaling differences between data sets.
 #' \itemize{
@@ -118,7 +118,7 @@
 #' @importFrom SummarizedExperiment assay
 #' @importFrom BiocSingular ExactParam
 #' @importFrom BiocNeighbors KmknnParam
-#' @importFrom scater .bpNotSharedOrUp
+#' @importFrom scuttle .bpNotSharedOrUp
 mnnCorrect <- function(..., batch=NULL, restrict=NULL, k=20, prop.k=NULL, sigma=0.1, 
     cos.norm.in=TRUE, cos.norm.out=TRUE, svd.dim=0L, var.adj=TRUE, 
     subset.row=NULL, correct.all=FALSE, merge.order=NULL, auto.merge=FALSE, 
@@ -437,7 +437,7 @@ mnnCorrect <- function(..., batch=NULL, restrict=NULL, k=20, prop.k=NULL, sigma=
 # Internal functions for correction.
 
 #' @importFrom Matrix t
-#' @importFrom scater sumCountsAcrossCells
+#' @importFrom scuttle sumCountsAcrossCells
 #' @importFrom SummarizedExperiment assay
 #' @importFrom S4Vectors DataFrame
 .compute_correction_vectors <- function(data1, data2, mnn1, mnn2, tdata2, sigma) 

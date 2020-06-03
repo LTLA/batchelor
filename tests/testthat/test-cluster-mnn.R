@@ -18,7 +18,7 @@ cluster2 <- kmeans(t(B2), centers=10)$cluster
 test_that("clusterMNN behaves like fastMNN on pseudo-bulk samples", {
     output <- clusterMNN(B1, B2, clusters=list(cluster1, cluster2))
 
-    library(scater)
+    library(scuttle)
     norm1 <- sumCountsAcrossCells(cosineNorm(B1), cluster1, average=TRUE)
     norm2 <- sumCountsAcrossCells(cosineNorm(B2), cluster2, average=TRUE)
     ref <- fastMNN(assay(norm1), assay(norm2), cos.norm=FALSE, k=1, 

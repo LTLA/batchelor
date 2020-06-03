@@ -1,7 +1,7 @@
 # This tests that correctExperiments() does its job.
 # library(testthat); library(batchelor); source("test-correct-exps.R")
 
-library(scater)
+library(scuttle)
 sce1 <- mockSCE(ngenes=100)
 sce2 <- mockSCE(ngenes=100)
 sce1 <- logNormCounts(sce1)

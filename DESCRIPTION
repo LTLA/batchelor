@@ -19,14 +19,15 @@ Imports:
     Matrix,
     DelayedArray,
     DelayedMatrixStats,
-    scater,
-    BiocParallel
+    BiocParallel,
+    scuttle
 Suggests: 
     testthat,
     BiocStyle,
     knitr,
     beachmat,
     scran,
+    scater,
     scRNAseq
 biocViews: 
     Sequencing,

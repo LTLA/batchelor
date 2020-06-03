@@ -86,10 +86,10 @@ Any conflicting fields are ignored with a warning.
 \code{rowRanges} are only preserved if they are identical (ignoring the \code{\link{mcols}}) for all objects in \code{...}.
 }
 \examples{
-sce1 <- scater::mockSCE()
-sce1 <- scater::logNormCounts(sce1)
-sce2 <- scater::mockSCE()
-sce2 <- scater::logNormCounts(sce2)
+sce1 <- scuttle::mockSCE()
+sce1 <- scuttle::logNormCounts(sce1)
+sce2 <- scuttle::mockSCE()
+sce2 <- scuttle::logNormCounts(sce2)
 
 f.out <- correctExperiments(sce1, sce2)
 colData(f.out)
