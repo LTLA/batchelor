@@ -53,12 +53,13 @@
 #' This means that larger batches will drive the PCA,
 #' which may be desirable when dealing with technical replicates where there is no concern about unique subpopulations in smaller batches.
 #'
-#' If \code{weights} is a numeric vector, it is expect to be of the same length (and, if named, have the same names) as the entries in \code{...}.
+#' If \code{weights} is a numeric vector, it is expected to be of the same length 
+#' (and, if named, have the same names) as the entries in \code{...}.
 #' Each entry of the vector is used to scale the default weight of the corresponding batch.
-#' This allows users to fine-tune the contribution of each batch;
-#' for example, each batch may represent one replicate, with multiple replicates per study.
-#' In such cases, it may be more appropriate to ensure that each \emph{study} has equal weight.
-#' This is done by assigning a value of \code{weights} to each replicate that is inversely proportional to the number of replicates in the same study - see Examples.
+#' This allows users to fine-tune the contribution of each batch in situations with multiple levels of heterogeneity.
+#' For example, consider merging data from multiple donors where each donor contains a variable number of batches.
+#' In such cases, it may be more appropriate to ensure that each donor has equal weight, rather than each batch.
+#' This is done by assigning a value of \code{weights} to each replicate that is inversely proportional to the number of batches for the same donor - see Examples.
 #'
 #' Alternatively, \code{weights} can be a list representing a tree-like structure, 
 #' identical to the tree controlling the merge order in \code{\link{fastMNN}}.
