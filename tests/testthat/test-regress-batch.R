@@ -60,6 +60,11 @@ test_that("regressBatches behaves correctly with a design matrix", {
     expect_equivalent(as.matrix(assay(corrected2)),
         t(lm.fit(t(combined), x=model.matrix(~b))$residual))
 
+    # Works with a single batch.
+    corrected3 <- regressBatches(cbind(B1, B2), design=model.matrix(~b))
+    expect_equivalent(as.matrix(assay(corrected2)), as.matrix(assay(corrected3)))
+    expect_null(corrected3$batch)
+
     # Throws an error.
     expect_error(regressBatches(B1, B2, design=cbind(1)), "total number")
 })

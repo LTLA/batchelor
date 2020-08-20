@@ -21,12 +21,15 @@
 #' This function fits a linear model to the log-expression values for each gene and returns the residuals.
 #' By default, the model is parameterized as a one-way layout with the batch of origin,
 #' so the residuals represent the expression values after correcting for the batch effect.
-#' More complex designs should be explicitly specified with the \code{design} argument, e.g., to regress out a covariate,
-#'
 #' The novelty of this function is that it returns a \linkS4class{ResidualMatrix} in as the \code{"corrected"} assay.
 #' This avoids explicitly computing the residuals, which would result in a loss of sparsity or similar problems.
-#' Rather, the residuals are either computed as needed or are never explicitly computed as all (e.g., during matrix multiplication).
+#' Rather, residuals are either computed as needed or are never explicitly computed at all (e.g., during matrix multiplication).
 #' This means that \code{regressBatches} is faster and lighter than naive regression or even \code{\link{rescaleBatches}}.
+#' 
+#' More complex designs should be explicitly specified with the \code{design} argument, e.g., to regress out a covariate.
+#' This can be any full-column-rank matrix that is typically constructed with \code{\link{model.matrix}}.
+#' If \code{design} is specified with a single object in \code{...}, \code{batch} is ignored.
+#' If \code{design} is specified with multiple objects, regression is applied to the matrix obtained by \code{cbind}ing all of those objects together; this means that the first few rows of \code{design} correspond to the cells from the first object, then the next rows correspond to the second object and so on.
 #' 
 #' Like \code{\link{rescaleBatches}}, this function assumes that the uninteresting factors described in \code{design} are orthogonal to the interesting factors of variation.
 #' For example, each batch is assumed to have the same composition of cell types.
@@ -93,6 +96,12 @@ regressBatches <- function(..., batch=NULL, design=NULL,
         }
     } else if (length(batches)==1L) {
         combined <- batches[[1]]
+
+        # We just need a placeholder for the colData setting below.
+        if (!is.null(design)) {
+            batch <- matrix(0L, ncol(combined), 0) 
+        }
+
         if (is.null(batch)) { 
             stop("'batch' must be specified if '...' has only one object")
         }
