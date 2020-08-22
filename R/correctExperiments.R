@@ -68,10 +68,11 @@
 #' \code{\link{noCorrect}}, for another method to combine uncorrected assay values. 
 #' 
 #' @export
+#' @importFrom scuttle .unpackLists
 correctExperiments <- function(..., batch=NULL, restrict=NULL, subset.row=NULL, correct.all=FALSE, assay.type="logcounts", 
     PARAM=FastMnnParam(), combine.assays=NULL, combine.coldata=NULL, include.rowdata=TRUE, add.single=TRUE) 
 {
-    x <- .unpack_batches(...)
+    x <- .unpackLists(...)
     merged <- batchCorrect(x, subset.row=subset.row, correct.all=correct.all, batch=batch,
         restrict=restrict, assay.type=assay.type, PARAM=PARAM)
 

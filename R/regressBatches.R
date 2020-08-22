@@ -68,10 +68,11 @@
 #' @importFrom S4Vectors DataFrame
 #' @importFrom utils head
 #' @importFrom DelayedArray seed seed<-
+#' @importFrom scuttle .unpackLists
 regressBatches <- function(..., batch=NULL, design=NULL, restrict=NULL, 
     subset.row=NULL, correct.all=FALSE, assay.type="logcounts") 
 {
-    batches <- .unpack_batches(...)
+    batches <- .unpackLists(...)
     checkBatchConsistency(batches)
     restrict <- checkRestrictions(batches, restrict)
 

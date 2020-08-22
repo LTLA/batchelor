@@ -41,8 +41,9 @@
 #' @importFrom BiocGenerics cbind
 #' @importFrom SingleCellExperiment SingleCellExperiment
 #' @importFrom S4Vectors DataFrame
+#' @importFrom scuttle .unpackLists
 noCorrect <- function(..., batch=NULL, subset.row=NULL, correct.all=FALSE, assay.type="logcounts") {
-    batches <- .unpack_batches(...)
+    batches <- .unpackLists(...)
     checkBatchConsistency(batches, cells.in.columns=TRUE)
 
     # Extracting information from SCEs.

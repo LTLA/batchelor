@@ -53,8 +53,9 @@
 #' 
 #' @export
 #' @importFrom SummarizedExperiment assay
+#' @importFrom scuttle .unpackLists
 rescaleBatches <- function(..., batch=NULL, restrict=NULL, log.base=2, pseudo.count=1, subset.row=NULL, assay.type="logcounts") {
-    originals <- batches <- .unpack_batches(...)
+    originals <- batches <- .unpackLists(...)
     checkBatchConsistency(batches)
     restrict <- checkRestrictions(batches, restrict)
 

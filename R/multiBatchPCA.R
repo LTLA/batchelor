@@ -113,7 +113,7 @@
 #' @importClassesFrom S4Vectors List
 #' @importFrom BiocGenerics colnames<- rownames<- colnames rownames
 #' @importFrom BiocSingular ExactParam
-#' @importFrom scuttle .bpNotSharedOrUp
+#' @importFrom scuttle .bpNotSharedOrUp .unpackLists
 multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, weights=NULL,
     get.all.genes=FALSE, get.variance=FALSE, preserve.single=FALSE, 
     assay.type="logcounts", BSPARAM=ExactParam(), BPPARAM=SerialParam()) 
@@ -124,7 +124,7 @@ multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, weights=NULL,
 # written by Aaron Lun
 # created 4 July 2018
 {
-    originals <- mat.list <- .unpack_batches(...)
+    originals <- mat.list <- .unpackLists(...)
     if (length(mat.list)==0L) {
         stop("at least one batch must be specified") 
     }

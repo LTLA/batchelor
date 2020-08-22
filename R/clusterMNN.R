@@ -75,7 +75,7 @@
 #' \code{\link{reducedMNN}}, which is used internally to perform the correction.
 #'
 #' @export
-#' @importFrom scuttle .bpNotSharedOrUp
+#' @importFrom scuttle .bpNotSharedOrUp .unpackLists
 #' @importFrom BiocParallel bpstart bpstop
 #' @importFrom utils tail
 #' @importFrom BiocNeighbors queryKNN
@@ -88,7 +88,7 @@ clusterMNN <- function(..., batch=NULL, restrict=NULL, clusters=NULL,
     subset.row=NULL, correct.all=FALSE, assay.type="logcounts",
     BSPARAM=ExactParam(), BNPARAM=KmknnParam(), BPPARAM=SerialParam()) 
 {
-    batches <- .unpack_batches(...)
+    batches <- .unpackLists(...)
     checkBatchConsistency(batches, cells.in.columns=TRUE)
     restrict <- checkRestrictions(batches, restrict, cells.in.columns=TRUE)
 

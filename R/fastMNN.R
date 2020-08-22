@@ -272,14 +272,14 @@
 #' @importClassesFrom S4Vectors List
 #' @importFrom S4Vectors DataFrame metadata<-
 #' @importFrom methods as
-#' @importFrom scuttle .bpNotSharedOrUp
+#' @importFrom scuttle .bpNotSharedOrUp .unpackLists
 fastMNN <- function(..., batch=NULL, k=20, prop.k=NULL, restrict=NULL, cos.norm=TRUE, ndist=3, 
     d=50, weights=NULL, get.variance=FALSE,
     merge.order=NULL, auto.merge=FALSE, min.batch.skip=0,
     subset.row=NULL, correct.all=FALSE, assay.type="logcounts", 
     BSPARAM=IrlbaParam(deferred=TRUE), BNPARAM=KmknnParam(), BPPARAM=SerialParam()) 
 {
-    batches <- .unpack_batches(...)
+    batches <- .unpackLists(...)
     checkBatchConsistency(batches, cells.in.columns=TRUE)
     restrict <- checkRestrictions(batches, restrict, cells.in.columns=TRUE)
 

@@ -85,11 +85,11 @@
 #'
 #' @export
 #' @importFrom BiocGenerics sizeFactors sizeFactors<- cbind
-#' @importFrom scuttle logNormCounts librarySizeFactors
+#' @importFrom scuttle logNormCounts librarySizeFactors .unpackLists
 multiBatchNorm <- function(..., batch=NULL, assay.type="counts", norm.args=list(), 
     min.mean=1, subset.row=NULL, normalize.all=FALSE, preserve.single=TRUE, BPPARAM=SerialParam())
 {
-    batches <- .unpack_batches(...)
+    batches <- .unpackLists(...)
     checkBatchConsistency(batches)
     if (length(batches)==0L) { 
         stop("at least one SingleCellExperiment must be supplied") 

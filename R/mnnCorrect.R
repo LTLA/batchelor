@@ -118,13 +118,13 @@
 #' @importFrom SummarizedExperiment assay
 #' @importFrom BiocSingular ExactParam
 #' @importFrom BiocNeighbors KmknnParam
-#' @importFrom scuttle .bpNotSharedOrUp
+#' @importFrom scuttle .bpNotSharedOrUp .unpackLists
 mnnCorrect <- function(..., batch=NULL, restrict=NULL, k=20, prop.k=NULL, sigma=0.1, 
     cos.norm.in=TRUE, cos.norm.out=TRUE, svd.dim=0L, var.adj=TRUE, 
     subset.row=NULL, correct.all=FALSE, merge.order=NULL, auto.merge=FALSE, 
     assay.type="logcounts", BSPARAM=ExactParam(), BNPARAM=KmknnParam(), BPPARAM=SerialParam())
 {
-    original <- batches <- .unpack_batches(...)
+    original <- batches <- .unpackLists(...)
     checkBatchConsistency(batches)
     restrict <- checkRestrictions(batches, restrict)
     
