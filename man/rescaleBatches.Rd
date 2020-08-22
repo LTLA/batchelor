@@ -11,6 +11,7 @@ rescaleBatches(
   log.base = 2,
   pseudo.count = 1,
   subset.row = NULL,
+  correct.all = FALSE,
   assay.type = "logcounts"
 )
 }
@@ -37,6 +38,9 @@ Each entry of the list corresponds to one batch and specifies the cells to use w
 \item{pseudo.count}{A numeric scalar specifying the pseudo-count used for the log-transformation.}
 
 \item{subset.row}{A vector specifying which features to use for correction.}
+
+\item{correct.all}{Logical scalar indicating whether corrected expression values should be computed for genes not in \code{subset.row}.
+Only relevant if \code{subset.row} is not \code{NULL}.}
 
 \item{assay.type}{A string or integer scalar specifying the assay containing the log-expression values.
 Only used for SingleCellExperiment inputs.}

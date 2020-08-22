@@ -49,6 +49,10 @@ test_that("rescaleBatches responds to the various options", {
     corrected <- rescaleBatches(B1[keep,], B2[keep,])
     expect_equal(subsetted, corrected)
 
+    subsetted <- rescaleBatches(B1, B2, subset.row=keep, correct.all=TRUE)
+    corrected <- rescaleBatches(B1, B2)
+    expect_equal(subsetted, corrected)
+
     # Behaves with different log-bases.
     rescaled <- rescaleBatches(B1, B2)
     corrected <- rescaleBatches(B1/log2(10), B2/log2(10), log.base=10)

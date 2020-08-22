@@ -54,7 +54,7 @@
 #' @export
 #' @importFrom SummarizedExperiment assay
 #' @importFrom scuttle .unpackLists
-rescaleBatches <- function(..., batch=NULL, restrict=NULL, log.base=2, pseudo.count=1, subset.row=NULL, assay.type="logcounts") {
+rescaleBatches <- function(..., batch=NULL, restrict=NULL, log.base=2, pseudo.count=1, subset.row=NULL, correct.all=FALSE, assay.type="logcounts") {
     originals <- batches <- .unpackLists(...)
     checkBatchConsistency(batches)
     restrict <- checkRestrictions(batches, restrict)
@@ -73,6 +73,9 @@ rescaleBatches <- function(..., batch=NULL, restrict=NULL, log.base=2, pseudo.co
         restrict <- divided$restrict
     } 
 
+    if (correct.all) {
+        subset.row <- NULL
+    }
     output <- do.call(.rescale_batches, c(batches, list(log.base=log.base, pseudo.count=pseudo.count, subset.row=subset.row, restrict=restrict)))
 
     # Reordering the output for correctness.
