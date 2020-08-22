@@ -54,7 +54,8 @@ below which no correction will be performed at a given merge step.}
 
 \item{subset.row}{A vector specifying which features to use for correction.}
 
-\item{correct.all}{Logical scalar indicating whether a rotation matrix should be computed for genes not in \code{subset.row}.}
+\item{correct.all}{Logical scalar indicating whether corrected expression values should be computed for genes not in \code{subset.row}.
+Only relevant if \code{subset.row} is not \code{NULL}.}
 
 \item{assay.type}{A string or integer scalar specifying the assay containing the log-expression values.
 Only used for SingleCellExperiment inputs.}

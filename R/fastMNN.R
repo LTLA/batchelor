@@ -31,7 +31,8 @@
 #' @param min.batch.skip Numeric scalar specifying the minimum relative magnitude of the batch effect, 
 #' below which no correction will be performed at a given merge step.
 #' @param subset.row A vector specifying which features to use for correction. 
-#' @param correct.all Logical scalar indicating whether a rotation matrix should be computed for genes not in \code{subset.row}.
+#' @param correct.all Logical scalar indicating whether corrected expression values should be computed for genes not in \code{subset.row}.
+#' Only relevant if \code{subset.row} is not \code{NULL}.
 #' @param assay.type A string or integer scalar specifying the assay containing the log-expression values.
 #' Only used for SingleCellExperiment inputs. 
 #' @param BSPARAM A \linkS4class{BiocSingularParam} object specifying the algorithm to use for PCA.
