@@ -2,6 +2,14 @@
 \title{batchelor News}
 \encoding{UTF-8}
 
+\section{Version 1.6.0}{\itemize{
+\item Allow \code{regressBatches()} to operate without \code{batch=} when \code{design=} is provided.
+
+\item Added \code{correct.all=} option to all correction functions for consistency.
+
+\item Added \code{add.single=} mode for endomorphic addition of correction results in \code{correctExperiments()}.
+}}
+
 \section{Version 1.4.0}{\itemize{
 \item Support the use of arbitrary design matrices in \code{regressBatches()}.
 
