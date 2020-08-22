@@ -14,7 +14,8 @@ correctExperiments(
   PARAM = FastMnnParam(),
   combine.assays = NULL,
   combine.coldata = NULL,
-  include.rowdata = TRUE
+  include.rowdata = TRUE,
+  add.single = TRUE
 )
 }
 \arguments{
@@ -46,7 +47,7 @@ Used to ensure that the output is of the same dimensionality as the input.}
 and \linkS4class{RegressParam} will dispatch to \code{\link{regressBatches}}.}
 
 \item{combine.assays}{Character vector specifying the assays from each entry of \code{...} to combine together without correction.
-By default, any named assay that is present in all entries of \code{...} are combined.
+By default, any named assay that is present in all entries of \code{...} is combined.
 This can be set to \code{character(0)} to avoid combining any assays.}
 
 \item{combine.coldata}{Character vector specifying the column metadata fields from each entry of \code{...} to combine together.
@@ -54,6 +55,10 @@ By default, any column metadata field that is present in all entries of \code{..
 This can be set to \code{character(0)} to avoid combining any metadata.}
 
 \item{include.rowdata}{Logical scalar indicating whether the function should attempt to include \code{\link{rowRanges}}.}
+
+\item{add.single}{Logical scalar indicating whether merged fields should be added to the original SingleCellExperiment.
+Only relevant when a single object is provided in \code{...}.
+If \code{TRUE}, \code{combine.assays}, \code{combine.coldata} and \code{include.rowdata} are ignored.}
 }
 \value{
 A SingleCellExperiment containing the merged expression values in the first assay
@@ -69,21 +74,24 @@ This augments the simpler \code{\link{batchCorrect}} function, which returns onl
 This function makes it easy to retain information from the original SingleCellExperiment objects in the post-merge object.
 Operations like differential expression analyses can be easily performed on the uncorrected expression values,
 while common annotation can be leveraged in cell-based analyses like clustering.
-
-Additional assays may be added to the merged object, depending on \code{combine.assays}.
-This will usually contain uncorrected values from each batch that have been simply \code{cbind}ed together.
-If \code{combine.assays} contains a field that overlaps with the name of the corrected assay from \code{\link{batchCorrect}},
-a warning will be raised and the corrected assay will be preferentially retained.
-
-Any column metadata fields that are shared will also be included in the merged object if \code{combine.coldata=TRUE}.
+\itemize{
+\item All assays shared across the original objects are \code{cbind}ed and added to the merged object.
+This can be controlled with \code{combine.assays}.
+Any original assay with the same name as an assay in the output of \code{\link{batchCorrect}} will be ignored with a warning.
+\item Any column metadata fields that are shared will also be included in the merged object.
+This can be controlled with \code{combine.coldata}.
 If any existing field has the same name as any \code{\link{colData}} field produced by \code{\link{batchCorrect}},
 it will be ignored in favor of the latter.
-
-Row metadata from \code{...} is included in the merged object if \code{include.rowdata=TRUE}.
+\item Row metadata from \code{...} is included in the merged object if \code{include.rowdata=TRUE}.
 In such cases, only non-conflicting row data fields are preserved,
 i.e., fields with different names or identically named fields with the same values between objects in \code{...}.
 Any conflicting fields are ignored with a warning.
 \code{rowRanges} are only preserved if they are identical (ignoring the \code{\link{mcols}}) for all objects in \code{...}.
+}
+
+If a single SingleCellExperiment object was supplied in \code{...}, the default behavior is to prepend all \code{\link{assays}}, \code{\link{reducedDims}}, \code{\link{colData}}, \code{\link{rowData}} and \code{\link{metadata}} fields from the merged object into the original (removing any original entries with names that overlap those of the merged object).
+This is useful as it preserves all (non-overlapping) aspects of the original object, especially the reduced dimensions that cannot, in general, be sensibly combined across multiple objects.
+Setting \code{add.single=FALSE} will force the creation of a new SingleCellExperiment rather than prepending.
 }
 \examples{
 sce1 <- scuttle::mockSCE()
@@ -99,7 +107,7 @@ assayNames(f.out)
 \seealso{
 \code{\link{batchCorrect}}, which does the correction inside this function.
 
-\code{\link{noCorrect}}, used to combine uncorrected values for the other assays.
+\code{\link{noCorrect}}, for another method to combine uncorrected assay values.
 }
 \author{
 Aaron Lun

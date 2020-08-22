@@ -19,7 +19,7 @@ test_that("correctExperiments works properly", {
 
     # Also works with a single batch... though this is less meaningful.
     b <- rep(1:2, c(ncol(sce1), ncol(sce2)))
-    merged2 <- correctExperiments(cbind(sce1, sce2), batch=b,
+    merged2 <- correctExperiments(cbind(sce1, sce2), batch=b, add.single=FALSE,
         PARAM=FastMnnParam(BSPARAM=BiocSingular::ExactParam()))
     expect_identical(reducedDim(merged), reducedDim(merged2))
 
@@ -49,7 +49,9 @@ test_that("correctExperiments responds to combining arguments for assays", {
     assayNames(sce1)[1] <- assayNames(sce2)[1] <- "reconstructed"
     expect_warning(merged <- correctExperiments(sce1, sce2, assay.type="reconstructed",
         PARAM=FastMnnParam(BSPARAM=BiocSingular::ExactParam())), 
-        "ignoring assays")
+        "ignoring 'assays'")
+    expect_identical(assayNames(merged), "reconstructed")
+    expect_s4_class(assay(merged), "LowRankMatrix")
 })
 
 test_that("correctExperiments responds to combining arguments for coldata", {
@@ -75,7 +77,8 @@ test_that("correctExperiments responds to combining arguments for coldata", {
     sce1$batch <- sce2$batch <- FALSE
     expect_warning(merged <- correctExperiments(sce1, sce2, 
         PARAM=FastMnnParam(BSPARAM=BiocSingular::ExactParam())), 
-        "overlapping")
+        "ignoring 'colData'")
+    expect_type(merged$batch, "integer")
 })
 
 test_that("correctExperiments responds to including rowdata", {
@@ -124,7 +127,8 @@ test_that("correctExperiments responds to including rowdata", {
     # Handles conflicts with the batchCorrect output.
     rowData(sce2)$rotation <- rowData(sce1)$rotation <- 5
     expect_warning(merged <- correctExperiments(sce1, sce2, 
-        PARAM=FastMnnParam(BSPARAM=BiocSingular::ExactParam())), "overlapping")
+        PARAM=FastMnnParam(BSPARAM=BiocSingular::ExactParam())), 
+        "ignoring 'rowData'")
 
     expect_true(!is.null(dim(rowData(merged)$rotation)))
     rowData(merged)$rotation <- NULL
@@ -138,6 +142,53 @@ test_that("correctExperiments responds to including rowdata", {
     expect_warning(merged <- correctExperiments(sce1, sce2, subset.row=10:1, correct.all=TRUE,
         PARAM=FastMnnParam(BSPARAM=BiocSingular::ExactParam())))
     expect_identical(rowData(merged)$stuff, rowData(sce1)$stuff)
+})
+
+test_that("correctExperiments works properly with add.single=TRUE", {
+    b <- rep(1:2, c(ncol(sce1), ncol(sce2)))
+    combined <- cbind(sce1, sce2)
+    reducedDim(combined, "PCA") <- matrix(0, ncol(combined), 2)
+
+    ref <- correctExperiments(combined, batch=b, add.single=FALSE,
+        PARAM=FastMnnParam(BSPARAM=BiocSingular::ExactParam()))
+
+    out <- correctExperiments(combined, batch=b, 
+        PARAM=FastMnnParam(BSPARAM=BiocSingular::ExactParam()))
+
+    expect_identical(reducedDim(ref), reducedDim(out))
+    expect_identical(assays(ref), assays(out))
+    expect_identical(colData(ref), colData(out))
+    expect_identical(rowData(ref), rowData(out))
+
+    # Points of difference from 'ref'.
+    expect_identical(altExps(out), altExps(combined)) 
+    expect_identical(reducedDim(combined, "PCA"), reducedDim(out, "PCA"))
+
+    # Defend against overlaps.
+    combined2 <- combined
+    assayNames(combined2)[1] <- "merged"
+    expect_warning(out2 <- correctExperiments(combined2, batch=b, assay.type="merged", PARAM=NoCorrectParam()), 
+        "ignoring 'assays'")
+
+    combined2 <- combined
+    colnames(colData(combined2))[1] <- "batch"
+    expect_warning(out2 <- correctExperiments(combined2, batch=b, PARAM=NoCorrectParam()), "ignoring 'colData'")
+
+    combined2 <- combined
+    reducedDimNames(combined2)[1] <- "corrected"
+    expect_warning(out2 <- correctExperiments(combined2, batch=b, 
+        PARAM=FastMnnParam(BSPARAM=BiocSingular::ExactParam())),
+        "ignoring 'reducedDims'")
+
+    # Handles correct.all= correctly.
+    sub <- correctExperiments(combined, batch=b, subset.row=1:10, 
+        PARAM=FastMnnParam(BSPARAM=BiocSingular::ExactParam()))
+    expect_identical(rownames(sub), rownames(combined)[1:10])
+
+    sub2 <- correctExperiments(combined, batch=b, subset.row=1:10, correct.all=TRUE,
+        PARAM=FastMnnParam(BSPARAM=BiocSingular::ExactParam()))
+    expect_identical(rownames(sub2), rownames(combined))
+    expect_identical(reducedDim(sub), reducedDim(sub2))
 })
 
 test_that("correctExperiments respects other arguments", {

@@ -13,12 +13,15 @@
 #' @param assay.type A string or integer scalar specifying the assay to use for correction.
 #' @inheritParams batchCorrect
 #' @param combine.assays Character vector specifying the assays from each entry of \code{...} to combine together without correction.
-#' By default, any named assay that is present in all entries of \code{...} are combined.
+#' By default, any named assay that is present in all entries of \code{...} is combined.
 #' This can be set to \code{character(0)} to avoid combining any assays.
 #' @param combine.coldata Character vector specifying the column metadata fields from each entry of \code{...} to combine together.
 #' By default, any column metadata field that is present in all entries of \code{...} is combined.
 #' This can be set to \code{character(0)} to avoid combining any metadata.
 #' @param include.rowdata Logical scalar indicating whether the function should attempt to include \code{\link{rowRanges}}.
+#' @param add.single Logical scalar indicating whether merged fields should be added to the original SingleCellExperiment.
+#' Only relevant when a single object is provided in \code{...}.
+#' If \code{TRUE}, \code{combine.assays}, \code{combine.coldata} and \code{include.rowdata} are ignored.
 #'
 #' @return 
 #' A SingleCellExperiment containing the merged expression values in the first assay
@@ -29,21 +32,24 @@
 #' This function makes it easy to retain information from the original SingleCellExperiment objects in the post-merge object.
 #' Operations like differential expression analyses can be easily performed on the uncorrected expression values,
 #' while common annotation can be leveraged in cell-based analyses like clustering.
-#'
-#' Additional assays may be added to the merged object, depending on \code{combine.assays}.
-#' This will usually contain uncorrected values from each batch that have been simply \code{cbind}ed together.
-#' If \code{combine.assays} contains a field that overlaps with the name of the corrected assay from \code{\link{batchCorrect}},
-#' a warning will be raised and the corrected assay will be preferentially retained.
-#'
-#' Any column metadata fields that are shared will also be included in the merged object if \code{combine.coldata=TRUE}.
+#' \itemize{
+#' \item All assays shared across the original objects are \code{cbind}ed and added to the merged object.
+#' This can be controlled with \code{combine.assays}.
+#' Any original assay with the same name as an assay in the output of \code{\link{batchCorrect}} will be ignored with a warning.
+#' \item Any column metadata fields that are shared will also be included in the merged object.
+#' This can be controlled with \code{combine.coldata}.
 #' If any existing field has the same name as any \code{\link{colData}} field produced by \code{\link{batchCorrect}},
 #' it will be ignored in favor of the latter.
-#'
-#' Row metadata from \code{...} is included in the merged object if \code{include.rowdata=TRUE}.
+#' \item Row metadata from \code{...} is included in the merged object if \code{include.rowdata=TRUE}.
 #' In such cases, only non-conflicting row data fields are preserved,
 #' i.e., fields with different names or identically named fields with the same values between objects in \code{...}.
 #' Any conflicting fields are ignored with a warning.
 #' \code{rowRanges} are only preserved if they are identical (ignoring the \code{\link{mcols}}) for all objects in \code{...}.
+#' }
+#'
+#' If a single SingleCellExperiment object was supplied in \code{...}, the default behavior is to prepend all \code{\link{assays}}, \code{\link{reducedDims}}, \code{\link{colData}}, \code{\link{rowData}} and \code{\link{metadata}} fields from the merged object into the original (removing any original entries with names that overlap those of the merged object).
+#' This is useful as it preserves all (non-overlapping) aspects of the original object, especially the reduced dimensions that cannot, in general, be sensibly combined across multiple objects.
+#' Setting \code{add.single=FALSE} will force the creation of a new SingleCellExperiment rather than prepending.
 #'
 #' @author Aaron Lun
 #' @examples
@@ -59,45 +65,48 @@
 #' @seealso
 #' \code{\link{batchCorrect}}, which does the correction inside this function.
 #'
-#' \code{\link{noCorrect}}, used to combine uncorrected values for the other assays.
+#' \code{\link{noCorrect}}, for another method to combine uncorrected assay values. 
 #' 
 #' @export
-#' @importFrom SummarizedExperiment assayNames assay<- assay colData<- colData 
-#' rowRanges rowRanges<- rowData rowData<-
-#' @importFrom S4Vectors mcols mcols<-
 correctExperiments <- function(..., batch=NULL, restrict=NULL, subset.row=NULL, correct.all=FALSE, assay.type="logcounts", 
-    PARAM=FastMnnParam(), combine.assays=NULL, combine.coldata=NULL, include.rowdata=TRUE) 
+    PARAM=FastMnnParam(), combine.assays=NULL, combine.coldata=NULL, include.rowdata=TRUE, add.single=TRUE) 
 {
     x <- .unpack_batches(...)
-    args <- c(x, list(subset.row=subset.row, correct.all=correct.all, batch=batch))
-    merged <- do.call(batchCorrect, c(args, list(restrict=restrict, assay.type=assay.type, PARAM=PARAM)))
+    merged <- batchCorrect(x, subset.row=subset.row, correct.all=correct.all, batch=batch,
+        restrict=restrict, assay.type=assay.type, PARAM=PARAM)
 
+    if (length(x)==1L && add.single) {
+        .add.single_sce(x[[1]], merged, subset.row=subset.row, correct.all=correct.all)
+    } else {
+        .create_fresh_combined_sce(x, merged, subset.row=subset.row, correct.all=correct.all,
+            combine.assays=combine.assays, combine.coldata=combine.coldata, include.rowdata=include.rowdata)
+    }
+}
+
+#' @importFrom SummarizedExperiment assayNames assay<- assay 
+#' colData<- colData rowRanges rowRanges<- rowData rowData<-
+.create_fresh_combined_sce <- function(x, merged, subset.row=NULL, correct.all=FALSE,
+    combine.assays=NULL, combine.coldata=NULL, include.rowdata=TRUE) 
+{
     # Adding additional assays.
     if (is.null(combine.assays)) {
         combine.assays <- Reduce(intersect, lapply(x, assayNames))
     }
-
-    merged.assays <- assayNames(merged)
-    if (any(combine.assays %in% merged.assays)) {
-        warning("ignoring assays with same name as 'batchCorrect' output")
-        combine.assays <- setdiff(combine.assays, merged.assays)
-    }
+    combine.assays <- .eliminate_overlaps(assayNames(merged), combine.assays, msg="'assays'")
 
     for (nm in combine.assays) {
-        nocorrect <- do.call(batchCorrect, c(args, list(assay.type=nm, PARAM=NoCorrectParam())))
-        assay(merged, nm) <- assay(nocorrect)
+        raw.ass <- lapply(x, assay, i=nm)
+        if (!is.null(subset.row) && !correct.all) {
+            raw.ass <- lapply(raw.ass, "[", i=subset.row, , drop=FALSE)
+        }
+        assay(merged, nm) <- do.call(cbind, raw.ass)
     }
 
     # Adding additional colData.
     if (is.null(combine.coldata)) {
         combine.coldata <- Reduce(intersect, lapply(x, FUN=function(y) colnames(colData(y))))
     }
-
-    merged.coldata <- colnames(colData(merged))
-    if (any(combine.coldata %in% merged.coldata)) {
-          warning("ignoring 'colData' fields overlapping 'batchCorrect' output")
-          combine.coldata <- setdiff(combine.coldata, merged.coldata)
-    }
+    combine.coldata <- .eliminate_overlaps(colnames(colData(merged)), combine.coldata, msg="'colData' fields")
 
     if (length(combine.coldata)) {
         collected <- lapply(x, FUN=function(y) colData(y)[,combine.coldata,drop=FALSE])
@@ -117,12 +126,10 @@ correctExperiments <- function(..., batch=NULL, restrict=NULL, subset.row=NULL, 
         }
 
         merged.rd <- rowData(merged) 
-        shared <- intersect(colnames(merged.rd), colnames(combined.rd))
-        if (length(shared)) {
-            warning("ignoring 'rowData' fields overlapping 'batchCorrect' output")
-            combined.rd <- combined.rd[,setdiff(colnames(combined.rd), shared),drop=FALSE]
-        }
+        leftovers.rd <- .eliminate_overlaps(colnames(merged.rd), colnames(combined.rd), msg="'rowData' fields")
+        combined.rd <- combined.rd[,leftovers.rd,drop=FALSE]
 
+        # Setting the rowRanges first as this wipes out any existing rowData.
         if (!is.null(combined.rr)) {
             rowRanges(merged) <- combined.rr
         }
@@ -130,6 +137,14 @@ correctExperiments <- function(..., batch=NULL, restrict=NULL, subset.row=NULL, 
     }
 
     merged
+}
+
+.eliminate_overlaps <- function(priority, other, msg="stuff") {
+    if (any(other %in% priority)) {
+        warning(sprintf("ignoring %s with same name as 'batchCorrect' output", msg))
+        other <- setdiff(other, priority)
+    }
+    other
 }
 
 #' @importFrom S4Vectors mcols mcols<- DataFrame make_zero_col_DFrame
@@ -171,12 +186,38 @@ correctExperiments <- function(..., batch=NULL, restrict=NULL, subset.row=NULL, 
     }
 
     existing <- existing[setdiff(names(existing), blacklisted)]
-    out.df <- if (length(existing)) {
+    if (length(existing)) {
         existing <- lapply(existing, I)
-        DataFrame(existing)
+        out.df <- DataFrame(existing)
     } else {
-        make_zero_col_DFrame(length(all.ranges[[1]]))
+        out.df <- make_zero_col_DFrame(length(all.ranges[[1]]))
     }
 
     list(ranges=out.ranges, df=out.df)
+}
+
+#' @importFrom S4Vectors metadata metadata<-
+#' @importFrom SingleCellExperiment reducedDims<- reducedDims reducedDimNames 
+#' @importFrom SummarizedExperiment assays assays<- assayNames rowData rowData<- colData colData<-
+.add.single_sce <- function(original, merged, subset.row=NULL, correct.all=FALSE) {
+    if (!correct.all && !is.null(subset.row)) {
+        original <- original[subset.row,]
+    }
+
+    combine.assays <- .eliminate_overlaps(assayNames(merged), assayNames(original), msg="'assays'")
+    assays(original) <- c(assays(merged), assays(original)[combine.assays])
+
+    combine.reddim <- .eliminate_overlaps(reducedDimNames(merged), reducedDimNames(original), msg="'reducedDims'")
+    reducedDims(original) <- c(reducedDims(merged), reducedDims(original)[combine.reddim])
+
+    combine.coldata <- .eliminate_overlaps(colnames(colData(merged)), colnames(colData(original)), msg="'colData' fields")
+    colData(original) <- cbind(colData(merged), colData(original)[,combine.coldata,drop=FALSE])
+
+    combine.rowdata <- .eliminate_overlaps(colnames(rowData(merged)), colnames(rowData(original)), msg="'rowData' fields")
+    rowData(original) <- cbind(rowData(merged), rowData(original)[,combine.rowdata,drop=FALSE])
+
+    combine.metadata <- .eliminate_overlaps(names(metadata(merged)), names(metadata(original)), msg="'metadata'")
+    metadata(original) <- c(metadata(merged), metadata(original)[combine.metadata])
+
+    original
 }
