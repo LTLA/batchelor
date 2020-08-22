@@ -77,23 +77,22 @@ setMethod("batchCorrect", "FastMnnParam", function(..., batch=NULL, restrict=NUL
 #' @rdname batchCorrect
 #' @export
 setMethod("batchCorrect", "RescaleParam", function(..., batch=NULL, restrict=NULL, subset.row=NULL, correct.all=FALSE, assay.type="logcounts", PARAM) {
-    if (correct.all) subset.row <- NULL
-    combined <- c(list(..., batch=batch, restrict=restrict, subset.row=subset.row, assay.type=assay.type), as.list(PARAM))
+    combined <- c(list(..., batch=batch, restrict=restrict, subset.row=subset.row, correct.all=correct.all, assay.type=assay.type), as.list(PARAM))
     do.call(rescaleBatches, combined)
 })
 
 #' @rdname batchCorrect
 #' @export
-setMethod("batchCorrect", "RegressParam", function(..., batch=NULL, restrict=NULL, subset.row=NULL, correct.all=FALSE, assay.type="logcounts", PARAM) {
-    if (correct.all) subset.row <- NULL
-    combined <- c(list(..., batch=batch, restrict=restrict, subset.row=subset.row, assay.type=assay.type), as.list(PARAM))
+setMethod("batchCorrect", "RegressParam", function(..., batch=NULL, restrict=NULL, subset.row=NULL, correct.all=FALSE, assay.type="logcounts", PARAM) 
+{
+    combined <- c(list(..., batch=batch, restrict=restrict, subset.row=subset.row, correct.all=correct.all, assay.type=assay.type), as.list(PARAM))
     do.call(regressBatches, combined)
 })
 
 #' @rdname batchCorrect
 #' @export
-setMethod("batchCorrect", "NoCorrectParam", function(..., batch=NULL, restrict=NULL, subset.row=NULL, correct.all=FALSE, assay.type="logcounts", PARAM) {
-    if (correct.all) subset.row <- NULL
-    combined <- c(list(..., batch=batch, subset.row=subset.row, assay.type=assay.type), as.list(PARAM))
+setMethod("batchCorrect", "NoCorrectParam", function(..., batch=NULL, restrict=NULL, subset.row=NULL, correct.all=FALSE, assay.type="logcounts", PARAM) 
+{
+    combined <- c(list(..., batch=batch, subset.row=subset.row, correct.all=correct.all, assay.type=assay.type), as.list(PARAM))
     do.call(noCorrect, combined)
 })

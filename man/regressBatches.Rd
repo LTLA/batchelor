@@ -10,6 +10,7 @@ regressBatches(
   design = NULL,
   restrict = NULL,
   subset.row = NULL,
+  correct.all = FALSE,
   assay.type = "logcounts"
 )
 }
@@ -36,6 +37,9 @@ Each row corresponds to a cell in the order supplied in \code{...}.}
 Each entry of the list corresponds to one batch and specifies the cells to use when computing the correction.}
 
 \item{subset.row}{A vector specifying which features to use for correction.}
+
+\item{correct.all}{Logical scalar indicating whether corrected expression values should be computed for genes not in \code{subset.row}.
+Only relevant if \code{subset.row} is not \code{NULL}.}
 
 \item{assay.type}{A string or integer scalar specifying the assay containing the log-expression values.
 Only used for SingleCellExperiment inputs.}
@@ -74,6 +78,7 @@ If this is not true, the correction will not only be incomplete but can introduc
 
 All genes are used with the default setting of \code{subset.row=NULL}.
 Users can set \code{subset.row} to subset the inputs, though this is purely for convenience as each gene is processed independently of other genes.
+Indeed, setting \code{correct.all=TRUE} is equivalent to forcing \code{subset.row=NULL},
 
 See \code{?"\link{batchelor-restrict}"} for a description of the \code{restrict} argument.
 Specifically, this function will compute the model coefficients using only the specified subset of cells.

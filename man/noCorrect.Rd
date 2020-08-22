@@ -4,7 +4,13 @@
 \alias{noCorrect}
 \title{No correction}
 \usage{
-noCorrect(..., batch = NULL, subset.row = NULL, assay.type = "logcounts")
+noCorrect(
+  ...,
+  batch = NULL,
+  subset.row = NULL,
+  correct.all = FALSE,
+  assay.type = "logcounts"
+)
 }
 \arguments{
 \item{...}{One or more log-expression matrices where genes correspond to rows and cells correspond to columns.
@@ -22,6 +28,9 @@ this is flattened as if the objects inside each list were passed directly to \co
 This is ignored if multiple objects are present.}
 
 \item{subset.row}{A vector specifying which features to use for correction.}
+
+\item{correct.all}{Logical scalar indicating whether corrected expression values should be computed for genes not in \code{subset.row}.
+Only relevant if \code{subset.row} is not \code{NULL}.}
 
 \item{assay.type}{A string or integer scalar specifying the assay containing the log-expression values.
 Only used for SingleCellExperiment inputs.}
@@ -43,6 +52,12 @@ This function is effectively equivalent to \code{cbind}ing the matrices together
 The aim is to provide a consistent interface that allows users to simply combine batches without additional operations. 
 This is often desirable as a negative control to see if the transformation is actually beneficial.
 It also allows for convenient downstream analyses that are based on the uncorrected data, e.g., differential expression.
+
+Setting \code{correct.all=TRUE} is equivalent to forcing \code{subset.row=NULL},
+given that no correction is being performed anyway.
+
+In the case of a single object in \code{...},
+\code{batch} has no effect beyond being stored in the \code{\link{colData}} of the output.
 }
 \examples{
 B1 <- matrix(rnorm(10000), ncol=50) # Batch 1 

@@ -38,6 +38,7 @@
 #' 
 #' All genes are used with the default setting of \code{subset.row=NULL}.
 #' Users can set \code{subset.row} to subset the inputs, though this is purely for convenience as each gene is processed independently of other genes.
+#' Indeed, setting \code{correct.all=TRUE} is equivalent to forcing \code{subset.row=NULL},
 #'
 #' See \code{?"\link{batchelor-restrict}"} for a description of the \code{restrict} argument.
 #' Specifically, this function will compute the model coefficients using only the specified subset of cells.
@@ -67,8 +68,8 @@
 #' @importFrom S4Vectors DataFrame
 #' @importFrom utils head
 #' @importFrom DelayedArray seed seed<-
-regressBatches <- function(..., batch=NULL, design=NULL,
-    restrict=NULL, subset.row=NULL, assay.type="logcounts") 
+regressBatches <- function(..., batch=NULL, design=NULL, restrict=NULL, 
+    subset.row=NULL, correct.all=FALSE, assay.type="logcounts") 
 {
     batches <- .unpack_batches(...)
     checkBatchConsistency(batches)
@@ -110,7 +111,7 @@ regressBatches <- function(..., batch=NULL, design=NULL,
         stop("at least two batches must be specified")
     }
 
-    if (!is.null(subset.row)) {
+    if (!correct.all && !is.null(subset.row)) {
         combined <- combined[subset.row,,drop=FALSE]
     }
 

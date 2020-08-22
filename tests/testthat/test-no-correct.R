@@ -39,6 +39,11 @@ test_that("noCorrect responds to subsetting", {
     out <- noCorrect(X=test1, Y=test2, subset.row=subset.row)
     ref <- noCorrect(X=test1[subset.row,], Y=test2[subset.row,])
     expect_equal(out, ref)
+
+    # Handles correct.all=TRUE.
+    out <- noCorrect(X=test1, Y=test2, subset.row=subset.row, correct.all=TRUE)
+    ref <- noCorrect(X=test1, Y=test2)
+    expect_equal(out, ref)
 })
 
 test_that("noCorrect handles a single object", {

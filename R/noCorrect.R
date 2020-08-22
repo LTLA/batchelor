@@ -19,6 +19,12 @@
 #' This is often desirable as a negative control to see if the transformation is actually beneficial.
 #' It also allows for convenient downstream analyses that are based on the uncorrected data, e.g., differential expression.
 #'
+#' Setting \code{correct.all=TRUE} is equivalent to forcing \code{subset.row=NULL},
+#' given that no correction is being performed anyway.
+#'
+#' In the case of a single object in \code{...},
+#' \code{batch} has no effect beyond being stored in the \code{\link{colData}} of the output.
+#'
 #' @author Aaron Lun
 #'
 #' @examples
@@ -35,7 +41,7 @@
 #' @importFrom BiocGenerics cbind
 #' @importFrom SingleCellExperiment SingleCellExperiment
 #' @importFrom S4Vectors DataFrame
-noCorrect <- function(..., batch=NULL, subset.row=NULL, assay.type="logcounts") {
+noCorrect <- function(..., batch=NULL, subset.row=NULL, correct.all=FALSE, assay.type="logcounts") {
     batches <- .unpack_batches(...)
     checkBatchConsistency(batches, cells.in.columns=TRUE)
 
@@ -45,7 +51,7 @@ noCorrect <- function(..., batch=NULL, subset.row=NULL, assay.type="logcounts") 
         batches[is.sce] <- lapply(batches[is.sce], assay, i=assay.type)
     }
 
-    if (!is.null(subset.row)) {
+    if (!correct.all && !is.null(subset.row)) {
         for (i in seq_along(batches)) {
             batches[[i]] <- batches[[i]][subset.row,,drop=FALSE]
         }

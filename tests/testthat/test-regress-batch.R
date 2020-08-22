@@ -36,6 +36,10 @@ test_that("regressBatches works correctly", {
     subsetted <- regressBatches(B1, B2, subset.row=keep)
     corrected <- regressBatches(B1[keep,], B2[keep,])
     expect_equal(subsetted, corrected)
+
+    corrected <- regressBatches(B1, B2)
+    subsetted2 <- regressBatches(B1, B2, subset.row=keep, correct.all=TRUE)
+    expect_equal(subsetted2, corrected)
 }) 
 
 set.seed(130000)
