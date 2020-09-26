@@ -22,7 +22,6 @@ opts_chunk$set(error=FALSE, message=FALSE, warning=FALSE)
 
 ```{r setup, echo=FALSE, message=FALSE}
 library(batchelor)
-set.seed(100)
 ```
 
 # Introduction
@@ -44,6 +43,7 @@ The `r Biocpkg("batchelor")` package implements batch correction methods that do
 # Setting up demonstration data
 
 To demonstrate, we will use two brain data sets [@tasic2016adult;@zeisel2015brain] from the `r Biocpkg("scRNAseq")` package.
+A more thorough explanation of each of these steps is available in the [book](http://bioconductor.org/books/devel/OSCA).
 
 ```{r}
 library(scRNAseq)
@@ -59,11 +59,11 @@ using the outlier detection strategy from the `r Biocpkg('scuttle')` package.
 ```{r}
 library(scuttle)
 sce1 <- addPerCellQC(sce1, subsets=list(Mito=grep("mt-", rownames(sce1))))
-qc1 <- quickPerCellQC(colData(sce1), percent_subsets="subsets_Mito_percent")
+qc1 <- quickPerCellQC(colData(sce1), sub.fields="subsets_Mito_percent")
 sce1 <- sce1[,!qc1$discard]
 
 sce2 <- addPerCellQC(sce2, subsets=list(Mito=grep("mt_", rownames(sce2))))
-qc2 <- quickPerCellQC(colData(sce2))
+qc2 <- quickPerCellQC(colData(sce2), sub.fields="subsets_Mito_percent")
 sce2 <- sce2[,!qc2$discard]
 ```
 
@@ -85,7 +85,7 @@ sce1 <- out[[1]]
 sce2 <- out[[2]]
 ```
 
-Finally, we identify all genes with positive biological components.
+Finally, we identify the top 5000 genes with the largest biological components of their variance.
 We will use these for all high-dimensional procedures such as PCA and nearest-neighbor searching.
 
 ```{r}
@@ -93,8 +93,7 @@ library(scran)
 dec1 <- modelGeneVar(sce1)
 dec2 <- modelGeneVar(sce2)
 combined.dec <- combineVar(dec1, dec2)
-chosen.hvgs <- combined.dec$bio > 0
-summary(chosen.hvgs)
+chosen.hvgs <- getTopHVGs(combined.dec, n=5000)
 ```
 
 As a diagnostic, we check that there actually is a batch effect across these datasets by checking that they cluster separately.
@@ -105,10 +104,24 @@ and we informally verify that cells from different batches are separated using a
 combined <- correctExperiments(A=sce1, B=sce2, PARAM=NoCorrectParam())
 
 library(scater)
+set.seed(100)
 combined <- runPCA(combined, subset_row=chosen.hvgs)
 combined <- runTSNE(combined, dimred="PCA")
 plotTSNE(combined, colour_by="batch")
 ```
+
+# Function organization
+
+The batch correction functions in `r Biocpkg("batchelor")` are organized into three levels:
+
+- At the lowest level, we have the functions that implement a single type of correction, e.g., `fastMNN()`, `rescaleBatches()`. 
+These will return a `SummarizedExperiment` object containing the corrected values and other statistics.
+- At the next level, we have the `batchCorrect()` function that wraps the single-correction function into a common interface.
+This allows developers to switch between correction functions by simply passing a different `BatchelorParam` object.
+- At the highest level, we have the `correctExperiments()` function that wraps the `batchCorrect()` function.
+This is intended for the specific case where correction is applied on data in existing `SingleCellExperiment` objects and we wish to preserve the pre-existing data and metadata from those objects in the corrected output.
+
+For brevity, we will demonstrate the lowest-level functions in this vignette; however, it is easy to perform the exact same correction with `correctExperiments()` by switching the above call to, e.g., `PARAM=FastMnnParam()`.  
 
 # Mutual nearest neighbors
 
@@ -122,11 +135,13 @@ It is then straightforward to remove the batch effect and obtain a set of correc
 ## The new, fast method
 
 The `fastMNN()` function performs a principal components analysis (PCA) on the HVGs to obtain a low-dimensional representation of the input data.
-MNN identification and correction is performed in this low-dimensional space, which offers some advantages with respect to speed and denoising.    
+MNN identification and correction is performed in this low-dimensional space, which offers some advantages with respect to speed and denoising.
 This returns a `SingleCellExperiment` containing a matrix of corrected PC scores is returned, which can be used directly for downstream analyses such as clustering and visualization.
+(We set the seed as we default to a stochastic method for PCA - see comments on `multiBatchPCA()` below.)
 
 ```{r}
 library(batchelor)
+set.seed(101)
 f.out <- fastMNN(A=sce1, B=sce2, subset.row=chosen.hvgs)
 str(reducedDim(f.out, "corrected"))
 ```
@@ -143,6 +158,7 @@ In this case, it doesn't matter as the two batches were concatenated to created 
 but these semantics may be useful when cells from the same batch are not contiguous.
 
 ```{r}
+set.seed(101)
 f.out2 <- fastMNN(combined, batch=combined$batch, subset.row=chosen.hvgs)
 str(reducedDim(f.out2, "corrected"))
 ```
@@ -151,6 +167,7 @@ As we can see, cells from the batches are more intermingled in the $t$-SNE plot 
 This suggests that the batch effect was removed - assuming, of course, that the intermingled cells represent the same population.
 
 ```{r}
+set.seed(103)
 f.out <- runTSNE(f.out, dimred="corrected")
 plotTSNE(f.out, colour_by="batch")
 ```
@@ -245,7 +262,7 @@ plotPCA(rescale.out, colour_by="batch")
 
 Alternatively, a more direct linear regression of the batch effect can be performed with `regressBatches()`.
 This does not preserve sparsity but uses a different set of tricks to avoid explicitly creating a dense matrix,
-specifically by using the `ResidualMatrix` class from the `r Biocpkg("BiocSingular")` package.
+specifically by using the `ResidualMatrix` class from the `r Biocpkg("ResidualMatrix")` package.
 
 ```{r}
 regress.out <- regressBatches(sce1, sce2)
@@ -301,9 +318,11 @@ which we try to avoid violating by performing the rescaling on all genes rather 
 Users can perform a PCA across multiple batches using the `multiBatchPCA()` function.
 The output of this function is roughly equivalent to `cbind`ing all batches together and performing PCA on the merged matrix. 
 The main difference is that each sample is forced to contribute equally to the identification of the rotation vectors.
-This allows small batches with unique subpopulations to contribute meaningfully to the definition of the low-dimensional space.
+This allows small batches with unique subpopulations to participate in the definition of the low-dimensional space.
 
 ```{r}
+set.seed(100)
+
 # Using the same BSPARAM argument as fastMNN(), for speed.
 pca.out <- multiBatchPCA(A=sce1, B=sce2, subset.row=chosen.hvgs,
     BSPARAM=BiocSingular::IrlbaParam(deferred=TRUE))
@@ -312,8 +331,10 @@ names(pca.out)
 
 This function is used internally in `fastMNN()` but can be explicitly called by the user.
 Reduced dimensions can be input into `reducedMNN()`, which is occasionally convenient as it allows different correction parameters to be repeated without having to repeat the time-consuming PCA step.
+We use the IRLBA algorithm by default, which means that we need to set seed to guarantee reproducible results.
+We also set `deferred=TRUE` to speed up the calculations when using a custom weighting scheme for the batches - see `?"BiocSingular-options"` for more details.
 
-# Session information
+# Session information {-}
 
 ```{r}
 sessionInfo()
