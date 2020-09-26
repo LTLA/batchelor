@@ -20,7 +20,8 @@ Imports:
     DelayedArray,
     DelayedMatrixStats,
     BiocParallel,
-    scuttle
+    scuttle,
+    ResidualMatrix
 Suggests: 
     testthat,
     BiocStyle,

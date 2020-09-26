@@ -8,6 +8,7 @@ regressBatches(
   ...,
   batch = NULL,
   design = NULL,
+  keep = NULL,
   restrict = NULL,
   subset.row = NULL,
   correct.all = FALSE,
@@ -32,6 +33,9 @@ This is ignored if multiple objects are present.}
 \item{design}{A numeric design matrix with number of rows equal to the total number of cells,
 specifying the experimental factors to remove.
 Each row corresponds to a cell in the order supplied in \code{...}.}
+
+\item{keep}{Integer vector specifying the coefficients of \code{design} to \emph{not} regress out,
+see the \code{\link{ResidualMatrix}} constructor for more details.}
 
 \item{restrict}{A list of length equal to the number of objects in \code{...}.
 Each entry of the list corresponds to one batch and specifies the cells to use when computing the correction.}
@@ -96,6 +100,8 @@ out <- regressBatches(B1, B2)
 }
 \seealso{
 \code{\link{rescaleBatches}}, for another approach to regressing out the batch effect.
+
+The \linkS4class{ResidualMatrix} class, for the nature of the return value.
 }
 \author{
 Aaron Lun

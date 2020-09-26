@@ -6,6 +6,8 @@
 #' @param design A numeric design matrix with number of rows equal to the total number of cells,
 #' specifying the experimental factors to remove.
 #' Each row corresponds to a cell in the order supplied in \code{...}.
+#' @param keep Integer vector specifying the coefficients of \code{design} to \emph{not} regress out,
+#' see the \code{\link{ResidualMatrix}} constructor for more details.
 #'
 #' @return
 #' A \linkS4class{SingleCellExperiment} object containing the \code{corrected} assay.
@@ -57,19 +59,21 @@
 #'
 #' @seealso
 #' \code{\link{rescaleBatches}}, for another approach to regressing out the batch effect.
+#'
+#' The \linkS4class{ResidualMatrix} class, for the nature of the return value.
 #' 
 #' @export
 #' @importFrom SummarizedExperiment assay
 #' @importFrom BiocGenerics cbind
 #' @importFrom SingleCellExperiment SingleCellExperiment
 #' @importFrom Matrix t 
-#' @importFrom BiocSingular ResidualMatrix
+#' @importFrom ResidualMatrix ResidualMatrix
 #' @importFrom stats model.matrix
 #' @importFrom S4Vectors DataFrame
 #' @importFrom utils head
 #' @importFrom DelayedArray seed seed<-
 #' @importFrom scuttle .unpackLists
-regressBatches <- function(..., batch=NULL, design=NULL, restrict=NULL, 
+regressBatches <- function(..., batch=NULL, design=NULL, keep=NULL, restrict=NULL, 
     subset.row=NULL, correct.all=FALSE, assay.type="logcounts") 
 {
     batches <- .unpackLists(...)
@@ -123,20 +127,6 @@ regressBatches <- function(..., batch=NULL, design=NULL, restrict=NULL,
     }
 
     combined <- t(combined)
-    corrected <- ResidualMatrix(combined, design)
-
-    if (!is.null(restrict)) {
-        subdesign <- design[restrict,,drop=FALSE]
-        QR <- qr(subdesign)
-        Q <- as.matrix(qr.Q(QR))
-        Qty <- as.matrix(crossprod(Q, combined[restrict,,drop=FALSE]))
-
-        # TODO: modify ResidualMatrix() to accommodate non-standard left %*% right.
-        coefs <- backsolve(qr.R(QR), Qty)
-        seed(corrected)@Qty <- coefs
-        seed(corrected)@Q <- as.matrix(design)
-        seed(corrected)@centered <- FALSE # no guarantee of centering if you add extra cells.
-    }
-
+    corrected <- ResidualMatrix(combined, design, keep=keep, restrict=restrict)
     SingleCellExperiment(list(corrected=t(corrected)), colData=DataFrame(batch=batch)) 
 }
