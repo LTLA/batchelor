@@ -1,8 +1,6 @@
 #include "Rcpp.h"
 
 #include "utils.h"
-#include "beachmat/numeric_matrix.h"
-#include "beachmat/utils/const_column.h"
 
 #include <vector>
 #include <set>
@@ -10,10 +8,9 @@
 #include <cmath>
 
 //[[Rcpp::export(rng=false)]]
-SEXP smooth_gaussian_kernel(Rcpp::NumericMatrix averaged, Rcpp::IntegerVector index, Rcpp::RObject data, double sigma2) {
-    auto mat=beachmat::create_numeric_matrix(data);
-    const size_t ncells=mat->get_ncol();
-    const size_t ngenes_for_dist=mat->get_nrow();
+SEXP smooth_gaussian_kernel(Rcpp::NumericMatrix averaged, Rcpp::IntegerVector index, Rcpp::NumericMatrix mat, double sigma2) {
+    const size_t ncells=mat.ncol();
+    const size_t ngenes_for_dist=mat.nrow();
 
     const size_t ngenes=averaged.nrow();
     const size_t nmnn=averaged.ncol();
@@ -29,20 +26,18 @@ SEXP smooth_gaussian_kernel(Rcpp::NumericMatrix averaged, Rcpp::IntegerVector in
 
     bool starting_prob=true;
     std::vector<double> distances2(ncells), totalprob(ncells, R_NaReal); 
-    beachmat::const_column<beachmat::numeric_matrix> mnn_incoming(mat.get(), false), // no support for sparsity here.
-        other_incoming(mat.get(), false);
 
     // Using distances between cells and MNN-involved cells to smooth the correction vector per cell.
     auto iIt=index.begin();
     for (size_t i=0; i<nmnn; ++i, ++iIt) {
-        mnn_incoming.fill(*iIt);
-        auto mnn_iIt=mnn_incoming.get_values();
+        auto curcol = mat.column(*iIt);
+        auto mnn_iIt = curcol.begin();
 
         for (size_t other=0; other<ncells; ++other) {
             double& curdist2=(distances2[other]=0);
-            other_incoming.fill(other);
-            auto other_iIt=other_incoming.get_values();
-            auto iIt_copy=mnn_iIt;
+            auto othercol = mat.column(other);
+            auto other_iIt = othercol.begin();
+            auto iIt_copy = mnn_iIt;
 
             for (size_t g=0; g<ngenes_for_dist; ++g) {
                 const double tmp=(*iIt_copy  - *other_iIt);

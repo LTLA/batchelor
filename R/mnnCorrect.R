@@ -276,6 +276,11 @@ mnnCorrect <- function(..., batch=NULL, restrict=NULL, k=20, prop.k=NULL, sigma=
         right.origin <- .get_node_origin(right)
         right.extras <- .get_node_extras(right)[[1]]
 
+        # Really no point being too cute here with other matrix representations, 
+        # there are coercions for the NN search _and_ for the dense per-gene output.
+        left.data <- as.matrix(left.data)
+        right.data <- as.matrix(right.data)
+
         # Computing the correction vector for each cell.
         mnn.sets <- .restricted_mnn(left.data, left.restrict, right.data, right.restrict,
             k=k, prop.k=prop.k, BNPARAM=BNPARAM, BPPARAM=BPPARAM)
@@ -465,6 +470,7 @@ mnnCorrect <- function(..., batch=NULL, restrict=NULL, k=20, prop.k=NULL, sigma=
 
     restrict1 <- .col_subset_to_index(data1, restrict1) - 1L
     restrict2 <- .col_subset_to_index(data2, restrict2) - 1L
+
     scaling <- adjust_shift_variance(data1, data2, cell.vect, sigma, restrict1, restrict2)
 
     scaling <- pmax(scaling, 1)

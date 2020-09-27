@@ -26,7 +26,6 @@ Suggests:
     testthat,
     BiocStyle,
     knitr,
-    beachmat,
     scran,
     scater,
     scRNAseq
@@ -40,8 +39,7 @@ biocViews:
     BatchEffect,
     Normalization
 LinkingTo: 
-    Rcpp,
-    beachmat
+    Rcpp
 Description: 
     Implements a variety of methods for batch correction of single-cell (RNA sequencing) data. 
     This includes methods based on detecting mutually nearest neighbors,

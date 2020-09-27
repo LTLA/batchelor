@@ -9,7 +9,7 @@ find_mutual_nns <- function(left, right) {
     .Call('_batchelor_find_mutual_nns', PACKAGE = 'batchelor', left, right)
 }
 
-smooth_gaussian_kernel <- function(averaged, index, data, sigma2) {
-    .Call('_batchelor_smooth_gaussian_kernel', PACKAGE = 'batchelor', averaged, index, data, sigma2)
+smooth_gaussian_kernel <- function(averaged, index, mat, sigma2) {
+    .Call('_batchelor_smooth_gaussian_kernel', PACKAGE = 'batchelor', averaged, index, mat, sigma2)
 }
 

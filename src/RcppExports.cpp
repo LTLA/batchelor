@@ -6,13 +6,13 @@
 using namespace Rcpp;
 
 // adjust_shift_variance
-Rcpp::NumericVector adjust_shift_variance(Rcpp::RObject data1, Rcpp::RObject data2, Rcpp::RObject vect, double sigma2, Rcpp::IntegerVector restrict1, Rcpp::IntegerVector restrict2);
+Rcpp::NumericVector adjust_shift_variance(Rcpp::NumericMatrix data1, Rcpp::NumericMatrix data2, Rcpp::NumericMatrix vect, double sigma2, Rcpp::IntegerVector restrict1, Rcpp::IntegerVector restrict2);
 RcppExport SEXP _batchelor_adjust_shift_variance(SEXP data1SEXP, SEXP data2SEXP, SEXP vectSEXP, SEXP sigma2SEXP, SEXP restrict1SEXP, SEXP restrict2SEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
-    Rcpp::traits::input_parameter< Rcpp::RObject >::type data1(data1SEXP);
-    Rcpp::traits::input_parameter< Rcpp::RObject >::type data2(data2SEXP);
-    Rcpp::traits::input_parameter< Rcpp::RObject >::type vect(vectSEXP);
+    Rcpp::traits::input_parameter< Rcpp::NumericMatrix >::type data1(data1SEXP);
+    Rcpp::traits::input_parameter< Rcpp::NumericMatrix >::type data2(data2SEXP);
+    Rcpp::traits::input_parameter< Rcpp::NumericMatrix >::type vect(vectSEXP);
     Rcpp::traits::input_parameter< double >::type sigma2(sigma2SEXP);
     Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type restrict1(restrict1SEXP);
     Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type restrict2(restrict2SEXP);
@@ -32,15 +32,15 @@ BEGIN_RCPP
 END_RCPP
 }
 // smooth_gaussian_kernel
-SEXP smooth_gaussian_kernel(Rcpp::NumericMatrix averaged, Rcpp::IntegerVector index, Rcpp::RObject data, double sigma2);
-RcppExport SEXP _batchelor_smooth_gaussian_kernel(SEXP averagedSEXP, SEXP indexSEXP, SEXP dataSEXP, SEXP sigma2SEXP) {
+SEXP smooth_gaussian_kernel(Rcpp::NumericMatrix averaged, Rcpp::IntegerVector index, Rcpp::NumericMatrix mat, double sigma2);
+RcppExport SEXP _batchelor_smooth_gaussian_kernel(SEXP averagedSEXP, SEXP indexSEXP, SEXP matSEXP, SEXP sigma2SEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::traits::input_parameter< Rcpp::NumericMatrix >::type averaged(averagedSEXP);
     Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type index(indexSEXP);
-    Rcpp::traits::input_parameter< Rcpp::RObject >::type data(dataSEXP);
+    Rcpp::traits::input_parameter< Rcpp::NumericMatrix >::type mat(matSEXP);
     Rcpp::traits::input_parameter< double >::type sigma2(sigma2SEXP);
-    rcpp_result_gen = Rcpp::wrap(smooth_gaussian_kernel(averaged, index, data, sigma2));
+    rcpp_result_gen = Rcpp::wrap(smooth_gaussian_kernel(averaged, index, mat, sigma2));
     return rcpp_result_gen;
 END_RCPP
 }
