@@ -17,7 +17,7 @@
 #' @param batch A factor specifying the batch identity of each cell in the input data.
 #' Ignored if \code{...} contains more than one argument.
 #' @param weights Numeric vector, logical scalar or list specifying the weighting scheme to use, see below for details.
-#' @param d An integer scalar specifying the number of dimensions to keep from the initial multi-sample PCA.
+#' @param d An integer scalar specifying the number of dimensions to keep from the PCA.
 #' @param subset.row A vector specifying which features to use for correction. 
 #' @param assay.type A string or integer scalar specifying the assay containing the expression values, if SingleCellExperiment objects are present in \code{...}.
 #' @param get.all.genes A logical scalar indicating whether the reported rotation vectors should include genes 
@@ -25,6 +25,8 @@
 #' @param get.variance A logical scalar indicating whether to return the (weighted) variance explained by each PC.
 #' @param preserve.single A logical scalar indicating whether to combine the results into a single matrix if only one object was supplied in \code{...}.
 #' @param BSPARAM A \linkS4class{BiocSingularParam} object specifying the algorithm to use for PCA, see \code{\link{runSVD}} for details.
+#' @param deferred A logical scalar used to overwrite the \code{deferred} status of \code{BSPARAM} for greater speed.
+#' Set to \code{NULL} to use the supplied status in \code{BSPARAM} directly.
 #' @param BPPARAM A \linkS4class{BiocParallelParam} object specifying whether the SVD should be parallelized.
 #'
 #' @details
@@ -41,8 +43,9 @@
 #' Setting \code{get.all.genes=TRUE} will report rotation vectors that span all genes, even when only a subset of genes are used for the PCA.
 #' This is done by projecting all non-used genes into the low-dimensional \dQuote{cell space} defined by the first \code{d} components.
 #'
-#' If \code{BSPARAM} is defined with \code{deferred=TRUE}, the per-gene centering and per-cell scaling will be manually deferred during matrix multiplication.
-#' This can greatly improve speeds when the input matrices are sparse, as deferred operations avoids loss of sparsity (at the cost of numerical precision).
+#' With the default \code{deferred=TRUE}, the per-gene centering and per-cell scaling will be deferred during matrix multiplication.
+#' This can greatly improve speeds when the input matrices are sparse, as deferred operations avoids loss of sparsity at the cost of numerical precision.
+#' If \code{deferred=NULL}, the use of deferred scaling is determined by the setting within \code{BSPARAM} itself.
 #'
 #' @section Tuning the weighting:
 #' By default, \code{weights=NULL} or \code{TRUE} will use the default weights,
@@ -88,8 +91,10 @@
 #' d1[1:10,1:10] <- d1[1:10,1:10] + 2 # unique population in d1
 #' d2 <- matrix(rnorm(2000), ncol=40)
 #' d2[11:20,1:10] <- d2[11:20,1:10] + 2 # unique population in d2
-#' 
-#' out <- multiBatchPCA(d1, d2)
+#'
+#' # PCA defaults to IRLBA, so we need to set the seed.
+#' set.seed(10)
+#' out <- multiBatchPCA(d1, d2, d=10)
 #' 
 #' # Examining results.
 #' xlim <- range(c(out[[1]][,1], out[[2]][,1]))
@@ -101,9 +106,11 @@
 #' # are replicates and should contribute the same combined
 #' # weight as 'd1'.
 #' d3 <- d2 + 5
-#' out <- multiBatchPCA(d1, d2, d3, weights=c(1, 0.5, 0.5))
+#' set.seed(10)
+#' out <- multiBatchPCA(d1, d2, d3, d=10, weights=c(1, 0.5, 0.5))
 #'
-#' alt <- multiBatchPCA(d1, d2, d3, weights=list(1, list(2, 3))) 
+#' set.seed(10)
+#' alt <- multiBatchPCA(d1, d2, d3, d=10, weights=list(1, list(2, 3))) 
 #' stopifnot(all.equal(out, alt)) # As they are the same.
 #' 
 #' @export
@@ -115,14 +122,8 @@
 #' @importFrom BiocSingular ExactParam
 #' @importFrom scuttle .bpNotSharedOrUp .unpackLists
 multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, weights=NULL,
-    get.all.genes=FALSE, get.variance=FALSE, preserve.single=FALSE, 
-    assay.type="logcounts", BSPARAM=ExactParam(), BPPARAM=SerialParam()) 
-# Performs a multi-sample PCA (i.e., batches).
-# Each batch is weighted inversely by the number of cells when computing the gene-gene covariance matrix.
-# This avoids domination by samples with a large number of cells.
-#
-# written by Aaron Lun
-# created 4 July 2018
+    get.all.genes=FALSE, get.variance=FALSE, preserve.single=FALSE, assay.type="logcounts", 
+    BSPARAM=IrlbaParam(), deferred=TRUE, BPPARAM=SerialParam()) 
 {
     originals <- mat.list <- .unpackLists(...)
     if (length(mat.list)==0L) {
@@ -141,9 +142,12 @@ multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, weights=NULL,
         on.exit(bpstop(BPPARAM), add=TRUE)
     }
 
+    BSPARAM <- .set_deferred(BSPARAM, deferred)
+
     # Different function calls for different input modes.
     common.args <- list(subset.row=subset.row, d=d, get.all.genes=get.all.genes, 
         weights=weights, get.variance=get.variance, BSPARAM=BSPARAM, BPPARAM=BPPARAM) 
+
     if (length(mat.list)==1L) {
         if (is.null(batch)) { 
             stop("'batch' must be specified if '...' has only one object")
@@ -475,4 +479,14 @@ multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, weights=NULL,
     }
 
     list(centered=centered, scaled=scaled, centers=centers)
+}
+
+###########################################
+
+.set_deferred <- function(BSPARAM, deferred) {
+    if (!is.null(deferred)) {
+        # A bit naughty, but oh well.
+        BSPARAM@deferred <- deferred 
+    }
+    BSPARAM
 }

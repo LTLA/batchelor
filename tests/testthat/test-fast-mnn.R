@@ -248,7 +248,7 @@ set.seed(12000043)
 test_that("fastMNN changes the reference batch upon orthogonalization", {
     B1 <- matrix(rnorm(10000, 0), nrow=100) # Batch 1 
     B2 <- matrix(rnorm(20000, 1), nrow=100) # Batch 2
-    PCA <- multiBatchPCA(B1, B2)
+    PCA <- multiBatchPCA(B1, B2, BSPARAM=ExactParam())
 
     mnn.out <- fastMNN(B1, B2, BSPARAM=ExactParam(), cos.norm=FALSE)
     expect_false(isTRUE(all.equal(PCA[[1]], reducedDim(mnn.out)[mnn.out$batch==1,])))
@@ -257,7 +257,7 @@ test_that("fastMNN changes the reference batch upon orthogonalization", {
     # ... except when there is no batch effect!
     B1 <- matrix(rnorm(10000, 0), nrow=100)
     B2 <- matrix(rnorm(20000, 0), nrow=100)
-    PCA <- multiBatchPCA(B1, B2)
+    PCA <- multiBatchPCA(B1, B2, BSPARAM=ExactParam())
 
     mnn.out <- fastMNN(B1, B2, min.batch.skip=0.2, BSPARAM=ExactParam(), cos.norm=FALSE) 
     expect_true(isTRUE(all.equal(PCA[[1]], reducedDim(mnn.out)[mnn.out$batch==1,])))
@@ -424,7 +424,7 @@ test_that("fastMNN computes the batch size correctly and skips no-batch scenario
     expect_true(metadata(out)$merge.info$skipped)
     expect_true(all(metadata(out)$merge.info$lost.var == 0))
 
-    ref <- multiBatchPCA(cosineNorm(B1), cosineNorm(B2y))
+    ref <- multiBatchPCA(cosineNorm(B1), cosineNorm(B2y), BSPARAM=ExactParam())
     expect_identical(reducedDim(out), rbind(ref[[1]], ref[[2]]))
     CHECK_PAIRINGS(out)
 })
@@ -617,9 +617,9 @@ test_that("fastMNN works correctly with weighting of PCs", {
     B1 <- matrix(rnorm(10000, 0), nrow=100) # Batch 1
     B2 <- matrix(rnorm(20000, 1), nrow=100) # Batch 2
 
-    pcs <- multiBatchPCA(B1, B2, d=10, weights=c(5, 1))
+    pcs <- multiBatchPCA(B1, B2, d=10, weights=c(5, 1), BSPARAM=ExactParam())
     out.pre <- reducedMNN(pcs[[1]], pcs[[2]])
-    out.norm <- fastMNN(B1, B2, d=10, weights=c(5, 1), cos.norm=FALSE, BSPARAM=BiocSingular::ExactParam())
+    out.norm <- fastMNN(B1, B2, d=10, weights=c(5, 1), cos.norm=FALSE, BSPARAM=ExactParam())
 
     expect_equal(metadata(pcs)$rotation, rowData(out.norm)$rotation)
     expect_equal(out.pre$corrected, reducedDim(out.norm))
@@ -628,9 +628,9 @@ test_that("fastMNN works correctly with weighting of PCs", {
     # Also trying with a single batch.
     DY <- cbind(B1, B2)
     batch <- rep(LETTERS[1:2], c(ncol(B1), ncol(B2)))
-    pcs <- multiBatchPCA(DY, batch=batch, d=10, weights=c(A=5, B=1))
+    pcs <- multiBatchPCA(DY, batch=batch, d=10, weights=c(A=5, B=1), BSPARAM=ExactParam())
     out.pre <- reducedMNN(A=pcs[[1]], B=pcs[[2]])
-    out.norm <- fastMNN(DY, batch=batch, d=10, weights=c(A=5, B=1), cos.norm=FALSE, BSPARAM=BiocSingular::ExactParam())
+    out.norm <- fastMNN(DY, batch=batch, d=10, weights=c(A=5, B=1), cos.norm=FALSE, BSPARAM=ExactParam())
 
     expect_equal(metadata(pcs)$rotation, rowData(out.norm)$rotation)
     expect_equal(out.pre$corrected, reducedDim(out.norm))

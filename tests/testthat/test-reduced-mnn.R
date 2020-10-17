@@ -1,6 +1,8 @@
 # This tests the reducedMNN function.
 # library(testthat); library(batchelor); source("test-reduced-mnn.R")
 
+library(BiocSingular)
+
 test_that("reducedMNN works with two batches", {
     # Note that all fastMNN checks will have batches that are offset 
     # to ensure that the correction is not skipped via min.batch.effect.
@@ -8,9 +10,9 @@ test_that("reducedMNN works with two batches", {
     B2 <- matrix(rnorm(20000, 1), nrow=100) # Batch 2
     
     # Behaves if we only use PCs.
-    pcs <- multiBatchPCA(B1, B2, d=10)
+    pcs <- multiBatchPCA(B1, B2, d=10, BSPARAM=ExactParam())
     out.pre <- reducedMNN(pcs[[1]], pcs[[2]])
-    out.norm <- fastMNN(B1, B2, d=10, cos.norm=FALSE, BSPARAM=BiocSingular::ExactParam())
+    out.norm <- fastMNN(B1, B2, d=10, cos.norm=FALSE, BSPARAM=ExactParam())
 
     expect_equal(metadata(pcs)$rotation, rowData(out.norm)$rotation)
     expect_equal(out.pre$corrected, reducedDim(out.norm))

@@ -35,8 +35,8 @@
 #' Only relevant if \code{subset.row} is not \code{NULL}.
 #' @param assay.type A string or integer scalar specifying the assay containing the log-expression values.
 #' Only used for SingleCellExperiment inputs. 
-#' @param BSPARAM A \linkS4class{BiocSingularParam} object specifying the algorithm to use for PCA.
-#' This uses a fast approximate algorithm from \pkg{irlba} by default, see \code{\link{multiBatchPCA}} for details.
+#' @param BSPARAM A \linkS4class{BiocSingularParam} object specifying the algorithm to use for PCA in \code{\link{multiBatchPCA}}.
+#' @param deferred Logical scalar indicating whether to defer centering/scaling, see \code{\link{multiBatchPCA}} for details.
 #' @param BNPARAM A \linkS4class{BiocNeighborParam} object specifying the nearest neighbor algorithm.
 #' @param BPPARAM A \linkS4class{BiocParallelParam} object specifying whether the PCA and nearest-neighbor searches should be parallelized.
 #' 
@@ -277,7 +277,8 @@ fastMNN <- function(..., batch=NULL, k=20, prop.k=NULL, restrict=NULL, cos.norm=
     d=50, weights=NULL, get.variance=FALSE,
     merge.order=NULL, auto.merge=FALSE, min.batch.skip=0,
     subset.row=NULL, correct.all=FALSE, assay.type="logcounts", 
-    BSPARAM=IrlbaParam(deferred=TRUE), BNPARAM=KmknnParam(), BPPARAM=SerialParam()) 
+    BSPARAM=IrlbaParam(), deferred=TRUE, 
+    BNPARAM=KmknnParam(), BPPARAM=SerialParam()) 
 {
     batches <- .unpackLists(...)
     checkBatchConsistency(batches, cells.in.columns=TRUE)
@@ -295,6 +296,8 @@ fastMNN <- function(..., batch=NULL, k=20, prop.k=NULL, restrict=NULL, cos.norm=
         bpstart(BPPARAM)
         on.exit(bpstop(BPPARAM), add=TRUE)
     }
+
+    BSPARAM <- .set_deferred(BSPARAM, deferred)
 
     # Performing the MNN search.
     common.args <-list(k=k, prop.k=prop.k, cos.norm=cos.norm, ndist=ndist, 
