@@ -1,6 +1,6 @@
 #' Regress out batch effects
 #'
-#' Fit a linear model to regress out uninteresting factors of variation.
+#' Fit a linear model to each gene regress out uninteresting factors of variation, returning a matrix of residuals.
 #'
 #' @inheritParams fastMNN
 #' @param design A numeric design matrix with number of rows equal to the total number of cells,
@@ -8,16 +8,22 @@
 #' Each row corresponds to a cell in the order supplied in \code{...}.
 #' @param keep Integer vector specifying the coefficients of \code{design} to \emph{not} regress out,
 #' see the \code{\link{ResidualMatrix}} constructor for more details.
+#' @param d Numeric scalar specifying the number of dimensions to use for PCA via \code{\link{multiBatchPCA}}.
+#' If \code{NA}, no PCA is performed.
+#' @param BPPARAM A \linkS4class{BiocParallelParam} object specifying whether the PCA should be parallelized.
 #'
 #' @return
 #' A \linkS4class{SingleCellExperiment} object containing the \code{corrected} assay.
-#' This contains corrected log-expression values for each gene (row) in each cell (column) in each batch.
+#' This contains the computed residuals for each gene (row) in each cell (column) in each batch.
 #' A \code{batch} field is present in the column data, specifying the batch of origin for each cell.
 #'
 #' Cells in the output object are always ordered in the same manner as supplied in \code{...}.
 #' For a single input object, cells will be reported in the same order as they are arranged in that object.
 #' In cases with multiple input objects, the cell identities are simply concatenated from successive objects,
 #' i.e., all cells from the first object (in their provided order), then all cells from the second object, and so on.
+#'
+#' If \code{d} is not \code{NA}, a PCA is performed on the residual matrix via \code{\link{multiBatchPCA}},
+#' and an additional \code{corrected} field is present in the \code{\link{reducedDims}} of the output object.
 #' 
 #' @details
 #' This function fits a linear model to the log-expression values for each gene and returns the residuals.
@@ -33,18 +39,25 @@
 #' If \code{design} is specified with a single object in \code{...}, \code{batch} is ignored.
 #' If \code{design} is specified with multiple objects, regression is applied to the matrix obtained by \code{cbind}ing all of those objects together; this means that the first few rows of \code{design} correspond to the cells from the first object, then the next rows correspond to the second object and so on.
 #' 
-#' Like \code{\link{rescaleBatches}}, this function assumes that the uninteresting factors described in \code{design} are orthogonal to the interesting factors of variation.
+#' Like \code{\link{rescaleBatches}}, this function assumes that the batch effect is orthogonal to the interesting factors of variation.
 #' For example, each batch is assumed to have the same composition of cell types.
-#' In the continuous case (e.g., regression of cell cycle), the assumption is that all cell types are similarly distributed across cell cycle phases.
+#' The same reasoning applies to any uninteresting factors specified in \code{design}, including continuous variables.
+#' For example, if one were to use this function to regress out cell cycle, the assumption is that all cell types are similarly distributed across cell cycle phases.
 #' If this is not true, the correction will not only be incomplete but can introduce spurious differences.
 #' 
-#' All genes are used with the default setting of \code{subset.row=NULL}.
-#' Users can set \code{subset.row} to subset the inputs, though this is purely for convenience as each gene is processed independently of other genes.
-#' Indeed, setting \code{correct.all=TRUE} is equivalent to forcing \code{subset.row=NULL},
-#'
 #' See \code{?"\link{batchelor-restrict}"} for a description of the \code{restrict} argument.
 #' Specifically, this function will compute the model coefficients using only the specified subset of cells.
 #' The regression will then be applied to all cells in each batch.
+#'
+#' If set, the \code{d} option will perform a PCA via \code{\link{multiBatchPCA}}.
+#' This is provided for convenience as efficiently executing a PCA on a \linkS4class{ResidualMatrix} is not always intuitive.
+#' (Specifically, \linkS4class{BiocSingularParam} objects must be set up with \code{deferred=TRUE} for best performance.)
+#' The arguments \code{BSPARAM}, \code{deferred} and \code{BPPARAM} only have an effect when \code{d} is set to a non-\code{NA} value.
+#'
+#' All genes are used with the default setting of \code{subset.row=NULL}.
+#' If a subset of genes is specified, residuals are only returned for that subset.
+#' Similarly, if \code{d} is set, only the genes in the subset are used to perform the PCA.
+#' If additionally \code{correct.all=TRUE}, residuals are returned for all genes but only the subset is used for the PCA.
 #'
 #' @author Aaron Lun
 #'
@@ -60,12 +73,12 @@
 #' @seealso
 #' \code{\link{rescaleBatches}}, for another approach to regressing out the batch effect.
 #'
-#' The \linkS4class{ResidualMatrix} class, for the nature of the return value.
+#' The \linkS4class{ResidualMatrix} class, for the class of the residual matrix.
 #' 
 #' @export
 #' @importFrom SummarizedExperiment assay
 #' @importFrom BiocGenerics cbind
-#' @importFrom SingleCellExperiment SingleCellExperiment
+#' @importFrom SingleCellExperiment SingleCellExperiment reducedDim<-
 #' @importFrom Matrix t 
 #' @importFrom ResidualMatrix ResidualMatrix
 #' @importFrom stats model.matrix
@@ -73,8 +86,11 @@
 #' @importFrom utils head
 #' @importFrom DelayedArray seed seed<-
 #' @importFrom scuttle .unpackLists
+#' @importFrom BiocParallel SerialParam
+#' @importFrom BiocSingular IrlbaParam 
 regressBatches <- function(..., batch=NULL, design=NULL, keep=NULL, restrict=NULL, 
-    subset.row=NULL, correct.all=FALSE, assay.type="logcounts") 
+    subset.row=NULL, correct.all=FALSE, assay.type="logcounts",
+    d=NA, BSPARAM=IrlbaParam(), deferred=TRUE, BPPARAM=SerialParam())
 {
     batches <- .unpackLists(...)
     checkBatchConsistency(batches)
@@ -118,6 +134,7 @@ regressBatches <- function(..., batch=NULL, design=NULL, keep=NULL, restrict=NUL
 
     if (!correct.all && !is.null(subset.row)) {
         combined <- combined[subset.row,,drop=FALSE]
+        subset.row <- NULL
     }
 
     if (is.null(design)) {
@@ -128,5 +145,13 @@ regressBatches <- function(..., batch=NULL, design=NULL, keep=NULL, restrict=NUL
 
     combined <- t(combined)
     corrected <- ResidualMatrix(combined, design, keep=keep, restrict=restrict)
-    SingleCellExperiment(list(corrected=t(corrected)), colData=DataFrame(batch=batch)) 
+    sce <- SingleCellExperiment(list(corrected=t(corrected)), colData=DataFrame(batch=batch)) 
+
+    if (!is.na(d)) {
+        BSPARAM <- .set_deferred(BSPARAM, deferred)
+        pc.out <- .multi_pca_single(assay(sce), batch, subset.row=subset.row, d=d, BSPARAM=BSPARAM, BPPARAM=BPPARAM)
+        reducedDim(sce, "corrected") <- pc.out[[1]]
+    }
+
+    sce
 }

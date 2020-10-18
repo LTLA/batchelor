@@ -199,6 +199,31 @@ test_that("regressBatches works with restrictions", {
     expect_equal_matrix(assay(test)[,shuffle], assay(test2))
 })
 
+library(BiocSingular)
+
+set.seed(1300021)
+test_that("regressBatches PCA behaves as expected", {
+    A1 <- matrix(rpois(10000, lambda=5), nrow=100) # Batch 1 
+    A2 <- matrix(rpois(20000, lambda=5), nrow=100) # Batch 2
+    B1 <- log2(A1+1)
+    B2 <- log2(A2+1)
+
+    ref <- regressBatches(B1, B2, d=10, BSPARAM=ExactParam())
+    out <- multiBatchPCA(assay(ref), batch=ref$batch, d=10, BSPARAM=ExactParam(), preserve.single=TRUE)
+    expect_identical(reducedDim(ref), out[[1]])
+
+    # Responds to subsetting and correct.all=TRUE.
+    ref2 <- regressBatches(B1, B2, d=10, subset.row=1:20, BSPARAM=ExactParam())
+    expect_identical(assay(ref)[1:20,], assay(ref2))
+    out2 <- multiBatchPCA(assay(ref2), batch=ref2$batch, d=10, BSPARAM=ExactParam(), preserve.single=TRUE)
+    expect_identical(reducedDim(ref2), out2[[1]])
+
+    ref3 <- regressBatches(B1, B2, d=10, correct.all=TRUE, subset.row=1:20, BSPARAM=ExactParam())
+    expect_identical(assay(ref), assay(ref3))
+    out3 <- multiBatchPCA(assay(ref3)[1:20,], batch=ref3$batch, d=10, BSPARAM=ExactParam(), preserve.single=TRUE)
+    expect_identical(reducedDim(ref3), out3[[1]])
+})
+
 set.seed(130003)
 test_that("regressBatches fails on silly inputs", {
     B1 <- matrix(rnorm(10000), nrow=100) # Batch 1 
