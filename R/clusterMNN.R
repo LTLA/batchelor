@@ -38,7 +38,7 @@
 #' and all of its constituents are the matching clusters within each batch.
 #'
 #' As an extra courtesy, \code{clusterMNN} will also compute corrected values for each cell.
-#' This cell is done by applying a Gaussian kernel to the correction vectors for the centroids,
+#' This is done by applying a Gaussian kernel to the correction vectors for the centroids,
 #' where the bandwidth is proportional to the distance between that cell and the centroid of its assigned cluster.
 #' This yields a smooth correction function that avoids edge effects at cluster boundaries.
 #' 

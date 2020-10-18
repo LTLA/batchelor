@@ -4,8 +4,14 @@
 
 \section{Version 1.6.0}{\itemize{
 \item Allow \code{regressBatches()} to operate without \code{batch=} when \code{design=} is provided.
+Added \code{d=} and related options to conveniently perform a PCA on the \linkS4class{ResidualMatrix}.
 
 \item Added \code{correct.all=} option to all correction functions for consistency.
+
+\item Added a \code{deferred=TRUE} default to \code{multiBatchPCA} and its callers,
+to encourage use of deferred matrix multiplication for speed.
+
+\item Switched default PCA algorithm in \code{multiBatchPCA} to \linkS4class{IrlbaParam}.
 
 \item Added \code{add.single=} mode for endomorphic addition of correction results in \code{correctExperiments()}.
 }}
