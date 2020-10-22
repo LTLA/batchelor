@@ -119,14 +119,14 @@ regressBatches <- function(..., batch=NULL, design=NULL, keep=NULL, restrict=NUL
     } else if (length(batches)==1L) {
         combined <- batches[[1]]
 
-        # We just need a placeholder for the colData setting below.
-        if (!is.null(design)) {
-            batch <- matrix(0L, ncol(combined), 0) 
+        if (is.null(batch)) {
+            if (!is.null(design)) {
+                batch <- rep(1L, ncol(combined))
+            } else {
+                stop("'batch' must be specified if '...' has only one object")
+            }
         }
 
-        if (is.null(batch)) { 
-            stop("'batch' must be specified if '...' has only one object")
-        }
         restrict <- restrict[[1]]
     } else {
         stop("at least two batches must be specified")

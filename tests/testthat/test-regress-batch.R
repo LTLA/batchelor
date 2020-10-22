@@ -67,7 +67,7 @@ test_that("regressBatches behaves correctly with a design matrix", {
     # Works with a single batch.
     corrected3 <- regressBatches(cbind(B1, B2), design=model.matrix(~b))
     expect_equivalent(as.matrix(assay(corrected2)), as.matrix(assay(corrected3)))
-    expect_null(corrected3$batch)
+    expect_true(all(corrected3$batch==1))
 
     # Throws an error.
     expect_error(regressBatches(B1, B2, design=cbind(1)), "total number")
@@ -222,6 +222,13 @@ test_that("regressBatches PCA behaves as expected", {
     expect_identical(assay(ref), assay(ref3))
     out3 <- multiBatchPCA(assay(ref3)[1:20,], batch=ref3$batch, d=10, BSPARAM=ExactParam(), preserve.single=TRUE)
     expect_identical(reducedDim(ref3), out3[[1]])
+
+    # Works with a design matrix.
+    batch <- factor(rep(1:2, c(ncol(B1), ncol(B2))))
+    out <- regressBatches(cbind(B1, B2), design = model.matrix(~batch), d=10, BSPARAM=ExactParam())
+
+    ratios <- reducedDim(out)/runPCA(t(assay(out)), rank=10)$x
+    expect_equivalent(abs(colMeans(ratios)), rep(1, 10))
 })
 
 set.seed(130003)
