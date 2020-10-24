@@ -6,6 +6,9 @@
 #'
 #' If multiple objects are supplied, each object is assumed to contain all and only cells from a single batch.
 #' If a single object is supplied, \code{batch} should also be specified.
+#'
+#' Alternatively, any number of lists of such objects.
+#' this is flattened as if the objects inside each list were passed directly to \code{...}.
 #' @inheritParams fastMNN
 #'
 #' @return
@@ -52,12 +55,12 @@
 #' @importFrom BiocNeighbors KmknnParam
 #' @importFrom BiocParallel SerialParam bpstart bpstop 
 #' @importClassesFrom S4Vectors DataFrame
-#' @importFrom scuttle .bpNotSharedOrUp
+#' @importFrom scuttle .bpNotSharedOrUp .unpackLists
 reducedMNN <- function (..., batch=NULL, k=20, prop.k=NULL, restrict=NULL, ndist=3,
     merge.order=NULL, auto.merge=FALSE, min.batch.skip=0,
     BNPARAM=KmknnParam(), BPPARAM=SerialParam())
 {
-    batches <- list(...)
+    batches <- .unpackLists(...)
     is.df <- vapply(batches, is, class2="DataFrame", FUN.VALUE=TRUE)
 
     checkBatchConsistency(batches, cells.in.columns=FALSE)
