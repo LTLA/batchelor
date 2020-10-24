@@ -22,7 +22,7 @@ test_that("clusterMNN behaves like fastMNN on pseudo-bulk samples", {
     norm1 <- sumCountsAcrossCells(cosineNorm(B1), cluster1, average=TRUE)
     norm2 <- sumCountsAcrossCells(cosineNorm(B2), cluster2, average=TRUE)
     ref <- fastMNN(assay(norm1), assay(norm2), cos.norm=FALSE, k=1, 
-        BSPARAM=BiocSingular::ExactParam())
+        BSPARAM=BiocSingular::ExactParam(), deferred=FALSE)
 
     expect_identical(metadata(output)$merge.info, metadata(ref)$merge.info)
     expect_identical(metadata(output)$cluster$cluster, c(colnames(norm1), colnames(norm2)))
@@ -34,8 +34,7 @@ test_that("clusterMNN's full-rank PCA preserves relative distances", {
     stuff2 <- matrix(rnorm(500), nrow=20)
     stuff3 <- matrix(rnorm(2000), nrow=20)
     
-    pcas <- batchelor:::.full_rank_pca(list(stuff1, stuff2, stuff3), correct.all=FALSE, subset.row=NULL,
-        BSPARAM=BiocSingular::ExactParam(), BPPARAM=BiocParallel::SerialParam())
+    pcas <- batchelor:::.full_rank_pca(list(stuff1, stuff2, stuff3), correct.all=FALSE, subset.row=NULL)
     out <- dist(do.call(rbind, as.list(pcas)))
 
     ref <- dist(t(cbind(stuff1, stuff2, stuff3)))
@@ -107,6 +106,27 @@ test_that("clusterMNN can correct beyond the subset", {
     expect_equal(output[1:10,], ref[1:10,])
 })
 
+test_that("clusterMNN works with a BlusterParam object", {
+    set.seed(9999)
+    cluster1 <- kmeans(t(B1), centers=10)$cluster
+    cluster2 <- kmeans(t(B2), centers=10)$cluster
+    ref <- clusterMNN(B1, B2, clusters=list(unname(cluster1), unname(cluster2)))
+
+    set.seed(9999)
+    output <- clusterMNN(B1, B2, cluster.d=NA, clusters=bluster::KmeansParam(10))
+    output$cluster <- as.integer(output$cluster)
+    expect_identical(ref, output)
+
+    # Regular call with PCA also works.    
+    set.seed(8888)
+    full <- clusterMNN(B1[1:50,], B2[1:50,], cluster.d=10, clusters=bluster::NNGraphParam())
+    set.seed(8888)
+    sub <- clusterMNN(B1, B2, cluster.d=10, clusters=bluster::NNGraphParam(), subset.row=1:50)
+    expect_identical(full, sub)
+
+    expect_error(clusterMNN(B1, B2, clusters=1), "BlusterParam")
+})
+
 test_that("clusterMNN restriction works correctly", {
     ref <- clusterMNN(B1, B2, clusters=list(cluster1, cluster2))
 
@@ -146,6 +166,19 @@ test_that("clusterMNN single-batch mode works correctly", {
         clusters=list(c(cluster1, cluster2)[reorder]))
 
     expect_equal(single[, reorder], single2)
+
+    # Also works for self-clustering.
+    single3 <- clusterMNN(cbind(B1, B2), 
+        batch=rep(c("A", "X"), c(ncol(B1), ncol(B2))),
+        clusters=bluster::NNGraphParam())
+    expect_identical(dim(single3), dim(single))
+
+    expect_error(
+        clusterMNN(cbind(B1, B2), 
+            batch=rep(c("A", "X"), c(ncol(B1), ncol(B2))),
+            clusters=list(cluster1, cluster2)),
+        "must be a list of length 1"
+    )
 })
 
 test_that("clusterMNN single-batch works correctly with SCEs", {

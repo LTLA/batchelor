@@ -28,6 +28,7 @@ Suggests:
     knitr,
     scran,
     scater,
+    bluster,
     scRNAseq
 biocViews: 
     Sequencing,
