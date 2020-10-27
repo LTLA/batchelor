@@ -1,5 +1,5 @@
 Package: batchelor
-Version: 1.5.9
+Version: 1.6.0
 Date: 2020-10-24
 Title: Single-Cell Batch Correction Methods
 Authors@R: c(person("Aaron", "Lun", role = c("aut", "cre"), email = "infinite.monkeys.with.keyboards@gmail.com"),
