@@ -148,7 +148,7 @@ correctExperiments <- function(..., batch=NULL, restrict=NULL, subset.row=NULL, 
     other
 }
 
-#' @importFrom S4Vectors mcols mcols<- DataFrame make_zero_col_DFrame
+#' @importFrom S4Vectors mcols mcols<- DataFrame make_zero_col_DFrame I
 .accumulate_rowdata <- function(all.ranges) {
     all.rd <- lapply(all.ranges, mcols)
     all.ranges <- lapply(all.ranges, FUN=function(x) {
