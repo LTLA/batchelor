@@ -46,3 +46,10 @@
 
     output
 }
+
+#' @importFrom S4Vectors make_zero_col_DFrame
+.create_unnamed_coldata <- function(batch) {
+    df <- make_zero_col_DFrame(length(batch))
+    df$batch <- batch
+    df
+}

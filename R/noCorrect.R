@@ -74,5 +74,5 @@ noCorrect <- function(..., batch=NULL, subset.row=NULL, correct.all=FALSE, assay
         }
     }
 
-    SingleCellExperiment(list(merged=output), colData=DataFrame(batch=batch))
+    SingleCellExperiment(list(merged=output), colData=.create_unnamed_coldata(batch))
 }
