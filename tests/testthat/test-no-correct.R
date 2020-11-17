@@ -73,3 +73,14 @@ test_that("noCorrect handles SingleCellExperiment inputs", {
     out2 <- noCorrect(test1, test2, assay.type="whee")
     expect_equal(out2, ref)
 })
+
+test_that("noCorrect respects names properly", {
+    test <- matrix(rnorm(10000), nrow=100)
+    colnames(test) <- seq_len(nrow(test))
+    batch <- sample(LETTERS[1:5], ncol(test), replace=TRUE)
+    names(batch) <- paste0("whee", seq_len(nrow(test)))
+
+    out <- noCorrect(test, batch=batch)
+    expect_identical(colnames(out), colnames(test))
+    expect_identical(out$batch , batch)
+})

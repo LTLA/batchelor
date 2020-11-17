@@ -145,7 +145,7 @@ regressBatches <- function(..., batch=NULL, design=NULL, keep=NULL, restrict=NUL
 
     combined <- t(combined)
     corrected <- ResidualMatrix(combined, design, keep=keep, restrict=restrict)
-    sce <- SingleCellExperiment(list(corrected=t(corrected)), colData=DataFrame(batch=batch)) 
+    sce <- SingleCellExperiment(list(corrected=t(corrected)), colData=.create_unnamed_coldata(batch)) 
 
     if (!is.na(d)) {
         BSPARAM <- .set_deferred(BSPARAM, deferred)
