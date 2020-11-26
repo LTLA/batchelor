@@ -39,11 +39,7 @@
 #' @export
 #' @importMethodsFrom BiocGenerics nrow ncol
 #' @importFrom BiocGenerics colnames rownames
-checkBatchConsistency <- function(batches, cells.in.columns=TRUE)
-# Checking for identical number of rows (and rownames).
-# It can also do the same for columns, if we're dealing with PC results.
-# It then returns a list of dimnames for renaming the output.
-{
+checkBatchConsistency <- function(batches, cells.in.columns=TRUE) {
     if (length(batches)==0L) {
         return(invisible(NULL))
     }
@@ -65,16 +61,26 @@ checkBatchConsistency <- function(batches, cells.in.columns=TRUE)
     for (b in seq_along(batches)[-1]) { 
         current <- batches[[b]]
         if (!identical(DIMFUN(current), ref.n)) {
-            stop(sprintf("number of %ss is not the same across batches", DIM))
+            stop(sprintf("number of %ss is not the same across batches (see batch %s)", 
+                DIM, .identify_failed_batch(b, names(batches))))
         }
 
         cur.names <- DIMNAMEFUN(current)
         if (!identical(cur.names, ref.names)) {
-            stop(sprintf("%s names are not the same across batches", DIM))
+            stop(sprintf("%s names are not the same across batches (see batch %s)",
+                DIM, .identify_failed_batch(b, names(batches))))
         }
     }
 
     invisible(NULL)
+}
+
+.identify_failed_batch <- function(bx, names) {
+    if (is.null(names) || names[bx]=="") {
+        bx
+    } else {
+        deparse(names[bx])
+    }
 }
 
 #' @rdname checkInputs

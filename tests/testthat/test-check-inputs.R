@@ -50,6 +50,17 @@ test_that("checkBatchConsistency handles corner cases", {
     expect_error(checkBatchConsistency(list(B[,0], B[,0]), cells.in.columns=FALSE), NA)
 })
 
+set.seed(10000012)
+test_that("checkBatchConsistency reports names correctly", {
+    expect_error(checkBatchConsistency(list(cbind(1), cbind(1:2))), "batch 2")
+    expect_error(checkBatchConsistency(list(cbind(1), X=cbind(1:2))), "batch \"X\"")
+    expect_error(checkBatchConsistency(list(X=cbind(1), cbind(1:2))), "batch 2")
+
+    expect_error(checkBatchConsistency(list(rbind(A=1), rbind(B=2))), "batch 2")
+    expect_error(checkBatchConsistency(list(rbind(A=1), X=rbind(B=2))), "batch \"X\"")
+    expect_error(checkBatchConsistency(list(X=rbind(A=1), rbind(B=2))), "batch 2")
+})
+
 set.seed(1000003)
 test_that("checkIfSCE works correctly", {
     sce1 <- SingleCellExperiment(list(logcounts=matrix(runif(5000), nrow=10)))
