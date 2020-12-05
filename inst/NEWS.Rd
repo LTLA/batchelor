@@ -2,6 +2,10 @@
 \title{batchelor News}
 \encoding{UTF-8}
 
+\section{Version 1.8.0}{\itemize{
+\item Migrate \code{findMutualNN()} to \pkg{BiocNeighbors}.
+}}
+
 \section{Version 1.6.0}{\itemize{
 \item Allow \code{regressBatches()} to operate without \code{batch=} when \code{design=} is provided.
 Added \code{d=} and related options to conveniently perform a PCA on the \linkS4class{ResidualMatrix}.
