@@ -234,7 +234,7 @@ multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, weights=NULL,
 
 #' @importFrom BiocGenerics ncol rbind
 #' @importFrom DelayedArray DelayedArray
-#' @importFrom BiocSingular DeferredMatrix
+#' @importFrom ScaledMatrix ScaledMatrix
 #' @importFrom Matrix t rowMeans
 .process_listed_matrices_for_pca <- function(mat.list, weights, subset.row, deferred=FALSE) {
     weights <- .construct_weight_vector(vapply(mat.list, ncol, 0L), weights)
@@ -263,15 +263,15 @@ multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, weights=NULL,
         for (idx in seq_along(mat.list)) {
             current <- t(mat.list[[idx]]) 
             transposed[[idx]] <- current
-            current <- DeferredMatrix(current, center=grand.centers)
+            current <- ScaledMatrix(current, center=grand.centers)
             centered[[idx]] <- t(current)
             w <- sqrt(nrow(current) / weights[idx])
             all.scale[[idx]] <- rep(w, nrow(current))
         } 
 
         # (Deferred) scaling to implicitly downweight samples with many cells.
-        tmp <- DeferredMatrix(do.call(rbind, transposed), center=grand.centers)
-        scaled <- DeferredMatrix(t(tmp), scale=unlist(all.scale))
+        tmp <- ScaledMatrix(do.call(rbind, transposed), center=grand.centers)
+        scaled <- ScaledMatrix(t(tmp), scale=unlist(all.scale))
 
     } else {
         for (idx in seq_along(mat.list)) {
@@ -444,7 +444,7 @@ multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, weights=NULL,
 }
 
 #' @importFrom DelayedArray DelayedArray
-#' @importFrom BiocSingular DeferredMatrix
+#' @importFrom ScaledMatrix ScaledMatrix
 #' @importFrom Matrix t rowMeans
 .process_single_matrix_for_pca <- function(x, batch, weights, subset.row, deferred=FALSE) {
     batch <- factor(batch)
@@ -470,8 +470,8 @@ multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, weights=NULL,
     # Applying the centering and scaling.
     w <- sqrt(tab[batch] / weights[batch])
     if (deferred) {
-        centered <- t(DeferredMatrix(t(x), center=centers))
-        scaled <- DeferredMatrix(centered, scale=w)
+        centered <- t(ScaledMatrix(t(x), center=centers))
+        scaled <- ScaledMatrix(centered, scale=w)
     } else {
         centered <- DelayedArray(x)
         centered <- centered - centers

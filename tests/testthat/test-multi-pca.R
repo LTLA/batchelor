@@ -278,9 +278,9 @@ test_that("multi-sample PCA works with deferred operations", {
     expect_equal(lapply(ref$centered, as.matrix), lapply(out$centered, as.matrix))
 
     expect_s4_class(ref$scaled, "DelayedMatrix")
-    expect_s4_class(out$scaled, "DeferredMatrix")
+    expect_s4_class(out$scaled, "ScaledMatrix")
     expect_s4_class(ref$centered[[1]], "DelayedMatrix")
-    expect_s4_class(out$centered[[1]], "DeferredMatrix")
+    expect_s4_class(out$centered[[1]], "ScaledMatrix")
 
     # Comparing the output.
     ref <- multiBatchPCA(test1, test2, test3, d=20, BSPARAM=ExactParam())
