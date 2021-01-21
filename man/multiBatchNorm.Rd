@@ -9,6 +9,7 @@ multiBatchNorm(
   batch = NULL,
   assay.type = "counts",
   norm.args = list(),
+  as.altexp = NULL,
   min.mean = 1,
   subset.row = NULL,
   normalize.all = FALSE,
@@ -32,6 +33,9 @@ This is ignored if multiple objects are present.}
 \item{assay.type}{A string specifying which assay values contains the counts.}
 
 \item{norm.args}{A named list of further arguments to pass to \code{\link[scuttle]{logNormCounts}}.}
+
+\item{as.altexp}{String or integer scalar indicating the alternative Experiment to use in the function (see below for details).
+All entries of \code{...} must contain the specified entry in their \code{\link{altExps}}.}
 
 \item{min.mean}{A numeric scalar specifying the minimum (library size-adjusted) average count of genes to be used for normalization.}
 
@@ -83,6 +87,19 @@ This removes at least one difference between batches to facilitate easier correc
 However, the advantage of \code{\link{multiBatchNorm}} is that its output is more easily interpreted - 
 the normalized values remain on the log-scale and differences can still be interpreted (roughly) as log-fold changes.
 The output can then be fed into downstream analysis procedures (e.g., HVG detection) in the same manner as typical log-normalized values from \code{\link{logNormCounts}}.
+}
+
+\section{Handling alternative Experiments}{
+
+If \code{as.altexp} is specified, this function is applied to the specified alternative Experiment from each entry of \code{...}.
+This provides a convenient way to normalize multiple feature sets via repeated calls to \code{\link{multiBatchNorm}} with different \code{as.altexp}.
+The result is equivalent to extracting one alternative Experiment from each input SingleCellExperiment and running \code{multiBatchNorm} on that set.
+No information is shared between main and alternative Experiments, or between the different alternative Experiments.
+
+When \code{as.altexp} is specified, any non-\code{NULL} value of \code{subset.row} applies to the features of the alternative Experiment.
+Similarly, filtering by \code{min.mean} applies to the specified alternative Experiment.
+Note that the latter may not always be appropriate depending on the scale of counts in the alternative Experiments;
+the default is based on typical RNA count data, and a lower threshold may be required for features that are less deeply sequenced.
 }
 
 \examples{

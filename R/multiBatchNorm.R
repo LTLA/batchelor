@@ -18,6 +18,8 @@
 #' @param subset.row A vector specifying which features to use for normalization.
 #' @param normalize.all A logical scalar indicating whether normalized values should be returned for all genes.
 #' @param preserve.single A logical scalar indicating whether to combine the results into a single matrix if only one object was supplied in \code{...}.
+#' @param as.altexp String or integer scalar indicating the alternative Experiment to use in the function (see below for details).
+#' All entries of \code{...} must contain the specified entry in their \code{\link{altExps}}.
 #' @param BPPARAM A \linkS4class{BiocParallelParam} object specifying whether calculations should be parallelized. 
 #' 
 #' @details
@@ -49,6 +51,17 @@
 #' However, the advantage of \code{\link{multiBatchNorm}} is that its output is more easily interpreted - 
 #' the normalized values remain on the log-scale and differences can still be interpreted (roughly) as log-fold changes.
 #' The output can then be fed into downstream analysis procedures (e.g., HVG detection) in the same manner as typical log-normalized values from \code{\link{logNormCounts}}.
+#'
+#' @section Handling alternative Experiments:
+#' If \code{as.altexp} is specified, this function is applied to the specified alternative Experiment from each entry of \code{...}.
+#' This provides a convenient way to normalize multiple feature sets via repeated calls to \code{\link{multiBatchNorm}} with different \code{as.altexp}.
+#' The result is equivalent to extracting one alternative Experiment from each input SingleCellExperiment and running \code{multiBatchNorm} on that set.
+#' No information is shared between main and alternative Experiments, or between the different alternative Experiments.
+#'
+#' When \code{as.altexp} is specified, any non-\code{NULL} value of \code{subset.row} applies to the features of the alternative Experiment.
+#' Similarly, filtering by \code{min.mean} applies to the specified alternative Experiment.
+#' Note that the latter may not always be appropriate depending on the scale of counts in the alternative Experiments;
+#' the default is based on typical RNA count data, and a lower threshold may be required for features that are less deeply sequenced.
 #' 
 #' @return
 #' A list of SingleCellExperiment objects with normalized log-expression values in the \code{"logcounts"} assay (depending on values in \code{norm.args}).
@@ -86,7 +99,8 @@
 #' @export
 #' @importFrom BiocGenerics sizeFactors sizeFactors<- cbind
 #' @importFrom scuttle logNormCounts librarySizeFactors .unpackLists
-multiBatchNorm <- function(..., batch=NULL, assay.type="counts", norm.args=list(), 
+#' @importFrom SingleCellExperiment altExp altExp<-
+multiBatchNorm <- function(..., batch=NULL, assay.type="counts", norm.args=list(), as.altexp=NULL, 
     min.mean=1, subset.row=NULL, normalize.all=FALSE, preserve.single=TRUE, BPPARAM=SerialParam())
 {
     batches <- .unpackLists(...)
@@ -95,111 +109,167 @@ multiBatchNorm <- function(..., batch=NULL, assay.type="counts", norm.args=list(
         stop("at least one SingleCellExperiment must be supplied") 
     }
 
-    norm.args <- c(norm.args, list(exprs_values=assay.type, center_size_factors=FALSE))
-    needs.subset <- !normalize.all && !is.null(subset.row)
-
     # Setting up the parallelization environment.
     if (.bpNotSharedOrUp(BPPARAM)) {
         bpstart(BPPARAM)
         on.exit(bpstop(BPPARAM), add=TRUE)
     }
 
+    # Handling the batch= and preserve.single= options.
     if (length(batches)==1L) {
-        sce <- batches[[1]]
         if (is.null(batch)) { 
             stop("'batch' must be specified if '...' has only one object")
         }
 
-        # We have to split them up for calcAverage anyway,
-        # so there's no point writing special code here (unlike multiBatchPCA).
-        by.batch <- split(seq_along(batch), batch)
-        batches <- by.batch
-        for (i in seq_along(by.batch)) {
-            batches[[i]] <- sce[,by.batch[[i]],drop=FALSE]
+        if (!preserve.single) {
+            sce <- batches[[1]]
+            by.batch <- split(seq_along(batch), batch)
+            batches <- by.batch
+            for (i in seq_along(by.batch)) {
+                batches[[i]] <- sce[,by.batch[[i]],drop=FALSE]
+            }
         }
     } else {
         preserve.single <- FALSE
     }
 
-    sfs <- .rescale_size_factors(batches, assay.type=assay.type, 
-        subset.row=subset.row, min.mean=min.mean, BPPARAM=BPPARAM)
+    if (!is.null(as.altexp)) {
+        originals <- batches
+        batches <- lapply(batches, altExp, e=as.altexp)
+    }
+
+    # Computing the averages and the size factors.
+    if (preserve.single) {
+        stats <- .compute_batch_statistics_single(x=batches[[1]], batch=batch, 
+            assay.type=assay.type, subset.row=subset.row, BPPARAM=BPPARAM)
+    } else {
+        stats <- .compute_batch_statistics_list(batches, 
+            assay.type=assay.type, subset.row=subset.row, BPPARAM=BPPARAM)
+    }
+
+    # Computing rescaling factors.
+    sfs <- .rescale_size_factors(stats$averages, stats$size.factors, min.mean=min.mean)
+    extra.norm.args <- list(assay.type=assay.type, center.size.factors=FALSE)
+    needs.subset <- !normalize.all && !is.null(subset.row)
 
     if (preserve.single) {
+        sce <- batches[[1]]
         if (needs.subset) {
             sce <- sce[subset.row,]
         }
 
         all.sf <- unlist(sfs, use.names=FALSE)
-        reorder <- order(unlist(by.batch))
+        reorder <- order(unlist(stats$by.batch))
         sizeFactors(sce) <- all.sf[reorder]
 
-        do.call(logNormCounts, c(list(x=sce), norm.args))
+        output <- do.call(logNormCounts, c(list(x=sce), c(norm.args, extra.norm.args)))
 
+        if (!is.null(as.altexp)) {
+            altExp(originals[[1]], as.altexp) <- output
+            output <- originals[[1]]
+        }
     } else {
+        output <- vector("list", length(batches))
+        names(output) <- names(batches)
+
         for (i in seq_along(batches)) {
             current <- batches[[i]]
             sizeFactors(current) <- sfs[[i]]
             if (needs.subset) {
                 current <- current[subset.row,,drop=FALSE]
             }
-            current <- do.call(logNormCounts, c(list(x=current), norm.args))
-            batches[[i]] <- current
+            current <- do.call(logNormCounts, c(list(x=current), c(norm.args, extra.norm.args)))
+            output[[i]] <- current
         }
 
-        batches
+        if (!is.null(as.altexp)) {
+            for (i in seq_along(output)) {
+                altExp(originals[[i]], as.altexp) <- output[[i]]
+            }
+            output <- originals
+        }
     }
+
+    output
 }
 
-#' @importFrom scuttle librarySizeFactors
-#' @importFrom BiocGenerics sizeFactors sizeFactors<-
-.rescale_size_factors <- function(batches, assay.type, subset.row, min.mean, BPPARAM) {
-    # Centering the endogenous size factors.
+#' @importFrom SummarizedExperiment assay
+#' @importFrom BiocGenerics sizeFactors
+.compute_batch_statistics_list <- function(batches, assay.type, subset.row, BPPARAM) {
+    empty <- vector("list", length(batches))
+    names(empty) <- names(batches)
+    size.factors <- all.averages <- empty
+
     for (b in seq_along(batches)) {
         current <- batches[[b]]
 
-        cursf <- sizeFactors(current)
-        if (is.null(cursf)) {
-            cursf <- librarySizeFactors(current, exprs_values=assay.type, 
-                subset_row=subset.row, BPPARAM=BPPARAM)
-        }
+        stats <- .compute_batch_statistics(
+            assay(current, assay.type), 
+            sf=sizeFactors(current),
+            subset.row=subset.row, 
+            BPPARAM=BPPARAM
+        )
 
-        centering <- mean(cursf)
-        sizeFactors(current) <- cursf / centering
-        batches[[b]] <- current
+        size.factors[[b]] <- stats$size.factors
+        all.averages[[b]] <- stats$averages
     }
 
-    # Adjusting size factors to the lowest-coverage reference.
-    rescaling <- .compute_batch_rescaling(batches, subset.row=subset.row,
-        assay.type=assay.type, min.mean=min.mean, BPPARAM=BPPARAM)
-
-    for (idx in seq_along(batches)) {
-        current <- batches[[idx]]
-        cursf <- sizeFactors(current)
-        cursf <- cursf / rescaling[idx] 
-        batches[[idx]] <- cursf
-    }
-
-    batches
+    list(size.factors=size.factors, averages=all.averages)
 }
 
-#' @importFrom scuttle calculateAverage 
+#' @importFrom SummarizedExperiment assay
+#' @importFrom BiocGenerics sizeFactors
+.compute_batch_statistics_single <- function(x, batch, assay.type, subset.row, BPPARAM) {
+    by.batch <- split(seq_along(batch), batch)
+    empty <- vector("list", length(by.batch))
+    names(empty) <- names(by.batch)
+    size.factors <- all.averages <- empty
+
+    mat <- assay(x, assay.type)
+    sf <- sizeFactors(x)
+
+    for (b in seq_along(by.batch)) {
+        current <- by.batch[[b]]
+
+        stats <- .compute_batch_statistics(
+            mat[,current,drop=FALSE],
+            sf=sf[current],
+            subset.row=subset.row, 
+            BPPARAM=BPPARAM
+        )
+
+        size.factors[[b]] <- stats$size.factors
+        all.averages[[b]] <- stats$averages
+    }
+
+    list(size.factors=size.factors, averages=all.averages, by.batch=by.batch)
+}
+
+#' @importFrom scuttle librarySizeFactors calculateAverage
+.compute_batch_statistics <- function(mat, sf, subset.row, BPPARAM) {
+    if (is.null(sf)) {
+        sf <- librarySizeFactors(mat, subset.row=subset.row, BPPARAM=BPPARAM)
+    } else {
+        sf <- sf / mean(sf)
+    }
+    ave <- calculateAverage(mat, subset.row=subset.row, size.factors=sf, BPPARAM=BPPARAM)
+    list(size.factors=sf, averages=ave)
+}
+
 #' @importFrom stats median
-#' @importFrom BiocGenerics sizeFactors sizeFactors<-
-.compute_batch_rescaling <- function(batches, subset.row, assay.type, min.mean, BPPARAM) 
+.rescale_size_factors <- function(ave.list, sf.list, min.mean) 
 # Computes the median ratios (a la DESeq normalization),
 # finds the smallest ratio and uses that as the reference.
 {
-    nbatches <- length(batches)
-    collected.ave <- lapply(batches, FUN=calculateAverage, exprs_values=assay.type, 
-        subset_row=subset.row, BPPARAM=BPPARAM)
-
+    nbatches <- length(ave.list)
     collected.ratios <- matrix(1, nbatches, nbatches)
+
     for (first in seq_len(nbatches-1L)) {
-        first.ave <- collected.ave[[first]]
+        first.ave <- ave.list[[first]]
         first.sum <- sum(first.ave)
 
         for (second in first + seq_len(nbatches - first)) {
-            second.ave <- collected.ave[[second]]
+            second.ave <- ave.list[[second]]
             second.sum <- sum(second.ave)
 
             # Mimic calcAverage(cbind(first.ave, second.ave)).
@@ -223,5 +293,11 @@ multiBatchNorm <- function(..., batch=NULL, assay.type="counts", norm.args=list(
 
     # Rescaling to the lowest coverage batch.
     smallest <- which.min(apply(collected.ratios, 2, min, na.rm=TRUE))
-    collected.ratios[,smallest]
+    rescaling <- collected.ratios[,smallest]
+
+    for (idx in seq_len(nbatches)) {
+        sf.list[[idx]] <- sf.list[[idx]] / rescaling[idx]
+    }
+    
+    sf.list
 }

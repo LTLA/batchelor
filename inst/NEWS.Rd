@@ -4,6 +4,8 @@
 
 \section{Version 1.8.0}{\itemize{
 \item Migrate \code{findMutualNN()} to \pkg{BiocNeighbors}.
+
+\item Added \code{as.altexp=} to \code{multiBatchNorm()} to easily normalize alternative Experiments.
 }}
 
 \section{Version 1.6.0}{\itemize{

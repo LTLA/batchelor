@@ -79,7 +79,7 @@ set.seed(20012)
 test_that("multiBatchNorm behaves correctly with mean filtering", {
     dummy2 <- matrix(rnbinom(ngenes*ncells, mu=means * 10, size=5), ncol=ncells, nrow=ngenes)
     rownames(dummy2) <- paste0("X", seq_len(ngenes))
-    
+
     X2 <- SingleCellExperiment(list(counts=dummy2))
     sizeFactors(X2) <- runif(ncol(X2))
 
@@ -223,4 +223,28 @@ test_that("multiBatchNorm behaves correctly with an input list", {
     expect_identical(ref, alt2)
 })
 
+set.seed(20014)
+test_that("multiBatchNorm works correctly with alternative experiments", {
+    X2 <- X
+    counts(X2) <- counts(X2) * 2L
+    X3 <- X
+    counts(X3) <- counts(X3) * 3L
+    ref <- multiBatchNorm(X, X2, X3)
+
+    dummy1 <- dummy2 <- dummy3 <- X
+    altExp(dummy1, "axel") <- X
+    altExp(dummy2, "axel") <- X2
+    altExp(dummy3, "axel") <- X3
+    out <- multiBatchNorm(dummy1, dummy2, dummy3, as.altexp="axel")
+    expect_identical(ref, lapply(out, altExp, e="axel"))
+
+    # Same behavior for the combined method.
+    ref <- multiBatchNorm(X, batch=rep(1:3, length.out=ncol(X)))
+    alt <- multiBatchNorm(dummy1, batch=rep(1:3, length.out=ncol(X)), as.altexp="axel")
+    expect_identical(ref, altExp(alt, "axel"))
+    
+    ref <- multiBatchNorm(X, batch=rep(1:3, length.out=ncol(X)), preserve.single=FALSE)
+    alt <- multiBatchNorm(dummy1, batch=rep(1:3, length.out=ncol(X)), as.altexp="axel", preserve.single=FALSE)
+    expect_identical(ref, lapply(alt, altExp, e="axel"))
+})
 
