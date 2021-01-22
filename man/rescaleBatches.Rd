@@ -12,7 +12,8 @@ rescaleBatches(
   pseudo.count = 1,
   subset.row = NULL,
   correct.all = FALSE,
-  assay.type = "logcounts"
+  assay.type = "logcounts",
+  as.altexp = NULL
 )
 }
 \arguments{
@@ -44,6 +45,9 @@ Only relevant if \code{subset.row} is not \code{NULL}.}
 
 \item{assay.type}{A string or integer scalar specifying the assay containing the log-expression values.
 Only used for SingleCellExperiment inputs.}
+
+\item{as.altexp}{String or integer scalar specifying the alternative Experiment to use for correction.
+This assumes that all entries of \code{...} are \link{SingleCellExperiment}s that contain the specified entry in their \code{\link{altExps}}.}
 }
 \value{
 A \linkS4class{SingleCellExperiment} object containing the \code{corrected} assay.
@@ -81,6 +85,10 @@ Users can set \code{subset.row} to subset the inputs, though this is purely for 
 
 See \code{?"\link{batchelor-restrict}"} for a description of the \code{restrict} argument.
 Specifically, the function will compute the scaling differences using only the specified subset of cells, and then apply the re-scaling to all cells in each batch.
+
+If \code{as.altexp} is specified, the corresponding \code{\link{altExp}} is used for all calculations.
+The result is the same as if the alternative Experiments were directly passed to this function.
+For studies with multiple feature sets, it may be desirable to run this function repeatedly with different \code{as.altexp} and then collate the objects into another SingleCellExperiment.
 }
 \examples{
 means <- 2^rgamma(1000, 2, 1)

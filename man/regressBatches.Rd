@@ -12,10 +12,11 @@ regressBatches(
   restrict = NULL,
   subset.row = NULL,
   correct.all = FALSE,
-  assay.type = "logcounts",
   d = NA,
-  BSPARAM = IrlbaParam(),
   deferred = TRUE,
+  assay.type = "logcounts",
+  as.altexp = NULL,
+  BSPARAM = IrlbaParam(),
   BPPARAM = SerialParam()
 )
 }
@@ -49,15 +50,18 @@ Each entry of the list corresponds to one batch and specifies the cells to use w
 \item{correct.all}{Logical scalar indicating whether corrected expression values should be computed for genes not in \code{subset.row}.
 Only relevant if \code{subset.row} is not \code{NULL}.}
 
-\item{assay.type}{A string or integer scalar specifying the assay containing the log-expression values.
-Only used for SingleCellExperiment inputs.}
-
 \item{d}{Numeric scalar specifying the number of dimensions to use for PCA via \code{\link{multiBatchPCA}}.
 If \code{NA}, no PCA is performed.}
 
-\item{BSPARAM}{A \linkS4class{BiocSingularParam} object specifying the algorithm to use for PCA in \code{\link{multiBatchPCA}}.}
-
 \item{deferred}{Logical scalar indicating whether to defer centering/scaling, see \code{\link{multiBatchPCA}} for details.}
+
+\item{assay.type}{A string or integer scalar specifying the assay containing the log-expression values.
+Only used for SingleCellExperiment inputs.}
+
+\item{as.altexp}{String or integer scalar specifying the alternative Experiment to use for correction.
+This assumes that all entries of \code{...} are \link{SingleCellExperiment}s that contain the specified entry in their \code{\link{altExps}}.}
+
+\item{BSPARAM}{A \linkS4class{BiocSingularParam} object specifying the algorithm to use for PCA in \code{\link{multiBatchPCA}}.}
 
 \item{BPPARAM}{A \linkS4class{BiocParallelParam} object specifying whether the PCA should be parallelized.}
 }
@@ -110,6 +114,10 @@ All genes are used with the default setting of \code{subset.row=NULL}.
 If a subset of genes is specified, residuals are only returned for that subset.
 Similarly, if \code{d} is set, only the genes in the subset are used to perform the PCA.
 If additionally \code{correct.all=TRUE}, residuals are returned for all genes but only the subset is used for the PCA.
+
+If \code{as.altexp} is specified, the corresponding \code{\link{altExp}} is used for all calculations.
+The result is the same as if the alternative Experiments were directly passed to this function; subsetting, PCA and so on are applied to data from the alternative Experiments.
+For studies with multiple feature sets, it may be desirable to run this function repeatedly with different \code{as.altexp} and then collate the objects into another SingleCellExperiment.
 }
 \examples{
 means <- 2^rgamma(1000, 2, 1)

@@ -13,6 +13,7 @@ fastMNN(
   cos.norm = TRUE,
   ndist = 3,
   d = 50,
+  deferred = TRUE,
   weights = NULL,
   get.variance = FALSE,
   merge.order = NULL,
@@ -21,8 +22,8 @@ fastMNN(
   subset.row = NULL,
   correct.all = FALSE,
   assay.type = "logcounts",
+  as.altexp = NULL,
   BSPARAM = IrlbaParam(),
-  deferred = TRUE,
   BNPARAM = KmknnParam(),
   BPPARAM = SerialParam()
 )
@@ -58,6 +59,8 @@ Each threshold is defined as a multiple of the number of median distances.}
 \item{d}{Numeric scalar specifying the number of dimensions to use for dimensionality reduction in \code{\link{multiBatchPCA}}.
 If \code{NA}, no dimensionality reduction is performed and any matrices in \code{...} are used as-is.}
 
+\item{deferred}{Logical scalar indicating whether to defer centering/scaling, see \code{\link{multiBatchPCA}} for details.}
+
 \item{weights, get.variance}{Further arguments to pass to \code{\link{multiBatchPCA}}.}
 
 \item{merge.order}{An integer vector containing the linear merge order of batches in \code{...}.
@@ -76,9 +79,10 @@ Only relevant if \code{subset.row} is not \code{NULL}.}
 \item{assay.type}{A string or integer scalar specifying the assay containing the log-expression values.
 Only used for SingleCellExperiment inputs.}
 
-\item{BSPARAM}{A \linkS4class{BiocSingularParam} object specifying the algorithm to use for PCA in \code{\link{multiBatchPCA}}.}
+\item{as.altexp}{String or integer scalar specifying the alternative Experiment to use for correction.
+This assumes that all entries of \code{...} are \link{SingleCellExperiment}s that contain the specified entry in their \code{\link{altExps}}.}
 
-\item{deferred}{Logical scalar indicating whether to defer centering/scaling, see \code{\link{multiBatchPCA}} for details.}
+\item{BSPARAM}{A \linkS4class{BiocSingularParam} object specifying the algorithm to use for PCA in \code{\link{multiBatchPCA}}.}
 
 \item{BNPARAM}{A \linkS4class{BiocNeighborParam} object specifying the nearest neighbor algorithm.}
 
@@ -273,6 +277,18 @@ An additional consideration is that the effect of any given \code{k} will vary w
 With more cells, a larger \code{k} may be preferable to achieve better merging in the presence of non-orthogonality.
 We can achieve this by setting \code{prop.k}, e.g., \code{prop.k=0.05} will set \code{k} to 5\% of the number of cells in each batch.
 This allows the choice of \code{k} to adapt to the size of each batch at each merge step and handles asymmetry in batch sizes (via the \code{k1} and \code{k2} arguments in \code{\link{findMutualNN}}).
+}
+
+\section{Dealing with alternative Experiments}{
+
+If \code{as.altexp} is specified, the corresponding \code{\link{altExp}} is used for all calculations.
+The result is the same as if the alternative Experiments were directly passed to this function;
+subsetting, neighbor search, correction and so on are applied to data from the alternative Experiments.
+
+It must be stressed that setting \code{as.altexp} \emph{literally} applies the correction to just the alternative Experiments.
+No information is shared between the main and alternative Experiments.
+This may be problematic for MNN-based methods as information from multiple Experiments may yield more appropriate MNN pairs between corresponding populations.
+If sharing of information is desired, consider using \code{multiModalMNN} from the \pkg{mumosa} package instead.
 }
 
 \section{Orthogonalization details}{

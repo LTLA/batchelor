@@ -50,6 +50,8 @@
 #' @section Expected type of input data:
 #' The input expression values should generally be log-transformed, e.g., log-counts, see \code{\link[scuttle]{logNormCounts}} for details.
 #' They should also be normalized within each data set to remove cell-specific biases in capture efficiency and sequencing depth.
+#' Users may also consider using the \code{\link{multiBatchNorm}} functino to mitigate the effect of differences in sequencing depth between batches.
+#'
 #' By default, a further cosine normalization step is performed on the supplied expression data to eliminate gross scaling differences between data sets.
 #' \itemize{
 #' \item When \code{cos.norm.in=TRUE}, cosine normalization is performed on the matrix of expression values used to compute distances between cells.
@@ -62,6 +64,8 @@
 #' @inheritSection fastMNN Specifying the number of neighbors
 #' 
 #' @inheritSection fastMNN Controlling the merge order
+#'
+#' @inheritSection fastMNN Dealing with alternative Experiments
 #'
 #' @section Further options:
 #' The function depends on a shared biological manifold, i.e., one or more cell types/states being present in multiple batches.
@@ -119,12 +123,16 @@
 #' @importFrom BiocSingular ExactParam
 #' @importFrom BiocNeighbors KmknnParam
 #' @importFrom scuttle .bpNotSharedOrUp .unpackLists
+#' @importFrom SingleCellExperiment altExp
 mnnCorrect <- function(..., batch=NULL, restrict=NULL, k=20, prop.k=NULL, sigma=0.1, 
     cos.norm.in=TRUE, cos.norm.out=TRUE, svd.dim=0L, var.adj=TRUE, 
     subset.row=NULL, correct.all=FALSE, merge.order=NULL, auto.merge=FALSE, 
-    assay.type="logcounts", BSPARAM=ExactParam(), BNPARAM=KmknnParam(), BPPARAM=SerialParam())
+    assay.type="logcounts", as.altexp=NULL, BSPARAM=ExactParam(), BNPARAM=KmknnParam(), BPPARAM=SerialParam())
 {
     original <- batches <- .unpackLists(...)
+    if (!is.null(as.altexp)) {
+        batches <- lapply(batches, altExp, e=as.altexp)
+    }
     checkBatchConsistency(batches)
     restrict <- checkRestrictions(batches, restrict)
     

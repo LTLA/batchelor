@@ -86,6 +86,12 @@ test_that("regressBatches works correctly with SCE inputs", {
     ref <- regressBatches(B1, B2)
     expect_equal(ref, out)
 
+    # altExps work correctly.
+    dummy1 <- SingleCellExperiment(list(blah=B1[0,]), altExps=list(X=sce1))
+    dummy2 <- SingleCellExperiment(list(blah=B2[0,]), altExps=list(X=sce2))
+    alt <- regressBatches(dummy1, dummy2, as.altexp="X")
+    expect_equal(alt, ref)
+
     # Subsetting works correctly.
     i <- rbinom(nrow(B1), 1, 0.5)==1L
     out <- regressBatches(sce1, sce2, subset.row=i)

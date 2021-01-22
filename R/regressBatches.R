@@ -59,6 +59,10 @@
 #' Similarly, if \code{d} is set, only the genes in the subset are used to perform the PCA.
 #' If additionally \code{correct.all=TRUE}, residuals are returned for all genes but only the subset is used for the PCA.
 #'
+#' If \code{as.altexp} is specified, the corresponding \code{\link{altExp}} is used for all calculations.
+#' The result is the same as if the alternative Experiments were directly passed to this function; subsetting, PCA and so on are applied to data from the alternative Experiments.
+#' For studies with multiple feature sets, it may be desirable to run this function repeatedly with different \code{as.altexp} and then collate the objects into another SingleCellExperiment.
+#' 
 #' @author Aaron Lun
 #'
 #' @examples
@@ -78,7 +82,7 @@
 #' @export
 #' @importFrom SummarizedExperiment assay
 #' @importFrom BiocGenerics cbind
-#' @importFrom SingleCellExperiment SingleCellExperiment reducedDim<-
+#' @importFrom SingleCellExperiment SingleCellExperiment reducedDim<- altExp
 #' @importFrom Matrix t 
 #' @importFrom ResidualMatrix ResidualMatrix
 #' @importFrom stats model.matrix
@@ -89,10 +93,14 @@
 #' @importFrom BiocParallel SerialParam
 #' @importFrom BiocSingular IrlbaParam 
 regressBatches <- function(..., batch=NULL, design=NULL, keep=NULL, restrict=NULL, 
-    subset.row=NULL, correct.all=FALSE, assay.type="logcounts",
-    d=NA, BSPARAM=IrlbaParam(), deferred=TRUE, BPPARAM=SerialParam())
+    subset.row=NULL, correct.all=FALSE, d=NA, deferred=TRUE, 
+    assay.type="logcounts", as.altexp=NULL, 
+    BSPARAM=IrlbaParam(), BPPARAM=SerialParam())
 {
     batches <- .unpackLists(...)
+    if (!is.null(as.altexp)) {
+        batches <- lapply(batches, altExp, e=as.altexp)
+    }
     checkBatchConsistency(batches)
     restrict <- checkRestrictions(batches, restrict)
 

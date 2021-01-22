@@ -338,6 +338,13 @@ test_that("mnnCorrect behaves with SingleCellExperiment inputs", {
     sceC <- SingleCellExperiment(charlie)
     out <- mnnCorrect(sceA, sceB, sceC, assay.type=1)
     expect_equal(ref, out)
+
+    # Works with altExp inputs.
+    dummy1 <- SingleCellExperiment(list(blah=alpha[0,]), altExps=list(X=sceA))
+    dummy2 <- SingleCellExperiment(list(blah=bravo[0,]), altExps=list(X=sceB))
+    dummy3 <- SingleCellExperiment(list(blah=charlie[0,]), altExps=list(X=sceC))
+    alt <- mnnCorrect(dummy1, dummy2, dummy3, as.altexp="X", assay.type=1)
+    expect_equal(alt, ref)
 })
 
 set.seed(100044)

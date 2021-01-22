@@ -189,4 +189,10 @@ test_that("clusterMNN single-batch works correctly with SCEs", {
     out <- clusterMNN(sce1, sce2, clusters=list(cluster1, cluster2), assay.type=1)
 
     expect_identical(ref, out)
+
+    # Works with altExp inputs.
+    dummy1 <- SingleCellExperiment(list(blah=B1[0,]), altExps=list(X=sce1))
+    dummy2 <- SingleCellExperiment(list(blah=B2[0,]), altExps=list(X=sce2))
+    alt <- clusterMNN(dummy1, dummy2, as.altexp="X", assay.type=1, BSPARAM=ExactParam(), clusters=list(cluster1, cluster2))
+    expect_equal(alt, ref)
 })

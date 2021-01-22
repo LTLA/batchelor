@@ -35,6 +35,8 @@
 #' Only relevant if \code{subset.row} is not \code{NULL}.
 #' @param assay.type A string or integer scalar specifying the assay containing the log-expression values.
 #' Only used for SingleCellExperiment inputs. 
+#' @param as.altexp String or integer scalar specifying the alternative Experiment to use for correction.
+#' This assumes that all entries of \code{...} are \link{SingleCellExperiment}s that contain the specified entry in their \code{\link{altExps}}.
 #' @param BSPARAM A \linkS4class{BiocSingularParam} object specifying the algorithm to use for PCA in \code{\link{multiBatchPCA}}.
 #' @param deferred Logical scalar indicating whether to defer centering/scaling, see \code{\link{multiBatchPCA}} for details.
 #' @param BNPARAM A \linkS4class{BiocNeighborParam} object specifying the nearest neighbor algorithm.
@@ -218,6 +220,16 @@
 #' We can achieve this by setting \code{prop.k}, e.g., \code{prop.k=0.05} will set \code{k} to 5\% of the number of cells in each batch.
 #' This allows the choice of \code{k} to adapt to the size of each batch at each merge step and handles asymmetry in batch sizes (via the \code{k1} and \code{k2} arguments in \code{\link{findMutualNN}}).
 #' 
+#' @section Dealing with alternative Experiments:
+#' If \code{as.altexp} is specified, the corresponding \code{\link{altExp}} is used for all calculations.
+#' The result is the same as if the alternative Experiments were directly passed to this function;
+#' subsetting, neighbor search, correction and so on are applied to data from the alternative Experiments.
+#'
+#' It must be stressed that setting \code{as.altexp} \emph{literally} applies the correction to just the alternative Experiments.
+#' No information is shared between the main and alternative Experiments.
+#' This may be problematic for MNN-based methods as information from multiple Experiments may yield more appropriate MNN pairs between corresponding populations.
+#' If sharing of information is desired, consider using \code{multiModalMNN} from the \pkg{mumosa} package instead.
+#'
 #' @section Orthogonalization details:
 #' \code{fastMNN} will compute the percentage of variance that is lost from each batch during orthogonalization at each merge step.
 #' This represents the variance in each batch that is parallel to the average correction vectors (and hence removed during orthogonalization) at each merge step.
@@ -264,7 +276,7 @@
 #' \url{https://MarioniLab.github.io/FurtherMNN2018/theory/description.html}
 #'
 #' @export
-#' @importFrom SingleCellExperiment reducedDim
+#' @importFrom SingleCellExperiment reducedDim altExp
 #' @importFrom SummarizedExperiment assay
 #' @importFrom BiocParallel SerialParam bpstart bpstop 
 #' @importFrom BiocNeighbors KmknnParam
@@ -274,13 +286,15 @@
 #' @importFrom methods as
 #' @importFrom scuttle .bpNotSharedOrUp .unpackLists
 fastMNN <- function(..., batch=NULL, k=20, prop.k=NULL, restrict=NULL, cos.norm=TRUE, ndist=3, 
-    d=50, weights=NULL, get.variance=FALSE,
+    d=50, deferred=TRUE, weights=NULL, get.variance=FALSE,
     merge.order=NULL, auto.merge=FALSE, min.batch.skip=0,
-    subset.row=NULL, correct.all=FALSE, assay.type="logcounts", 
-    BSPARAM=IrlbaParam(), deferred=TRUE, 
-    BNPARAM=KmknnParam(), BPPARAM=SerialParam()) 
+    subset.row=NULL, correct.all=FALSE, assay.type="logcounts", as.altexp=NULL, 
+    BSPARAM=IrlbaParam(), BNPARAM=KmknnParam(), BPPARAM=SerialParam()) 
 {
     batches <- .unpackLists(...)
+    if (!is.null(as.altexp)) {
+        batches <- lapply(batches, altExp, e=as.altexp)
+    }
     checkBatchConsistency(batches, cells.in.columns=TRUE)
     restrict <- checkRestrictions(batches, restrict, cells.in.columns=TRUE)
 
