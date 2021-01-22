@@ -14,6 +14,7 @@ multiBatchPCA(
   get.variance = FALSE,
   preserve.single = FALSE,
   assay.type = "logcounts",
+  as.altexp = NULL,
   BSPARAM = IrlbaParam(),
   deferred = TRUE,
   BPPARAM = SerialParam()
@@ -50,6 +51,9 @@ that are excluded by a non-\code{NULL} value of \code{subset.row}.}
 \item{preserve.single}{A logical scalar indicating whether to combine the results into a single matrix if only one object was supplied in \code{...}.}
 
 \item{assay.type}{A string or integer scalar specifying the assay containing the expression values, if SingleCellExperiment objects are present in \code{...}.}
+
+\item{as.altexp}{String or integer scalar indicating the alternative Experiment to use in the function (see below for details).
+This assumes that all entries of \code{...} are \linkS4class{SingleCellExperiment}s containing the specified entry in their \code{\link{altExps}}.}
 
 \item{BSPARAM}{A \linkS4class{BiocSingularParam} object specifying the algorithm to use for PCA, see \code{\link{runSVD}} for details.}
 
@@ -89,7 +93,10 @@ This is done by projecting all non-used genes into the low-dimensional \dQuote{c
 
 With the default \code{deferred=TRUE}, the per-gene centering and per-cell scaling will be deferred during matrix multiplication.
 This can greatly improve speeds when the input matrices are sparse, as deferred operations avoids loss of sparsity at the cost of numerical precision.
-If \code{deferred=NULL}, the use of deferred scaling is determined by the setting within \code{BSPARAM} itself.
+If \code{deferred=NULL}, the use of deferred scaling is determined by the setting within \code{BSPARAM} itself - see \code{?\link{bsdeferred}} for details.
+
+If \code{as.altexp} is specified, this function is applied to the specified alternative Experiment from each entry of \code{...}.
+The result is equivalent to extracting one alternative Experiment from each input SingleCellExperiment and running \code{multiBatchPCA} on that set.
 }
 \section{Tuning the weighting}{
 

@@ -27,6 +27,8 @@
 #' @param BSPARAM A \linkS4class{BiocSingularParam} object specifying the algorithm to use for PCA, see \code{\link{runSVD}} for details.
 #' @param deferred A logical scalar used to overwrite the \code{deferred} status of \code{BSPARAM} for greater speed.
 #' Set to \code{NULL} to use the supplied status in \code{BSPARAM} directly.
+#' @param as.altexp String or integer scalar indicating the alternative Experiment to use in the function (see below for details).
+#' This assumes that all entries of \code{...} are \linkS4class{SingleCellExperiment}s containing the specified entry in their \code{\link{altExps}}.
 #' @param BPPARAM A \linkS4class{BiocParallelParam} object specifying whether the SVD should be parallelized.
 #'
 #' @details
@@ -45,7 +47,10 @@
 #'
 #' With the default \code{deferred=TRUE}, the per-gene centering and per-cell scaling will be deferred during matrix multiplication.
 #' This can greatly improve speeds when the input matrices are sparse, as deferred operations avoids loss of sparsity at the cost of numerical precision.
-#' If \code{deferred=NULL}, the use of deferred scaling is determined by the setting within \code{BSPARAM} itself.
+#' If \code{deferred=NULL}, the use of deferred scaling is determined by the setting within \code{BSPARAM} itself - see \code{?\link{bsdeferred}} for details.
+#'
+#' If \code{as.altexp} is specified, this function is applied to the specified alternative Experiment from each entry of \code{...}.
+#' The result is equivalent to extracting one alternative Experiment from each input SingleCellExperiment and running \code{multiBatchPCA} on that set.
 #'
 #' @section Tuning the weighting:
 #' By default, \code{weights=NULL} or \code{TRUE} will use the default weights,
@@ -122,10 +127,14 @@
 #' @importFrom BiocSingular ExactParam
 #' @importFrom scuttle .bpNotSharedOrUp .unpackLists
 multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, weights=NULL,
-    get.all.genes=FALSE, get.variance=FALSE, preserve.single=FALSE, assay.type="logcounts", 
+    get.all.genes=FALSE, get.variance=FALSE, preserve.single=FALSE, assay.type="logcounts", as.altexp=NULL,
     BSPARAM=IrlbaParam(), deferred=TRUE, BPPARAM=SerialParam()) 
 {
-    originals <- mat.list <- .unpackLists(...)
+    mat.list <- .unpackLists(...)
+    if (!is.null(as.altexp)) {
+        mat.list <- lapply(mat.list, altExp, e=as.altexp)
+    }
+    originals <- mat.list
     if (length(mat.list)==0L) {
         stop("at least one batch must be specified") 
     }
