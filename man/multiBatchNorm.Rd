@@ -7,13 +7,13 @@
 multiBatchNorm(
   ...,
   batch = NULL,
-  assay.type = "counts",
   norm.args = list(),
-  as.altexp = NULL,
   min.mean = 1,
   subset.row = NULL,
   normalize.all = FALSE,
   preserve.single = TRUE,
+  assay.type = "counts",
+  as.altexp = NULL,
   BPPARAM = SerialParam()
 )
 }
@@ -30,12 +30,7 @@ this is flattened as if the objects inside were passed directly to \code{...}.}
 \item{batch}{A factor specifying the batch of origin for all cells when only a single object is supplied in \code{...}.
 This is ignored if multiple objects are present.}
 
-\item{assay.type}{A string specifying which assay values contains the counts.}
-
 \item{norm.args}{A named list of further arguments to pass to \code{\link[scuttle]{logNormCounts}}.}
-
-\item{as.altexp}{String or integer scalar indicating the alternative Experiment to use in the function (see below for details).
-All entries of \code{...} must contain the specified entry in their \code{\link{altExps}}.}
 
 \item{min.mean}{A numeric scalar specifying the minimum (library size-adjusted) average count of genes to be used for normalization.}
 
@@ -44,6 +39,11 @@ All entries of \code{...} must contain the specified entry in their \code{\link{
 \item{normalize.all}{A logical scalar indicating whether normalized values should be returned for all genes.}
 
 \item{preserve.single}{A logical scalar indicating whether to combine the results into a single matrix if only one object was supplied in \code{...}.}
+
+\item{assay.type}{A string specifying which assay values contains the counts.}
+
+\item{as.altexp}{String or integer scalar indicating the alternative Experiment to use in the function (see below for details).
+All entries of \code{...} must contain the specified entry in their \code{\link{altExps}}.}
 
 \item{BPPARAM}{A \linkS4class{BiocParallelParam} object specifying whether calculations should be parallelized.}
 }

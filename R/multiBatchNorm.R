@@ -100,20 +100,16 @@
 #' @importFrom BiocGenerics sizeFactors sizeFactors<- cbind
 #' @importFrom scuttle logNormCounts librarySizeFactors .unpackLists
 #' @importFrom SingleCellExperiment altExp altExp<-
-multiBatchNorm <- function(..., batch=NULL, assay.type="counts", norm.args=list(), as.altexp=NULL, 
-    min.mean=1, subset.row=NULL, normalize.all=FALSE, preserve.single=TRUE, BPPARAM=SerialParam())
+multiBatchNorm <- function(..., batch=NULL, norm.args=list(), 
+    min.mean=1, subset.row=NULL, normalize.all=FALSE, preserve.single=TRUE, 
+    assay.type="counts", as.altexp=NULL, BPPARAM=SerialParam())
 {
     batches <- .unpackLists(...)
+    if (!is.null(as.altexp)) {
+        originals <- batches
+        batches <- lapply(batches, altExp, e=as.altexp)
+    }
     checkBatchConsistency(batches)
-    if (length(batches)==0L) { 
-        stop("at least one SingleCellExperiment must be supplied") 
-    }
-
-    # Setting up the parallelization environment.
-    if (.bpNotSharedOrUp(BPPARAM)) {
-        bpstart(BPPARAM)
-        on.exit(bpstop(BPPARAM), add=TRUE)
-    }
 
     # Handling the batch= and preserve.single= options.
     if (length(batches)==1L) {
@@ -122,20 +118,30 @@ multiBatchNorm <- function(..., batch=NULL, assay.type="counts", norm.args=list(
         }
 
         if (!preserve.single) {
-            sce <- batches[[1]]
             by.batch <- split(seq_along(batch), batch)
-            batches <- by.batch
-            for (i in seq_along(by.batch)) {
-                batches[[i]] <- sce[,by.batch[[i]],drop=FALSE]
+            FRAGMENT <- function(target) {
+                batches <- by.batch
+                for (i in seq_along(by.batch)) {
+                    batches[[i]] <- target[,by.batch[[i]],drop=FALSE]
+                }
+                batches
+            }
+
+            batches <- FRAGMENT(batches[[1]])
+            if (!is.null(as.altexp)) {
+                originals <- FRAGMENT(originals[[1]])
             }
         }
+    } else if (length(batches)==0L) { 
+        stop("at least one SingleCellExperiment must be supplied") 
     } else {
         preserve.single <- FALSE
     }
 
-    if (!is.null(as.altexp)) {
-        originals <- batches
-        batches <- lapply(batches, altExp, e=as.altexp)
+    # Setting up the parallelization environment.
+    if (.bpNotSharedOrUp(BPPARAM)) {
+        bpstart(BPPARAM)
+        on.exit(bpstop(BPPARAM), add=TRUE)
     }
 
     # Computing the averages and the size factors.
