@@ -18,6 +18,7 @@
 #' Ignored if \code{...} contains more than one argument.
 #' @param weights Numeric vector, logical scalar or list specifying the weighting scheme to use, see below for details.
 #' @param d An integer scalar specifying the number of dimensions to keep from the PCA.
+#' Alternatively \code{NA}, in which case the rotation matrix is set to the identity matrix (see Details).
 #' @param subset.row A vector specifying which features to use for correction. 
 #' @param assay.type A string or integer scalar specifying the assay containing the expression values, if SingleCellExperiment objects are present in \code{...}.
 #' @param get.all.genes A logical scalar indicating whether the reported rotation vectors should include genes 
@@ -42,12 +43,10 @@
 #' Otherwise, batches with a large number of cells would dominate the PCA, i.e., the definition of the mean vector and covariance matrix.
 #' This may reduce resolution of unique subpopulations in smaller batches that differ in a different dimension to the subspace of the larger batches.
 #' 
+#' It is usually recommended to set \code{subset.row} to a subset of interesting features (e.g., highly variable genes).
+#' This reduces computational time and eliminates uninteresting noise that could interfere with identification of the most relevant axes of variation.
 #' Setting \code{get.all.genes=TRUE} will report rotation vectors that span all genes, even when only a subset of genes are used for the PCA.
 #' This is done by projecting all non-used genes into the low-dimensional \dQuote{cell space} defined by the first \code{d} components.
-#'
-#' With the default \code{deferred=TRUE}, the per-gene centering and per-cell scaling will be deferred during matrix multiplication.
-#' This can greatly improve speeds when the input matrices are sparse, as deferred operations avoids loss of sparsity at the cost of numerical precision.
-#' If \code{deferred=NULL}, the use of deferred scaling is determined by the setting within \code{BSPARAM} itself - see \code{?\link{bsdeferred}} for details.
 #'
 #' If \code{as.altexp} is specified, this function is applied to the specified alternative Experiment from each entry of \code{...}.
 #' The result is equivalent to extracting one alternative Experiment from each input SingleCellExperiment and running \code{multiBatchPCA} on that set.
@@ -73,7 +72,23 @@
 #' identical to the tree controlling the merge order in \code{\link{fastMNN}}.
 #' Here, weights are scaled so that each partition in the tree yields subtrees with identical scaled weights (summed across each subtree's children).
 #' This allows us to easily adjust the weighting scheme for hierarchical batch structures like the replicate-study scenario described above.
-#' 
+#'
+#' @section Performing the PCA:
+#' Most of the parameters related to the PCA are controlled by \code{BSPARAM}, which determines the choice and parameterization of SVD algorithms.
+#' The default is to use \code{\link{IrlbaParam}} though \code{\link{RandomParam}} is often faster (at the cost of some accuracy).
+#' Most choices of \code{BSPARAM} will interactly sanely with \code{BPPARAM} to achieve parallelization during the PCA itself.
+#'
+#' With the default \code{deferred=TRUE}, the per-gene centering and per-cell scaling will be deferred during matrix multiplication in approximate SVD algorithms.
+#' This is much faster when the input matrices are sparse, as deferred operations avoids loss of sparsity at the cost of numerical precision.
+#' If \code{deferred=NULL}, the use of deferred scaling is determined by the setting within \code{BSPARAM} itself - see \code{?\link{bsdeferred}} for details.
+#'
+#' If \code{d=NA}, no PCA is performed.
+#' Instead, the centered matrices are transposed and returned directly, while the rotation matrix is set to an identity matrix.
+#' This allows developers to easily switch between PCA-based approximations versus the underlying dataset in their functions by simply changing \code{d}.
+#' (In some settings, one can even interpret \code{d=NA} as the maximum \code{d}, as Euclidean distance calculations between cells will be identical to a full-rank PC matrix.)
+#' Note that, in this mode, no projection will be done with \code{get.all.genes=TRUE}; rather, genes not in \code{subset.row} will simply have rotation values of zero.
+#' If \code{get.variance=TRUE}, the weighted variances of the individual genes are returned.
+#'
 #' @return
 #' A \linkS4class{List} of numeric matrices is returned where each matrix corresponds to a batch and contains the first \code{d} PCs (columns) for all cells in the batch (rows).
 #'
@@ -83,8 +98,8 @@
 #' The metadata contains \code{rotation}, a matrix of rotation vectors, which can be used to construct a low-rank approximation of the input matrices.
 #' This has number of rows equal to the number of genes after any subsetting, except if \code{get.all.genes=TRUE}, where the number of rows is equal to the genes before subsetting.
 #'
-#' If \code{get.variance=TRUE}, the metadata will also contain \code{var.explained}, the weighted variance explained by each PC;
-#' and \code{var.total}, the total variance after weighting.
+#' If \code{get.variance=TRUE}, the metadata will also contain \code{var.explained}, a numeric vector containing the weighted variance explained by each of \code{d} PCs;
+#' and \code{var.total}, the total variance across all components after weighting.
 #'
 #' @author
 #' Aaron Lun
@@ -155,7 +170,7 @@ multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, weights=NULL,
 
     # Different function calls for different input modes.
     common.args <- list(subset.row=subset.row, d=d, get.all.genes=get.all.genes, 
-        weights=weights, get.variance=get.variance, BSPARAM=BSPARAM, BPPARAM=BPPARAM) 
+        weights=weights, get.variance=get.variance, BSPARAM=BSPARAM, BPPARAM=BPPARAM)
 
     if (length(mat.list)==1L) {
         if (is.null(batch)) { 
@@ -205,7 +220,7 @@ multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, weights=NULL,
 #' @importFrom Matrix crossprod
 #' @importFrom DelayedArray getAutoBPPARAM setAutoBPPARAM
 .multi_pca_list <- function(mat.list, subset.row=NULL, d=50, weights=NULL,
-    get.all.genes=FALSE, get.variance=FALSE, BSPARAM=ExactParam(), BPPARAM=SerialParam()) 
+    get.all.genes=FALSE, get.variance=FALSE, BSPARAM=ExactParam(), BPPARAM=SerialParam())
 # Internal function that uses DelayedArray to do the centering and scaling,
 # to avoid actually realizing the matrices in memory.
 {
@@ -221,22 +236,34 @@ multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, weights=NULL,
     centered <- processed$centered
     scaled <- processed$scaled
     centers <- processed$centers
-    
-    # Performing an SVD on the untransposed _scaled_ expression matrix,
-    # then projecting the _unscaled_ matrices back into this space.
-    svd.out <- .run_scaled_SVD(scaled, d=d, get.all.genes=get.all.genes, get.variance=get.variance, 
-        BSPARAM=BSPARAM, BPPARAM=BPPARAM)
 
-    output <- centered
-    for (idx in seq_along(centered)) {
-        output[[idx]] <- as.matrix(crossprod(centered[[idx]], svd.out$u))
+    if (!is.na(d)) { 
+        # Performing an SVD on the untransposed _scaled_ expression matrix,
+        # then projecting the _unscaled_ matrices back into this space.
+        svd.out <- .run_scaled_SVD(scaled, d=d, 
+            get.all.genes=get.all.genes, get.variance=get.variance, 
+            BSPARAM=BSPARAM, BPPARAM=BPPARAM)
+
+        output <- centered
+        for (idx in seq_along(centered)) {
+            output[[idx]] <- as.matrix(crossprod(centered[[idx]], svd.out$u))
+        }
+        output <- as(output, "List")
+
+        metadata(output) <- .make_pca_metadata(mat=mat.list[[1]], subset.row=subset.row, 
+            get.variance=get.variance, get.all.genes=get.all.genes, FUN=FUN, 
+            svd.out=svd.out, centers=centers, nbatches=length(mat.list), scaled=scaled)
+    } else {
+        # Returning the scaled matrix directly if d=NA.
+        output <- centered
+        for (idx in seq_along(centered)) {
+            output[[idx]] <- as.matrix(t(centered[[idx]]))
+        }
+        output <- as(output, "List")
+
+        metadata(output) <- .make_fake_metadata(mat=mat.list[[1]], subset.row=subset.row,
+            get.variance=get.variance, get.all.genes=get.all.genes, scaled=scaled)
     }
-    output <- as(output, "List")
-
-    # Recording useful PCA metadata.
-    metadata(output) <- .get_pca_metadata(mat=mat.list[[1]], subset.row=subset.row, 
-        get.all.genes=get.all.genes, FUN=FUN, svd.out=svd.out, centers=centers, 
-        get.variance=get.variance, nbatches=length(mat.list), scaled=scaled)
 
     output
 }
@@ -366,18 +393,16 @@ multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, weights=NULL,
 
 #' @importFrom BiocSingular runSVD
 .run_scaled_SVD <- function(scaled, d, get.all.genes=FALSE, get.variance=FALSE, ...) {
-    runSVD(scaled, 
+    runSVD(scaled,
         k=if (get.all.genes || get.variance) d else 0,
-        nu=d, 
-        nv=if (get.all.genes) d else 0, 
+        nu=d,
+        nv=if (get.all.genes) d else 0,
         ...
     )
 }
 
 #' @importFrom DelayedArray DelayedArray sweep
-.get_pca_metadata <- function(mat, subset.row, 
-    get.all.genes, FUN, svd.out, centers,
-    get.variance, nbatches, scaled)
+.make_pca_metadata <- function(mat, subset.row, get.variance, get.all.genes, FUN, svd.out, centers, nbatches, scaled)
 # Inferring rotation vectors for genes not in subset.row, if get.all.genes=TRUE.
 # This involves projecting the unused genes into the space defined by the PCs.
 # We also fill in the missing center values.
@@ -388,7 +413,7 @@ multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, weights=NULL,
         leftovers <- FUN(-subset.row)
         left.scaled <- leftovers$scaled
         leftover.u <- as.matrix(sweep(left.scaled %*% svd.out$v, 2, svd.out$d, FUN="/"))
-    
+
         rotation <- matrix(0, nrow(mat), ncol(svd.out$u))
         rotation[subset.row,] <- svd.out$u
         rotation[-subset.row,] <- leftover.u
@@ -403,10 +428,42 @@ multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, weights=NULL,
 
     output <- list(rotation=rotation, centers=all.centers)
 
-    # Adding the variance explained.
     if (get.variance) {
+        # Adding the variance explained. We actually don't need to divide by the
+        # number of cells here, because the weighting already divided by the number
+        # of cells, such that each batch contributes a weight of 1... so we just
+        # divide by the number of batches.
         output$var.explained <- svd.out$d^2 / nbatches
-        output$var.total <- sum(scaled^2) / nbatches 
+
+        # 'scaled' should already be centered, so we dispense with that and just
+        # compute the sum of squares.
+        output$var.total <- sum(scaled^2) / nbatches
+    }
+
+    output
+}
+
+#' @importFrom Matrix sparseMatrix Diagonal
+#' @importFrom DelayedMatrixStats rowVars
+.make_fake_metadata <- function(mat, subset.row, get.variance, get.all.genes, scaled) {
+    if (get.all.genes && !is.null(subset.row)) {
+        subset.row <- .row_subset_to_index(mat, subset.row)
+        output <- list(
+             rotation=sparseMatrix(x=rep(1, length(subset.row)),
+                 i=subset.row, j=seq_along(subset.row), 
+                 dims=c(nrow(mat), length(subset.row))),
+             centers=numeric(nrow(mat))
+         )
+    } else {
+        output <- list(
+             rotation=Diagonal(nrow(scaled)),
+             centers=numeric(nrow(scaled))
+         )
+    }
+
+    if (get.variance) {
+        output$var.explained <- rowVars(scaled)
+        output$var.total <- sum(output$var.explained)
     }
 
     output
@@ -416,11 +473,11 @@ multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, weights=NULL,
 
 #' @importFrom S4Vectors List
 #' @importFrom BiocParallel SerialParam
-#' @importFrom BiocSingular ExactParam bsdeferred
-#' @importFrom Matrix crossprod
+#' @importFrom BiocSingular ExactParam
+#' @importFrom Matrix crossprod t
 #' @importFrom DelayedArray getAutoBPPARAM setAutoBPPARAM
-.multi_pca_single <- function(mat, batch, subset.row=NULL, weights=NULL, d=50, 
-    get.all.genes=FALSE, get.variance=FALSE, BSPARAM=ExactParam(), BPPARAM=SerialParam()) 
+.multi_pca_single <- function(mat, batch, subset.row=NULL, weights=NULL, d=50,
+    get.all.genes=FALSE, get.variance=FALSE, BSPARAM=ExactParam(), BPPARAM=SerialParam())
 # Similar to .multi_pca_list, but avoids the unnecessary
 # overhead of splitting 'mat' into batch-specific matrices
 # when you end up having to put them back together again anyway.
@@ -440,14 +497,21 @@ multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, weights=NULL,
 
     # Performing an SVD on the untransposed expression matrix,
     # and projecting the _unscaled_ matrices back into this space.
-    svd.out <- .run_scaled_SVD(scaled, d=d, get.all.genes=get.all.genes, get.variance=get.variance, 
-        BSPARAM=BSPARAM, BPPARAM=BPPARAM)
-    output <- List(as.matrix(crossprod(centered, svd.out$u)))
+    if (!is.na(d)) {
+        svd.out <- .run_scaled_SVD(scaled, d=d, get.all.genes=get.all.genes, get.variance=get.variance,
+            BSPARAM=BSPARAM, BPPARAM=BPPARAM)
 
-    # Recording the rotation vectors. 
-    metadata(output) <- .get_pca_metadata(mat=mat, subset.row=subset.row, 
-        get.all.genes=get.all.genes, FUN=FUN, svd.out=svd.out, centers=centers, 
-        get.variance=get.variance, nbatches=length(unique(batch)), scaled=scaled)
+        output <- List(as.matrix(crossprod(centered, svd.out$u)))
+
+        # Recording the rotation vectors.
+        metadata(output) <- .make_pca_metadata(mat=mat, subset.row=subset.row,
+            get.all.genes=get.all.genes, FUN=FUN, svd.out=svd.out, centers=centers, 
+            get.variance=get.variance, nbatches=length(unique(batch)), scaled=scaled)
+    } else {
+        output <- List(as.matrix(t(centered)))
+        metadata(output) <- .make_fake_metadata(mat=mat, subset.row=subset.row, 
+            get.variance=get.variance, get.all.genes=get.all.genes, scaled=scaled)
+    }
 
     output
 }

@@ -37,7 +37,8 @@ this is flattened as if the objects inside were passed directly to \code{...}.}
 \item{batch}{A factor specifying the batch identity of each cell in the input data.
 Ignored if \code{...} contains more than one argument.}
 
-\item{d}{An integer scalar specifying the number of dimensions to keep from the PCA.}
+\item{d}{An integer scalar specifying the number of dimensions to keep from the PCA.
+Alternatively \code{NA}, in which case the rotation matrix is set to the identity matrix (see Details).}
 
 \item{subset.row}{A vector specifying which features to use for correction.}
 
@@ -71,8 +72,8 @@ This contains the first \code{d} PCs (columns) for all cells in the same order a
 The metadata contains \code{rotation}, a matrix of rotation vectors, which can be used to construct a low-rank approximation of the input matrices.
 This has number of rows equal to the number of genes after any subsetting, except if \code{get.all.genes=TRUE}, where the number of rows is equal to the genes before subsetting.
 
-If \code{get.variance=TRUE}, the metadata will also contain \code{var.explained}, the weighted variance explained by each PC;
-and \code{var.total}, the total variance after weighting.
+If \code{get.variance=TRUE}, the metadata will also contain \code{var.explained}, a numeric vector containing the weighted variance explained by each of \code{d} PCs;
+and \code{var.total}, the total variance across all components after weighting.
 }
 \description{
 Perform a principal components analysis across multiple gene expression matrices to project all cells to a common low-dimensional space.
@@ -88,12 +89,10 @@ This ensures that the low-dimensional space can distinguish subpopulations in sm
 Otherwise, batches with a large number of cells would dominate the PCA, i.e., the definition of the mean vector and covariance matrix.
 This may reduce resolution of unique subpopulations in smaller batches that differ in a different dimension to the subspace of the larger batches.
 
+It is usually recommended to set \code{subset.row} to a subset of interesting features (e.g., highly variable genes).
+This reduces computational time and eliminates uninteresting noise that could interfere with identification of the most relevant axes of variation.
 Setting \code{get.all.genes=TRUE} will report rotation vectors that span all genes, even when only a subset of genes are used for the PCA.
 This is done by projecting all non-used genes into the low-dimensional \dQuote{cell space} defined by the first \code{d} components.
-
-With the default \code{deferred=TRUE}, the per-gene centering and per-cell scaling will be deferred during matrix multiplication.
-This can greatly improve speeds when the input matrices are sparse, as deferred operations avoids loss of sparsity at the cost of numerical precision.
-If \code{deferred=NULL}, the use of deferred scaling is determined by the setting within \code{BSPARAM} itself - see \code{?\link{bsdeferred}} for details.
 
 If \code{as.altexp} is specified, this function is applied to the specified alternative Experiment from each entry of \code{...}.
 The result is equivalent to extracting one alternative Experiment from each input SingleCellExperiment and running \code{multiBatchPCA} on that set.
@@ -120,6 +119,24 @@ Alternatively, \code{weights} can be a list representing a tree-like structure,
 identical to the tree controlling the merge order in \code{\link{fastMNN}}.
 Here, weights are scaled so that each partition in the tree yields subtrees with identical scaled weights (summed across each subtree's children).
 This allows us to easily adjust the weighting scheme for hierarchical batch structures like the replicate-study scenario described above.
+}
+
+\section{Performing the PCA}{
+
+Most of the parameters related to the PCA are controlled by \code{BSPARAM}, which determines the choice and parameterization of SVD algorithms.
+The default is to use \code{\link{IrlbaParam}} though \code{\link{RandomParam}} is often faster (at the cost of some accuracy).
+Most choices of \code{BSPARAM} will interactly sanely with \code{BPPARAM} to achieve parallelization during the PCA itself.
+
+With the default \code{deferred=TRUE}, the per-gene centering and per-cell scaling will be deferred during matrix multiplication in approximate SVD algorithms.
+This is much faster when the input matrices are sparse, as deferred operations avoids loss of sparsity at the cost of numerical precision.
+If \code{deferred=NULL}, the use of deferred scaling is determined by the setting within \code{BSPARAM} itself - see \code{?\link{bsdeferred}} for details.
+
+If \code{d=NA}, no PCA is performed.
+Instead, the centered matrices are transposed and returned directly, while the rotation matrix is set to an identity matrix.
+This allows developers to easily switch between PCA-based approximations versus the underlying dataset in their functions by simply changing \code{d}.
+(In some settings, one can even interpret \code{d=NA} as the maximum \code{d}, as Euclidean distance calculations between cells will be identical to a full-rank PC matrix.)
+Note that, in this mode, no projection will be done with \code{get.all.genes=TRUE}; rather, genes not in \code{subset.row} will simply have rotation values of zero.
+If \code{get.variance=TRUE}, the weighted variances of the individual genes are returned.
 }
 
 \examples{

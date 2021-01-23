@@ -320,6 +320,73 @@ test_that("multi-sample PCA works with deferred operations", {
 
 ####################################################
 
+set.seed(120000501)
+test1 <- matrix(rnorm(1000), nrow=20)
+test2 <- matrix(rnorm(2000), nrow=20)
+test3 <- matrix(rnorm(3000), nrow=20)
+
+rownames(test1) <- rownames(test2) <- rownames(test3) <- letters[1:20]
+colnames(test1) <- paste0("CELL1_", seq_len(ncol(test1)))
+colnames(test2) <- paste0("CELL2_", seq_len(ncol(test2)))
+colnames(test3) <- paste0("CELL3_", seq_len(ncol(test3)))
+
+set.seed(1200005011)
+test_that("multi-sample PCA works with d=NA", {
+    out <- multiBatchPCA(test1, test2, test3, d=NA)
+
+    expect_true(all(vapply(out, ncol, 0L)==20L))
+    expect_identical(lapply(out, rownames, 0L), list(colnames(test1), colnames(test2), colnames(test3)))
+
+    expect_identical(unname(as.matrix(metadata(out)$rotation)), diag(20))
+    expect_identical(rownames(metadata(out)$rotation), rownames(test1))
+
+    # Distance calculations match up.
+    ref <- multiBatchPCA(test1, test2, test3, d=20, BSPARAM=ExactParam())
+    for (i in seq_len(3)) {
+        expect_equal(as.matrix(dist(out[[i]])), as.matrix(dist(ref[[i]])))
+    }
+
+    # Variance is gotten.
+    out <- multiBatchPCA(test1, test2, test3, d=NA, get.variance=TRUE)
+    expect_identical(length(metadata(out)$var.explained), 20L)
+})
+
+set.seed(1200005012)
+test_that("multi-sample PCA works with d=NA, plus subsetting", {
+    out <- multiBatchPCA(test1, test2, test3, d=NA, subset.row=1:10)
+    ref <- multiBatchPCA(test1[1:10,], test2[1:10,], test3[1:10,], d=NA) 
+    expect_identical(out, ref)
+
+    keep <- sample(nrow(test1), 10)
+    out <- multiBatchPCA(test1, test2, test3, d=NA, subset.row=keep, get.all.genes=TRUE)
+    ref <- multiBatchPCA(test1[keep,], test2[keep,], test3[keep,], d=NA) 
+    expect_identical(as.list(out), as.list(ref))
+    expect_identical(unname(as.matrix(metadata(out)$rotation[keep,])), diag(10))
+    
+    out <- multiBatchPCA(test1, test2, test3, d=NA, subset.row=keep, get.variance=TRUE)
+    expect_identical(length(metadata(out)$var.explained), 10L)
+})
+
+set.seed(1200005013)
+test_that("multi-sample PCA works with a single matrix", {
+    combined <- cbind(test1, test2, test3)
+    batch <- rep(1:3, c(ncol(test1), ncol(test2), ncol(test3)))
+
+    out <- multiBatchPCA(combined, batch=batch, d=NA)
+    ref <- multiBatchPCA(test1, test2, test3, d=NA)
+    expect_identical(unname(out), ref)
+
+    out <- multiBatchPCA(combined, batch=batch, d=NA, subset.row=1:10)
+    ref <- multiBatchPCA(test1, test2, test3, d=NA, subset.row=1:10)
+    expect_identical(unname(out), ref)
+
+    out <- multiBatchPCA(combined, batch=batch, d=NA, subset.row=1:10, get.all.genes=TRUE)
+    ref <- multiBatchPCA(test1, test2, test3, d=NA, subset.row=1:10, get.all.genes=TRUE)
+    expect_identical(unname(out), ref)
+})
+
+####################################################
+
 set.seed(12000051)
 test_that("weight interpreter works as expected", {
     # With named inputs.
