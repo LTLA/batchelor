@@ -649,8 +649,24 @@ test_that("fastMNN works correctly with no PCA", {
     B2 <- matrix(rnorm(20000, 1), nrow=100) # Batch 2
 
     no.pc <- fastMNN(B1, B2, d=NA, cos.norm=FALSE)
-    ref <- reducedMNN(t(B1), t(B2))
+    center <- (rowMeans(B1) + rowMeans(B2))/2
+    ref <- reducedMNN(t(B1 - center), t(B2 - center))
     expect_identical(ref$corrected, reducedDim(no.pc))
+
+    # Same result when we combine them.
+    no.pc2 <- fastMNN(cbind(B1, B2), batch=rep(1:2, c(ncol(B1), ncol(B2))), d=NA, cos.norm=FALSE)
+    expect_identical(reducedDim(no.pc), reducedDim(no.pc2))
+
+    # Subsetting behaves as expected.
+    out <- fastMNN(B1, B2, d=NA, subset.row=20:5)
+    ref <- fastMNN(B1[20:5,], B2[20:5,], d=NA)
+    expect_identical(out, ref)
+
+    # Correct.all behaves as expected.
+    out <- fastMNN(B1, B2, d=NA, subset.row=20:5, correct.all=TRUE)
+    expect_identical(reducedDim(out), reducedDim(ref))
+    expect_identical(as.matrix(assay(out)[20:5,]), as.matrix(assay(ref)))
+    expect_true(all(assay(out)[-(20:5),]==0))
 })
 
 set.seed(120000542)

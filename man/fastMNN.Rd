@@ -206,13 +206,15 @@ It depends only on the order of objects in \code{...} and the order of cells wit
 All genes are used with the default setting of \code{subset.row=NULL}.
 Users can set \code{subset.row} to subset the inputs to highly variable genes or marker genes.
 This improves the quality of the PCA and identification of MNN pairs by reducing the noise from irrelevant genes.
-Note that users should not be too restrictive with subsetting, 
-as high dimensionality is required to satisfy the orthogonality assumption in MNN detection.
+Users should not be too restrictive with subsetting, as high dimensionality is required to satisfy the orthogonality assumption in MNN detection.
 
 By default, only the selected genes are used to compute rotation vectors and a low-rank corrected expression matrix.
-However, setting \code{correct.all=TRUE} will return rotation vectors that span all genes in the supplied input data.
-This is useful for ensuring that corrected values are returned for all input genes, e.g., in \code{\link{correctExperiments}}.
-Note that this setting will not affect the corrected low-dimension coordinates or the rotation values for the selected genes.
+However, setting \code{correct.all=TRUE} will return rotation vectors spanning all genes in the supplied input data.
+This ensures that corrected values are returned in \code{reconstructed} for all input genes, e.g., in \code{\link{correctExperiments}}.
+Note that this setting will not alter the corrected low-dimension coordinates, nor the rotation values for the selected genes. 
+
+If \code{d=NA}, any gene \emph{not} in \code{subset.row} will have reconstructed values of zero when \code{correct.all=TRUE}.
+Without a PCA, we cannot easily extrapolate the correction to other genes.
 }
 
 \section{Using restriction}{

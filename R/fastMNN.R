@@ -154,13 +154,15 @@
 #' All genes are used with the default setting of \code{subset.row=NULL}.
 #' Users can set \code{subset.row} to subset the inputs to highly variable genes or marker genes.
 #' This improves the quality of the PCA and identification of MNN pairs by reducing the noise from irrelevant genes.
-#' Note that users should not be too restrictive with subsetting, 
-#' as high dimensionality is required to satisfy the orthogonality assumption in MNN detection.
+#' Users should not be too restrictive with subsetting, as high dimensionality is required to satisfy the orthogonality assumption in MNN detection.
 #'
 #' By default, only the selected genes are used to compute rotation vectors and a low-rank corrected expression matrix.
-#' However, setting \code{correct.all=TRUE} will return rotation vectors that span all genes in the supplied input data.
-#' This is useful for ensuring that corrected values are returned for all input genes, e.g., in \code{\link{correctExperiments}}.
-#' Note that this setting will not affect the corrected low-dimension coordinates or the rotation values for the selected genes. 
+#' However, setting \code{correct.all=TRUE} will return rotation vectors spanning all genes in the supplied input data.
+#' This ensures that corrected values are returned in \code{reconstructed} for all input genes, e.g., in \code{\link{correctExperiments}}.
+#' Note that this setting will not alter the corrected low-dimension coordinates, nor the rotation values for the selected genes. 
+#'
+#' If \code{d=NA}, any gene \emph{not} in \code{subset.row} will have reconstructed values of zero when \code{correct.all=TRUE}.
+#' Without a PCA, we cannot easily extrapolate the correction to other genes.
 #'
 #' @section Using restriction:
 #' See \code{?"\link{batchelor-restrict}"} for a description of the \code{restrict} argument.
@@ -360,14 +362,8 @@ fastMNN <- function(..., batch=NULL, k=20, prop.k=NULL, restrict=NULL, cos.norm=
         batch.list <- mapply(FUN=.apply_cosine_norm, batch.list, all.l2s, SIMPLIFY=FALSE) 
     }
 
-    if (!is.na(d)) {
-        pc.mat <- .multi_pca_list(batch.list, d=d, weights=weights, get.variance=get.variance,
-            subset.row=subset.row, get.all.genes=correct.all, BSPARAM=BSPARAM, BPPARAM=BPPARAM)
-    } else {
-        pc.mat <- lapply(batch.list, t)
-        pc.mat <- lapply(pc.mat, as.matrix)
-        pc.mat <- List(pc.mat)
-    }
+    pc.mat <- .multi_pca_list(batch.list, d=d, weights=weights, get.variance=get.variance,
+        subset.row=subset.row, get.all.genes=correct.all, BSPARAM=BSPARAM, BPPARAM=BPPARAM)
 
     out <- .fast_mnn(batches=pc.mat, ..., BPPARAM=BPPARAM)
     .convert_to_SCE(out, pc.mat)
@@ -391,13 +387,8 @@ fastMNN <- function(..., batch=NULL, k=20, prop.k=NULL, restrict=NULL, cos.norm=
         x <- .apply_cosine_norm(x, l2)
     }
 
-    if (!is.na(d)) {
-        mat <- .multi_pca_single(x, batch=batch, d=d, weights=weights, get.variance=get.variance,
-            subset.row=subset.row, get.all.genes=correct.all, BSPARAM=BSPARAM, BPPARAM=BPPARAM)
-    } else {
-        mat <- as.matrix(t(x))
-        mat <- List(mat)
-    }
+    mat <- .multi_pca_single(x, batch=batch, d=d, weights=weights, get.variance=get.variance,
+        subset.row=subset.row, get.all.genes=correct.all, BSPARAM=BSPARAM, BPPARAM=BPPARAM)
 
     divided <- divideIntoBatches(mat[[1]], batch=batch, restrict=restrict, byrow=TRUE)
     output <- .fast_mnn(batches=divided$batches, restrict=divided$restricted, ..., BPPARAM=BPPARAM)
