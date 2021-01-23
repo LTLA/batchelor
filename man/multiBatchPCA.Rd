@@ -38,7 +38,7 @@ this is flattened as if the objects inside were passed directly to \code{...}.}
 Ignored if \code{...} contains more than one argument.}
 
 \item{d}{An integer scalar specifying the number of dimensions to keep from the PCA.
-Alternatively \code{NA}, in which case the rotation matrix is set to the identity matrix (see Details).}
+Alternatively \code{NA}, in which case the PCA step is omitted entirely - see details below.}
 
 \item{subset.row}{A vector specifying which features to use for correction.}
 

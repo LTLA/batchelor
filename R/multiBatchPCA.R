@@ -18,7 +18,7 @@
 #' Ignored if \code{...} contains more than one argument.
 #' @param weights Numeric vector, logical scalar or list specifying the weighting scheme to use, see below for details.
 #' @param d An integer scalar specifying the number of dimensions to keep from the PCA.
-#' Alternatively \code{NA}, in which case the rotation matrix is set to the identity matrix (see Details).
+#' Alternatively \code{NA}, in which case the PCA step is omitted entirely - see details below.
 #' @param subset.row A vector specifying which features to use for correction. 
 #' @param assay.type A string or integer scalar specifying the assay containing the expression values, if SingleCellExperiment objects are present in \code{...}.
 #' @param get.all.genes A logical scalar indicating whether the reported rotation vectors should include genes 
