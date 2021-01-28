@@ -8,6 +8,8 @@
 \item Support \code{d=NA} in \code{multiBatchPCA()} for more convenient disabling of PCA in calling functions.
 
 \item Bugfix for \code{d=NA} with specified \code{subset.row=} in \code{fastMNN()}.
+
+\item Added the \code{applyMultiSCE()} function to easily apply functions across main/alternative Experiments from multiple SingleCellExperiment inputs.
 }}
 
 \section{Version 1.6.0}{\itemize{
