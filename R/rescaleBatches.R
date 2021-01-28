@@ -40,10 +40,6 @@
 #' See \code{?"\link{batchelor-restrict}"} for a description of the \code{restrict} argument.
 #' Specifically, the function will compute the scaling differences using only the specified subset of cells, and then apply the re-scaling to all cells in each batch.
 #'
-#' If \code{as.altexp} is specified, the corresponding \code{\link{altExp}} is used for all calculations.
-#' The result is the same as if the alternative Experiments were directly passed to this function.
-#' For studies with multiple feature sets, it may be desirable to run this function repeatedly with different \code{as.altexp} and then collate the objects into another SingleCellExperiment.
-#'
 #' @author Aaron Lun
 #'
 #' @examples
@@ -55,15 +51,17 @@
 #' B2 <- log2(A2 + 1)
 #' out <- rescaleBatches(B1, B2) 
 #' 
+#' @seealso
+#' \code{\link{regressBatches}}, for a residual calculation based on a fitted linear model. 
+#'
+#' \code{\link{applyMultiSCE}}, to apply this function over multiple \code{\link{altExps}}.
+#'
 #' @export
 #' @importFrom SummarizedExperiment assay
 #' @importFrom scuttle .unpackLists
 #' @importFrom SingleCellExperiment altExp
-rescaleBatches <- function(..., batch=NULL, restrict=NULL, log.base=2, pseudo.count=1, subset.row=NULL, correct.all=FALSE, assay.type="logcounts", as.altexp=NULL) {
+rescaleBatches <- function(..., batch=NULL, restrict=NULL, log.base=2, pseudo.count=1, subset.row=NULL, correct.all=FALSE, assay.type="logcounts") {
     originals <- batches <- .unpackLists(...)
-    if (!is.null(as.altexp)) {
-        batches <- lapply(batches, altExp, e=as.altexp)
-    }
     checkBatchConsistency(batches)
     restrict <- checkRestrictions(batches, restrict)
 

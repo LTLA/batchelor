@@ -5,8 +5,9 @@
 \section{Version 1.8.0}{\itemize{
 \item Migrate \code{findMutualNN()} to \pkg{BiocNeighbors}.
 
-\item Added \code{as.altexp=} to \code{multiBatchNorm()}, \code{multiBatchPCA()} and most batch correction functions, 
-to easily perform calculations on the alternative Experiments in place of the main Experiments.
+\item Support \code{d=NA} in \code{multiBatchPCA()} for more convenient disabling of PCA in calling functions.
+
+\item Bugfix for \code{d=NA} with specified \code{subset.row=} in \code{fastMNN()}.
 }}
 
 \section{Version 1.6.0}{\itemize{

@@ -65,8 +65,6 @@
 #' 
 #' @inheritSection fastMNN Controlling the merge order
 #'
-#' @inheritSection fastMNN Dealing with alternative Experiments
-#'
 #' @section Further options:
 #' The function depends on a shared biological manifold, i.e., one or more cell types/states being present in multiple batches.
 #' If this is not true, MNNs may be incorrectly identified, resulting in over-correction and removal of interesting biology.
@@ -127,12 +125,9 @@
 mnnCorrect <- function(..., batch=NULL, restrict=NULL, k=20, prop.k=NULL, sigma=0.1, 
     cos.norm.in=TRUE, cos.norm.out=TRUE, svd.dim=0L, var.adj=TRUE, 
     subset.row=NULL, correct.all=FALSE, merge.order=NULL, auto.merge=FALSE, 
-    assay.type="logcounts", as.altexp=NULL, BSPARAM=ExactParam(), BNPARAM=KmknnParam(), BPPARAM=SerialParam())
+    assay.type="logcounts", BSPARAM=ExactParam(), BNPARAM=KmknnParam(), BPPARAM=SerialParam())
 {
     original <- batches <- .unpackLists(...)
-    if (!is.null(as.altexp)) {
-        batches <- lapply(batches, altExp, e=as.altexp)
-    }
     checkBatchConsistency(batches)
     restrict <- checkRestrictions(batches, restrict)
     

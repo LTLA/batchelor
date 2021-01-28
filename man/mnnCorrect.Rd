@@ -20,7 +20,6 @@ mnnCorrect(
   merge.order = NULL,
   auto.merge = FALSE,
   assay.type = "logcounts",
-  as.altexp = NULL,
   BSPARAM = ExactParam(),
   BNPARAM = KmknnParam(),
   BPPARAM = SerialParam()
@@ -70,9 +69,6 @@ Alternatively, a list of lists representing a tree structure specifying a hierar
 
 \item{assay.type}{A string or integer scalar specifying the assay containing the log-expression values.
 Only used for SingleCellExperiment inputs.}
-
-\item{as.altexp}{String or integer scalar specifying the alternative Experiment to use for correction.
-This assumes that all entries of \code{...} are \link{SingleCellExperiment}s that contain the specified entry in their \code{\link{altExps}}.}
 
 \item{BSPARAM}{A \linkS4class{BiocSingularParam} object specifying the algorithm to use for PCA in \code{\link{multiBatchPCA}}.}
 
@@ -247,18 +243,6 @@ This can be somewhat time-consuming as MNN pairs need to be iteratively recomput
 
 The order of cells in the output is \emph{never} affected by the setting of \code{merge.order}.
 It depends only on the order of objects in \code{...} and the order of cells within each object.
-}
-
-\section{Dealing with alternative Experiments}{
-
-If \code{as.altexp} is specified, the corresponding \code{\link{altExp}} is used for all calculations.
-The result is the same as if the alternative Experiments were directly passed to this function;
-subsetting, neighbor search, correction and so on are applied to data from the alternative Experiments.
-
-It must be stressed that setting \code{as.altexp} \emph{literally} applies the correction to just the alternative Experiments.
-No information is shared between the main and alternative Experiments.
-This may be problematic for MNN-based methods as information from multiple Experiments may yield more appropriate MNN pairs between corresponding populations.
-If sharing of information is desired, consider using \code{multiModalMNN} from the \pkg{mumosa} package instead.
 }
 
 \examples{

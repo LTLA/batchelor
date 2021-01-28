@@ -18,8 +18,6 @@
 #' @param subset.row A vector specifying which features to use for normalization.
 #' @param normalize.all A logical scalar indicating whether normalized values should be returned for all genes.
 #' @param preserve.single A logical scalar indicating whether to combine the results into a single matrix if only one object was supplied in \code{...}.
-#' @param as.altexp String or integer scalar indicating the alternative Experiment to use in the function (see below for details).
-#' All entries of \code{...} must contain the specified entry in their \code{\link{altExps}}.
 #' @param BPPARAM A \linkS4class{BiocParallelParam} object specifying whether calculations should be parallelized. 
 #' 
 #' @details
@@ -52,17 +50,6 @@
 #' the normalized values remain on the log-scale and differences can still be interpreted (roughly) as log-fold changes.
 #' The output can then be fed into downstream analysis procedures (e.g., HVG detection) in the same manner as typical log-normalized values from \code{\link{logNormCounts}}.
 #'
-#' @section Handling alternative Experiments:
-#' If \code{as.altexp} is specified, this function is applied to the specified alternative Experiment from each entry of \code{...}.
-#' This provides a convenient way to normalize multiple feature sets via repeated calls to \code{\link{multiBatchNorm}} with different \code{as.altexp}.
-#' The result is equivalent to extracting one alternative Experiment from each input SingleCellExperiment and running \code{multiBatchNorm} on that set.
-#' No information is shared between main and alternative Experiments, or between the different alternative Experiments.
-#'
-#' When \code{as.altexp} is specified, any non-\code{NULL} value of \code{subset.row} applies to the features of the alternative Experiment.
-#' Similarly, filtering by \code{min.mean} applies to the specified alternative Experiment.
-#' Note that the latter may not always be appropriate depending on the scale of counts in the alternative Experiments;
-#' the default is based on typical RNA count data, and a lower threshold may be required for features that are less deeply sequenced.
-#' 
 #' @return
 #' A list of SingleCellExperiment objects with normalized log-expression values in the \code{"logcounts"} assay (depending on values in \code{norm.args}).
 #' Each object contains cells from a single batch.
@@ -77,6 +64,8 @@
 #' \code{\link{mnnCorrect}} and \code{\link{fastMNN}}, for methods that can benefit from rescaling.
 #'
 #' \code{\link[scuttle]{logNormCounts}} for the calculation of log-transformed normalized expression values.
+#'
+#' \code{\link{applyMultiSCE}}, to apply this function over the \code{\link{altExps}} in \code{x}.
 #' 
 #' @examples
 #' d1 <- matrix(rnbinom(50000, mu=10, size=1), ncol=100)
@@ -102,13 +91,9 @@
 #' @importFrom SingleCellExperiment altExp altExp<-
 multiBatchNorm <- function(..., batch=NULL, norm.args=list(), 
     min.mean=1, subset.row=NULL, normalize.all=FALSE, preserve.single=TRUE, 
-    assay.type="counts", as.altexp=NULL, BPPARAM=SerialParam())
+    assay.type="counts", BPPARAM=SerialParam())
 {
     batches <- .unpackLists(...)
-    if (!is.null(as.altexp)) {
-        originals <- batches
-        batches <- lapply(batches, altExp, e=as.altexp)
-    }
     checkBatchConsistency(batches)
 
     # Handling the batch= and preserve.single= options.
@@ -128,9 +113,6 @@ multiBatchNorm <- function(..., batch=NULL, norm.args=list(),
             }
 
             batches <- FRAGMENT(batches[[1]])
-            if (!is.null(as.altexp)) {
-                originals <- FRAGMENT(originals[[1]])
-            }
         }
     } else if (length(batches)==0L) { 
         stop("at least one SingleCellExperiment must be supplied") 
@@ -169,11 +151,6 @@ multiBatchNorm <- function(..., batch=NULL, norm.args=list(),
         sizeFactors(sce) <- all.sf[reorder]
 
         output <- do.call(logNormCounts, c(list(x=sce), c(norm.args, extra.norm.args)))
-
-        if (!is.null(as.altexp)) {
-            altExp(originals[[1]], as.altexp) <- output
-            output <- originals[[1]]
-        }
     } else {
         output <- vector("list", length(batches))
         names(output) <- names(batches)
@@ -186,13 +163,6 @@ multiBatchNorm <- function(..., batch=NULL, norm.args=list(),
             }
             current <- do.call(logNormCounts, c(list(x=current), c(norm.args, extra.norm.args)))
             output[[i]] <- current
-        }
-
-        if (!is.null(as.altexp)) {
-            for (i in seq_along(output)) {
-                altExp(originals[[i]], as.altexp) <- output[[i]]
-            }
-            output <- originals
         }
     }
 

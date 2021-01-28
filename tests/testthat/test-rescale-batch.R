@@ -110,12 +110,6 @@ test_that("rescaleBatches works correctly with SCE inputs", {
     ref <- rescaleBatches(B1, B2)
     expect_equal(ref, out)
 
-    # Works with altExp inputs.
-    dummy1 <- SingleCellExperiment(list(blah=B1[0,]), altExps=list(X=sce1))
-    dummy2 <- SingleCellExperiment(list(blah=B2[0,]), altExps=list(X=sce2))
-    alt <- rescaleBatches(dummy1, dummy2, as.altexp="X")
-    expect_equal(alt, ref)
-
     # Subsetting works correctly
     i <- rbinom(nrow(B1), 1, 0.5)==1L
     out <- rescaleBatches(sce1, sce2, subset.row=i)

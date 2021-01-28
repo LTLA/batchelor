@@ -22,7 +22,6 @@ fastMNN(
   subset.row = NULL,
   correct.all = FALSE,
   assay.type = "logcounts",
-  as.altexp = NULL,
   BSPARAM = IrlbaParam(),
   BNPARAM = KmknnParam(),
   BPPARAM = SerialParam()
@@ -78,9 +77,6 @@ Only relevant if \code{subset.row} is not \code{NULL}.}
 
 \item{assay.type}{A string or integer scalar specifying the assay containing the log-expression values.
 Only used for SingleCellExperiment inputs.}
-
-\item{as.altexp}{String or integer scalar specifying the alternative Experiment to use for correction.
-This assumes that all entries of \code{...} are \link{SingleCellExperiment}s that contain the specified entry in their \code{\link{altExps}}.}
 
 \item{BSPARAM}{A \linkS4class{BiocSingularParam} object specifying the algorithm to use for PCA in \code{\link{multiBatchPCA}}.}
 
@@ -281,18 +277,6 @@ We can achieve this by setting \code{prop.k}, e.g., \code{prop.k=0.05} will set 
 This allows the choice of \code{k} to adapt to the size of each batch at each merge step and handles asymmetry in batch sizes (via the \code{k1} and \code{k2} arguments in \code{\link{findMutualNN}}).
 }
 
-\section{Dealing with alternative Experiments}{
-
-If \code{as.altexp} is specified, the corresponding \code{\link{altExp}} is used for all calculations.
-The result is the same as if the alternative Experiments were directly passed to this function;
-subsetting, neighbor search, correction and so on are applied to data from the alternative Experiments.
-
-It must be stressed that setting \code{as.altexp} \emph{literally} applies the correction to just the alternative Experiments.
-No information is shared between the main and alternative Experiments.
-This may be problematic for MNN-based methods as information from multiple Experiments may yield more appropriate MNN pairs between corresponding populations.
-If sharing of information is desired, consider using \code{multiModalMNN} from the \pkg{mumosa} package instead.
-}
-
 \section{Orthogonalization details}{
 
 \code{fastMNN} will compute the percentage of variance that is lost from each batch during orthogonalization at each merge step.
@@ -338,6 +322,8 @@ Further MNN algorithm development.
 \code{\link{mnnCorrect}}, for the \dQuote{classic} version of the MNN correction algorithm.
 
 \code{\link{clusterMNN}}, for the cluster-based version of this approach.
+
+\code{multiModalMNN} from the \pkg{mumosa} package, which extends this to data in the \code{\link{altExps}}.
 }
 \author{
 Aaron Lun

@@ -52,8 +52,6 @@
 #' The PCs are then used in clustering with \code{\link[bluster]{clusterRows}} to obtain a list of clusters.
 #' This can be used to mimic per-cell batch correction in the absence of \emph{a priori} clusters.
 #'
-#' @inheritSection fastMNN Dealing with alternative Experiments
-#'
 #' @author Aaron Lun
 #' @examples
 #' # Mocking up some data for multiple batches:
@@ -102,13 +100,10 @@
 #' @importFrom SummarizedExperiment assay
 clusterMNN <- function(..., batch=NULL, restrict=NULL, clusters, cluster.d=50,
     cos.norm=TRUE, merge.order=NULL, auto.merge=FALSE, min.batch.skip=0,
-    subset.row=NULL, correct.all=FALSE, assay.type="logcounts", as.altexp=NULL,
+    subset.row=NULL, correct.all=FALSE, assay.type="logcounts", 
     BSPARAM=IrlbaParam(), BNPARAM=KmknnParam(), BPPARAM=SerialParam()) 
 {
     batches <- .unpackLists(...)
-    if (!is.null(as.altexp)) {
-        batches <- lapply(batches, altExp, e=as.altexp)
-    }
     checkBatchConsistency(batches, cells.in.columns=TRUE)
     restrict <- checkRestrictions(batches, restrict, cells.in.columns=TRUE)
 

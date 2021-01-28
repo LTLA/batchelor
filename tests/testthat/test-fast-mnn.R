@@ -462,12 +462,6 @@ test_that("fastMNN works on SingleCellExperiment inputs", {
     ref <- fastMNN(sce1, sce2, BSPARAM=ExactParam())
     out <- fastMNN(B1, B2, BSPARAM=ExactParam())
     expect_equal(ref, out)
-
-    # Works with altExp inputs.
-    dummy1 <- SingleCellExperiment(list(blah=B1[0,]), altExps=list(X=sce1))
-    dummy2 <- SingleCellExperiment(list(blah=B2[0,]), altExps=list(X=sce2))
-    alt <- fastMNN(dummy1, dummy2, as.altexp="X", BSPARAM=ExactParam())
-    expect_equal(alt, ref)
 })
 
 set.seed(12000052)

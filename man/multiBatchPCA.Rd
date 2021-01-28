@@ -14,7 +14,6 @@ multiBatchPCA(
   get.variance = FALSE,
   preserve.single = FALSE,
   assay.type = "logcounts",
-  as.altexp = NULL,
   BSPARAM = IrlbaParam(),
   deferred = TRUE,
   BPPARAM = SerialParam()
@@ -53,9 +52,6 @@ that are excluded by a non-\code{NULL} value of \code{subset.row}.}
 
 \item{assay.type}{A string or integer scalar specifying the assay containing the expression values, if SingleCellExperiment objects are present in \code{...}.}
 
-\item{as.altexp}{String or integer scalar indicating the alternative Experiment to use in the function (see below for details).
-This assumes that all entries of \code{...} are \linkS4class{SingleCellExperiment}s containing the specified entry in their \code{\link{altExps}}.}
-
 \item{BSPARAM}{A \linkS4class{BiocSingularParam} object specifying the algorithm to use for PCA, see \code{\link{runSVD}} for details.}
 
 \item{deferred}{A logical scalar used to overwrite the \code{deferred} status of \code{BSPARAM} for greater speed.
@@ -93,9 +89,6 @@ It is usually recommended to set \code{subset.row} to a subset of interesting fe
 This reduces computational time and eliminates uninteresting noise that could interfere with identification of the most relevant axes of variation.
 Setting \code{get.all.genes=TRUE} will report rotation vectors that span all genes, even when only a subset of genes are used for the PCA.
 This is done by projecting all non-used genes into the low-dimensional \dQuote{cell space} defined by the first \code{d} components.
-
-If \code{as.altexp} is specified, this function is applied to the specified alternative Experiment from each entry of \code{...}.
-The result is equivalent to extracting one alternative Experiment from each input SingleCellExperiment and running \code{multiBatchPCA} on that set.
 }
 \section{Tuning the weighting}{
 

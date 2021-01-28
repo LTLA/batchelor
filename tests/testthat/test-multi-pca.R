@@ -96,12 +96,6 @@ test_that("multi-sample PCA works with SCEs", {
     out <- multiBatchPCA(test1, test2, d=4, BSPARAM=ExactParam())
     expect_equal(ref, out)
 
-    # Alternative experiments work correctly.
-    dummy1 <- SingleCellExperiment(list(blah=test1[0,]), altExps=list(X=sce1))
-    dummy2 <- SingleCellExperiment(list(blah=test2[0,]), altExps=list(X=sce2))
-    alt <- multiBatchPCA(dummy1, dummy2, d=4, BSPARAM=ExactParam(), as.altexp="X")
-    expect_equal(ref, alt)
-
     # Subsetting works correctly.
     i <- sample(nrow(test1), 5)
     ref <- multiBatchPCA(sce1, sce2, d=2, subset.row=i, BSPARAM=ExactParam())
