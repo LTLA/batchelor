@@ -84,11 +84,13 @@ In addition, \code{\link{multiBatchPCA}} must be run on all samples at once, to 
 B1 <- matrix(rnorm(10000), nrow=50) # Batch 1 
 B2 <- matrix(rnorm(10000), nrow=50) # Batch 2
 
-# Equivalent to fastMNN().
+# Corrected values equivalent to fastMNN().
 cB1 <- cosineNorm(B1)
 cB2 <- cosineNorm(B2)
 pcs <- multiBatchPCA(cB1, cB2)
-out2 <- reducedMNN(pcs[[1]], pcs[[2]])
+mnn.out <- reducedMNN(pcs[[1]], pcs[[2]])
+
+mnn.out
 
 }
 \seealso{
