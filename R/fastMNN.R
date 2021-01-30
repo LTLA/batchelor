@@ -353,7 +353,7 @@ fastMNN <- function(..., batch=NULL, k=20, prop.k=NULL, restrict=NULL, cos.norm=
         subset.row=subset.row, get.all.genes=correct.all, BSPARAM=BSPARAM, BPPARAM=BPPARAM)
 
     out <- .fast_mnn(batches=pc.mat, ..., BPPARAM=BPPARAM)
-    .convert_to_SCE(out, pc.mat)
+    convertPCsToSCE(out, metadata(pc.mat))
 }
 
 #' @importFrom BiocSingular ExactParam
@@ -385,7 +385,7 @@ fastMNN <- function(..., batch=NULL, k=20, prop.k=NULL, restrict=NULL, cos.norm=
     output <- output[d.reo,,drop=FALSE]
     metadata(output)$merge.info$pairs <- .reindex_pairings(metadata(output)$merge.info$pairs, d.reo)
 
-    .convert_to_SCE(output, mat)
+    convertPCsToSCE(output, metadata(mat))
 }
 
 ############################################
@@ -608,6 +608,19 @@ fastMNN <- function(..., batch=NULL, k=20, prop.k=NULL, restrict=NULL, cos.norm=
     curdata + weighted.correction
 }
 
+.combine_restrict <- function(left.data, left.restrict, right.data, right.restrict) {
+    if (is.null(left.restrict) && is.null(right.restrict)) {
+        NULL
+    } else {
+        if (is.null(left.restrict)) {
+            left.restrict <- seq_len(nrow(left.data))
+        }
+        if (is.null(right.restrict)) {
+            right.restrict <- seq_len(nrow(right.data))
+        }
+        c(left.restrict, right.restrict + nrow(left.data))
+    }
+}
 ############################################
 # Orthogonalization-related functions.
 
@@ -643,42 +656,4 @@ fastMNN <- function(..., batch=NULL, k=20, prop.k=NULL, restrict=NULL, cos.norm=
         ref.var[i] <- sum(colVars(DelayedArray(data), rows=rows))
     }
     ref.var
-}
-
-############################################
-# Output formatting functions.
-
-.combine_restrict <- function(left.data, left.restrict, right.data, right.restrict) {
-    if (is.null(left.restrict) && is.null(right.restrict)) {
-        NULL
-    } else {
-        if (is.null(left.restrict)) {
-            left.restrict <- seq_len(nrow(left.data))
-        }
-        if (is.null(right.restrict)) {
-            right.restrict <- seq_len(nrow(right.data))
-        }
-        c(left.restrict, right.restrict + nrow(left.data))
-    }
-}
-
-#' @importFrom S4Vectors metadata DataFrame make_zero_col_DFrame
-#' @importFrom BiocSingular LowRankMatrix
-#' @importFrom SingleCellExperiment SingleCellExperiment
-.convert_to_SCE <- function(corrected.df, pc.mat) {
-    pc.extras <- metadata(pc.mat)
-
-    rot <- pc.extras$rotation
-    mat <- LowRankMatrix(rot, corrected.df$corrected)
-    rdf <- DataFrame(rotation=I(rot))
-    pc.extras$rotation <- NULL # no need to store this in the metadata.
-
-    all.meta <- metadata(corrected.df)
-    all.meta$pca.info <- pc.extras
-
-    SingleCellExperiment(list(reconstructed=mat),
-        colData=DataFrame(batch=corrected.df$batch),
-        rowData=rdf,
-        metadata=all.meta,
-        reducedDims=list(corrected=corrected.df$corrected))
 }
