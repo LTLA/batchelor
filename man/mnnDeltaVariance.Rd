@@ -35,7 +35,19 @@ This is typically produced by \code{\link{fastMNN}}, see that documentation for 
 \item{trend.args}{Named list of further arguments to pass to \code{fitTrendVar} from the \pkg{scran} package.}
 }
 \value{
-A numeric vector of variances for each row in the input objects (or as specified by \code{subset.row}).
+A \linkS4class{DataFrame} with one row per gene in \code{...} (or as specified by \code{subset.row}),
+containing the following columns:
+\itemize{
+\item \code{mean}, the mean of the mean log-expressions across all MNN pairs.
+This may contain repeated contributions from the same cell if it is involved in many MNN pairs.
+\item \code{total}, the total variance of the deltas across all MNN pairs.
+\item \code{trend}, the fitted values of the trend in \code{total} with respect to \code{mean}.
+\item \code{adjusted}, the adjusted variance, i.e., the residuals of the fitted trend.
+}
+The \code{\link{metadata}} contains the trend fitting statistics returned by \code{fitTrendVar}.
+
+If \code{pairs} is a list of length greater than 1, the returned DataFrame will also contain \code{per.block}, a nested DataFrames of nested DataFrames.
+Each one of these contains statistics for the individual merge steps and has the same structure as that described above.
 }
 \description{
 Computes the variance of the paired MNN deltas
@@ -52,6 +64,15 @@ as a shift in expression space is not particularly concerning (and is, in fact, 
 Rather, we are interested in identifying non-linear changes that might be indicative of correction errors, e.g., inappropriate merging of two different subpopulations.
 This would manifest as high variances for the relevant marker genes.
 Of course, whether or not this is actually an error can be a subjective decision - loss of some biological heterogeneity is often an acceptable cost for flexible correction.
+
+To eliminate the mean-variance relationship, we fit a trend to the variances across all genes with respect to the mean log-expression in each MNN pair.
+We then define an adjusted variance based on the residuals of the fitted curve; 
+this is a more appropriate measure to use for ranking affected genes, as it ensures that genes are not highly ranked due to their abundance alone.
+Fitting is done using the \code{fitTrendVar} function from the \pkg{scran} package - further arguments can be passed via \code{trend.args}.
+
+If a list is passed to \code{pairs}, each entry of the list is assumed to correspond to a merge step.
+The variance and trend fitting is done separately for each merge step, and the results are combined by computing the average variance across all steps.
+This avoids considering the variance of the deltas across merge steps, which is not particularly concerning, e.g., if different batches require different translations.
 }
 \examples{
 means <- 2^rexp(200) * 10
