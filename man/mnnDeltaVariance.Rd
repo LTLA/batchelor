@@ -4,7 +4,13 @@
 \alias{mnnDeltaVariance}
 \title{Computes the variance of the paired MNN deltas}
 \usage{
-mnnDeltaVariance(..., pairs, subset.row = NULL, BPPARAM = SerialParam())
+mnnDeltaVariance(
+  ...,
+  pairs,
+  subset.row = NULL,
+  BPPARAM = SerialParam(),
+  trend.args = list()
+)
 }
 \arguments{
 \item{...}{One or more log-expression matrices where genes correspond to rows and cells correspond to columns.
@@ -25,6 +31,8 @@ This is typically produced by \code{\link{fastMNN}}, see that documentation for 
 \item{subset.row}{A vector specifying which features to use for correction.}
 
 \item{BPPARAM}{A \linkS4class{BiocParallelParam} object specifying whether the PCA and nearest-neighbor searches should be parallelized.}
+
+\item{trend.args}{Named list of further arguments to pass to \code{fitTrendVar} from the \pkg{scran} package.}
 }
 \value{
 A numeric vector of variances for each row in the input objects (or as specified by \code{subset.row}).
@@ -44,6 +52,29 @@ as a shift in expression space is not particularly concerning (and is, in fact, 
 Rather, we are interested in identifying non-linear changes that might be indicative of correction errors, e.g., inappropriate merging of two different subpopulations.
 This would manifest as high variances for the relevant marker genes.
 Of course, whether or not this is actually an error can be a subjective decision - loss of some biological heterogeneity is often an acceptable cost for flexible correction.
+}
+\examples{
+means <- 2^rexp(200) * 10
+B1 <- matrix(rpois(10000, means), ncol=50) # Batch 1 
+B2 <- matrix(rpois(10000, means), ncol=50) # Batch 2
+
+# Spiking in some population structure. Each batch is split into two halves 
+# corresponding to 2 subpopulations. These populations match up across batches
+# but the group in batch 1 also upregulates the first gene.
+B1[1:2,1:25] <- B1[1:2,1:25] * 50 
+B2[2,1:25] <- B2[2,1:25] * 50 
+
+# Quick log-transformation and correction. We'll omit the multiBatchNorm as the
+# sequencing depth is the same across batches anyway.
+library(scuttle)
+B1 <- normalizeCounts(B1)
+B2 <- normalizeCounts(B2)
+out <- fastMNN(B1, B2)
+
+# First gene should have high variance of deltas, as the upregulation in B1 is 
+# removed to enable the alignment of subpopulations across batches.
+mnnDeltaVariance(B1, B2, pairs=metadata(out)$merge.info$pairs[[1]])
+
 }
 \author{
 Aaron Lun
