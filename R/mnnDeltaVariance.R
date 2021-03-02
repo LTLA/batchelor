@@ -5,6 +5,11 @@
 #' Each row of each DataFrame specifies an MNN pair; each DataFrame should have two columns containing the column indices of paired cells.
 #' This is typically produced by \code{\link{fastMNN}}, see that documentation for more information.
 #' @param trend.args Named list of further arguments to pass to \code{fitTrendVar} from the \pkg{scran} package.
+#' @param subset.row A vector specifying which genes to use for the calculation.
+#' This is typically the same as the \code{subset.row} passed to \code{\link{fastMNN}}, if any.
+#' @param cos.norm A logical scalar indicating whether cosine normalization should be performed on the expression values.
+#' @param compute.all Logical scalar indicating whether statistics should be returned for all genes when \code{subset.row} is specified, see DEtails.
+#' @param BPPARAM A \linkS4class{BiocParallelParam} object specifying whether the calculations should be parallelized.
 #' 
 #' @details
 #' The \dQuote{MNN delta} is defined as the difference in the \emph{uncorrected} expression values of MNN-paired cells.
@@ -27,6 +32,15 @@
 #' If a list is passed to \code{pairs}, each entry of the list is assumed to correspond to a merge step.
 #' The variance and trend fitting is done separately for each merge step, and the results are combined by computing the average variance across all steps.
 #' This avoids considering the variance of the deltas across merge steps, which is not particularly concerning, e.g., if different batches require different translations.
+#'
+#' If \code{cos.norm=TRUE}, cosine normalization is performed on each cell in \code{...} with \code{\link{cosineNorm}}.
+#' This mimics what is done inside \code{\link{fastMNN}} for greater consistency with what the batch correction operates on.
+#' While the scale of the variances are no longer comparable to that of log-expression data, this is not a major concern as we are mostly interested in the rankings anyway.
+#'
+#' If \code{subset.row} is specified, variances are only computed for the requested subset of genes, most typically the set of highly variable genes used in \code{\link{fastMNN}}.
+#' This also implies that the normalization and trend fitting is limited to the specified subset.
+#' However, if \code{compute.all=TRUE}, the scaling factor and fitted trend are extrapolated to compute adjusted variances for all other genes.
+#' This is useful for picking up genes outside of the subset used in the correction.
 #'
 #' @return
 #' A \linkS4class{DataFrame} with one row per gene in \code{...} (or as specified by \code{subset.row}),
@@ -69,9 +83,16 @@
 #' 
 #' @export
 #' @importFrom DelayedArray DelayedArray blockApply rowAutoGrid
-mnnDeltaVariance <- function(..., pairs, subset.row=NULL, BPPARAM=SerialParam(), trend.args=list()) {
+#' @importFrom scuttle .bpNotSharedOrUp .unpackLists .subset2index
+#' @importFrom BiocParallel bpstart bpstop SerialParam
+mnnDeltaVariance <- function(..., pairs, cos.norm=TRUE, subset.row=NULL, compute.all=FALSE, BPPARAM=SerialParam(), trend.args=list()) {
     batches <- .unpackLists(...)
     checkBatchConsistency(batches, cells.in.columns=TRUE)
+
+    if (.bpNotSharedOrUp(BPPARAM)) {
+        bpstart(BPPARAM)
+        on.exit(bpstop(BPPARAM), add=TRUE)
+    }
 
     # Extracting information from SCEs.
     is.sce <- checkIfSCE(batches)
@@ -81,11 +102,21 @@ mnnDeltaVariance <- function(..., pairs, subset.row=NULL, BPPARAM=SerialParam(),
 
     # Creating a common matrix.
     x <- lapply(batches, DelayedArray)
-    x <- do.call(cbind, x)
 
     if (!is.null(subset.row)) {
-        x <- x[subset.row,,drop=FALSE]
+        subset.row <- .subset2index(subset.row, x[[1]], byrow=TRUE)
+        if (!compute.all) {
+            x <- lapply(x, function(y) y[subset.row,,drop=FALSE])
+            subset.row <- NULL
+        }
     }
+
+    if (cos.norm) {
+        l2 <- lapply(x, cosineNorm, BPPARAM=BPPARAM, subset.row=subset.row, mode="l2norm")
+        x <- mapply(FUN=.apply_cosine_norm, x=x, l2=l2)
+    }
+
+    x <- do.call(cbind, x)
 
     # Subsetting to all cells involved in pairs, to avoid unnecessary extraction.
     if (is(pairs, "DataFrame")) {
@@ -111,8 +142,13 @@ mnnDeltaVariance <- function(..., pairs, subset.row=NULL, BPPARAM=SerialParam(),
         xvar <- unlist(lapply(stats, FUN=function(s) s$var[[i]]), use.names=FALSE)
         xvar <- unname(xvar)
 
+        xargs <- list(xmean, xvar)
+        if (!is.null(subset.row)) {
+            xargs <- lapply(xargs, function(X) X[subset.row])
+        }
+        fit <- do.call(scran::fitTrendVar, c(xargs, trend.args))
+
         # Just putting 'p.value' and 'FDR' as placeholders for combineBlocks.
-        fit <- do.call(scran::fitTrendVar, c(list(xmean, xvar), trend.args))
         df <- DataFrame(mean = xmean, total = xvar, trend = fit$trend(xmean), p.value=1, FDR=1)
         df$adjusted <- df$total - df$trend
         metadata(df) <- fit

@@ -16,15 +16,41 @@ out <- fastMNN(B1, B2)
 
 test_that("mnnDeltaVariance works as expected in basic cases", {
     pp <- metadata(out)$merge.info$pairs[[1]]
-    df <- mnnDeltaVariance(B1, B2, pairs=pp)
+    df <- mnnDeltaVariance(B1, B2, pairs=pp, cos.norm=FALSE)
     expect_identical(which.max(df$adjusted), 1L)
 
     expect_equal(df$mean, rowMeans(B1[,pp[,1]] + B2[,pp[,2] - ncol(B1)]) / 2)
     expect_equal(df$total, rowVars(B1[,pp[,1]] - B2[,pp[,2] - ncol(B1)]))
     expect_equal(df$trend, scran::fitTrendVar(df$mean, df$total)$trend(df$mean))
 
-    df2 <- mnnDeltaVariance(B1, B2, pairs=metadata(out)$merge.info$pairs[1])
+    df2 <- mnnDeltaVariance(B1, B2, pairs=metadata(out)$merge.info$pairs[1], cos.norm=FALSE)
     expect_equal(df, df2)
+
+    # Subsetting works as expected.
+    df <- mnnDeltaVariance(B1[1:100,], B2[1:100,], pairs=pp, cos.norm=FALSE)
+    df2 <- mnnDeltaVariance(B1, B2, pairs=pp, subset.row=1:100, cos.norm=FALSE)
+    expect_equal(df, df2)
+
+    i <- c(1:100, 1:10)
+    df2 <- mnnDeltaVariance(B1[i,], B2[i,], pairs=pp, subset.row=1:100, cos.norm=FALSE, compute.all=TRUE)
+    expect_equal(df, df2[1:100,])
+    expect_equal(df2[101:110,], df2[1:10,])
+})
+
+test_that("mnnDeltaVariance works with the cosine normalization", {
+    pp <- metadata(out)$merge.info$pairs[[1]]
+    df <- mnnDeltaVariance(B1, B2, pairs=pp)
+    expect_identical(which.max(df$adjusted), 1L)
+
+    df2 <- mnnDeltaVariance(cosineNorm(B1), cosineNorm(B2), pairs=pp)
+    expect_equal(df$adjusted, df2$adjusted)
+
+    # Interacts sanely with the subsetting.
+    df <- mnnDeltaVariance(B1[1:100,], B2[1:100,], pairs=pp)
+    i <- c(1:100, 1:10)
+    df2 <- mnnDeltaVariance(B1[i,], B2[i,], pairs=pp, subset.row=1:100, compute.all=TRUE)
+    expect_equal(df$adjusted, df2$adjusted[1:100])
+    expect_equal(df2$adjusted[1:10], df2$adjusted[101:110])
 })
 
 test_that("mnnDeltaVariance works as expected with blocking", {

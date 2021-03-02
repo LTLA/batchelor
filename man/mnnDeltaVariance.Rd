@@ -7,7 +7,9 @@
 mnnDeltaVariance(
   ...,
   pairs,
+  cos.norm = TRUE,
   subset.row = NULL,
+  compute.all = FALSE,
   BPPARAM = SerialParam(),
   trend.args = list()
 )
@@ -28,9 +30,14 @@ this is flattened as if the objects inside each list were passed directly to \co
 Each row of each DataFrame specifies an MNN pair; each DataFrame should have two columns containing the column indices of paired cells.
 This is typically produced by \code{\link{fastMNN}}, see that documentation for more information.}
 
-\item{subset.row}{A vector specifying which features to use for correction.}
+\item{cos.norm}{A logical scalar indicating whether cosine normalization should be performed on the expression values.}
 
-\item{BPPARAM}{A \linkS4class{BiocParallelParam} object specifying whether the PCA and nearest-neighbor searches should be parallelized.}
+\item{subset.row}{A vector specifying which genes to use for the calculation.
+This is typically the same as the \code{subset.row} passed to \code{\link{fastMNN}}, if any.}
+
+\item{compute.all}{Logical scalar indicating whether statistics should be returned for all genes when \code{subset.row} is specified, see DEtails.}
+
+\item{BPPARAM}{A \linkS4class{BiocParallelParam} object specifying whether the calculations should be parallelized.}
 
 \item{trend.args}{Named list of further arguments to pass to \code{fitTrendVar} from the \pkg{scran} package.}
 }
@@ -73,6 +80,15 @@ Fitting is done using the \code{fitTrendVar} function from the \pkg{scran} packa
 If a list is passed to \code{pairs}, each entry of the list is assumed to correspond to a merge step.
 The variance and trend fitting is done separately for each merge step, and the results are combined by computing the average variance across all steps.
 This avoids considering the variance of the deltas across merge steps, which is not particularly concerning, e.g., if different batches require different translations.
+
+If \code{cos.norm=TRUE}, cosine normalization is performed on each cell in \code{...} with \code{\link{cosineNorm}}.
+This mimics what is done inside \code{\link{fastMNN}} for greater consistency with what the batch correction operates on.
+While the scale of the variances are no longer comparable to that of log-expression data, this is not a major concern as we are mostly interested in the rankings anyway.
+
+If \code{subset.row} is specified, variances are only computed for the requested subset of genes, most typically the set of highly variable genes used in \code{\link{fastMNN}}.
+This also implies that the normalization and trend fitting is limited to the specified subset.
+However, if \code{compute.all=TRUE}, the scaling factor and fitted trend are extrapolated to compute adjusted variances for all other genes.
+This is useful for picking up genes outside of the subset used in the correction.
 }
 \examples{
 means <- 2^rexp(200) * 10
