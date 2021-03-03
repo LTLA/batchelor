@@ -324,6 +324,8 @@ Further MNN algorithm development.
 \code{\link{clusterMNN}}, for the cluster-based version of this approach.
 
 \code{multiModalMNN} from the \pkg{mumosa} package, which extends this to data in the \code{\link{altExps}}.
+
+\code{\link{mnnDeltaVariance}}, to obtain further per-gene diagnostics on the behavior of the correction.
 }
 \author{
 Aaron Lun

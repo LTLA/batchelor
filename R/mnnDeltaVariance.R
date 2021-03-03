@@ -80,12 +80,15 @@
 #' # First gene should have high variance of deltas, as the upregulation in B1 is 
 #' # removed to enable the alignment of subpopulations across batches.
 #' mnnDeltaVariance(B1, B2, pairs=metadata(out)$merge.info$pairs[[1]])
+#'
+#' @seealso
+#' \code{\link{fastMNN}} and related functions, to obtain the MNN pairs in the first place.
 #' 
 #' @export
 #' @importFrom DelayedArray DelayedArray blockApply rowAutoGrid
 #' @importFrom scuttle .bpNotSharedOrUp .unpackLists .subset2index
 #' @importFrom BiocParallel bpstart bpstop SerialParam
-mnnDeltaVariance <- function(..., pairs, cos.norm=TRUE, subset.row=NULL, compute.all=FALSE, BPPARAM=SerialParam(), trend.args=list()) {
+mnnDeltaVariance <- function(..., pairs, cos.norm=TRUE, subset.row=NULL, compute.all=FALSE, assay.type="logcounts", BPPARAM=SerialParam(), trend.args=list()) {
     batches <- .unpackLists(...)
     checkBatchConsistency(batches, cells.in.columns=TRUE)
 

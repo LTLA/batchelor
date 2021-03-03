@@ -10,6 +10,7 @@ mnnDeltaVariance(
   cos.norm = TRUE,
   subset.row = NULL,
   compute.all = FALSE,
+  assay.type = "logcounts",
   BPPARAM = SerialParam(),
   trend.args = list()
 )
@@ -36,6 +37,9 @@ This is typically produced by \code{\link{fastMNN}}, see that documentation for 
 This is typically the same as the \code{subset.row} passed to \code{\link{fastMNN}}, if any.}
 
 \item{compute.all}{Logical scalar indicating whether statistics should be returned for all genes when \code{subset.row} is specified, see DEtails.}
+
+\item{assay.type}{A string or integer scalar specifying the assay containing the log-expression values.
+Only used for SingleCellExperiment inputs.}
 
 \item{BPPARAM}{A \linkS4class{BiocParallelParam} object specifying whether the calculations should be parallelized.}
 
@@ -112,6 +116,9 @@ out <- fastMNN(B1, B2)
 # removed to enable the alignment of subpopulations across batches.
 mnnDeltaVariance(B1, B2, pairs=metadata(out)$merge.info$pairs[[1]])
 
+}
+\seealso{
+\code{\link{fastMNN}} and related functions, to obtain the MNN pairs in the first place.
 }
 \author{
 Aaron Lun
