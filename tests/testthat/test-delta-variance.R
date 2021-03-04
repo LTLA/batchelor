@@ -39,16 +39,16 @@ test_that("mnnDeltaVariance works as expected in basic cases", {
 
 test_that("mnnDeltaVariance works with the cosine normalization", {
     pp <- metadata(out)$merge.info$pairs[[1]]
-    df <- mnnDeltaVariance(B1, B2, pairs=pp)
+    df <- mnnDeltaVariance(B1, B2, pairs=pp, cos.norm=TRUE)
     expect_identical(which.max(df$adjusted), 1L)
 
-    df2 <- mnnDeltaVariance(cosineNorm(B1), cosineNorm(B2), pairs=pp)
-    expect_equal(df$adjusted, df2$adjusted)
+    df2 <- mnnDeltaVariance(cosineNorm(B1), cosineNorm(B2), pairs=pp, cos.norm=TRUE)
+    expect_true(mad(df$total/df2$total) < 1e-8)
 
     # Interacts sanely with the subsetting.
-    df <- mnnDeltaVariance(B1[1:100,], B2[1:100,], pairs=pp)
+    df <- mnnDeltaVariance(B1[1:100,], B2[1:100,], pairs=pp, cos.norm=TRUE)
     i <- c(1:100, 1:10)
-    df2 <- mnnDeltaVariance(B1[i,], B2[i,], pairs=pp, subset.row=1:100, compute.all=TRUE)
+    df2 <- mnnDeltaVariance(B1[i,], B2[i,], pairs=pp, subset.row=1:100, cos.norm=TRUE, compute.all=TRUE)
     expect_equal(df$adjusted, df2$adjusted[1:100])
     expect_equal(df2$adjusted[1:10], df2$adjusted[101:110])
 })

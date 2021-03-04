@@ -7,7 +7,7 @@
 mnnDeltaVariance(
   ...,
   pairs,
-  cos.norm = TRUE,
+  cos.norm = FALSE,
   subset.row = NULL,
   compute.all = FALSE,
   assay.type = "logcounts",
@@ -84,16 +84,22 @@ Fitting is done using the \code{fitTrendVar} function from the \pkg{scran} packa
 If a list is passed to \code{pairs}, each entry of the list is assumed to correspond to a merge step.
 The variance and trend fitting is done separately for each merge step, and the results are combined by computing the average variance across all steps.
 This avoids considering the variance of the deltas across merge steps, which is not particularly concerning, e.g., if different batches require different translations.
+}
+\section{Improving consistency with \code{fastMNN}}{
 
 If \code{cos.norm=TRUE}, cosine normalization is performed on each cell in \code{...} with \code{\link{cosineNorm}}.
-This mimics what is done inside \code{\link{fastMNN}} for greater consistency with what the batch correction operates on.
-While the scale of the variances are no longer comparable to that of log-expression data, this is not a major concern as we are mostly interested in the rankings anyway.
+This mimics what is done inside \code{\link{fastMNN}} for greater consistency with that function's internal calculations.
+Some further scaling is performed so that the magnitude of the normalized values is mostly unaffected.
 
 If \code{subset.row} is specified, variances are only computed for the requested subset of genes, most typically the set of highly variable genes used in \code{\link{fastMNN}}.
 This also implies that the normalization and trend fitting is limited to the specified subset.
 However, if \code{compute.all=TRUE}, the scaling factor and fitted trend are extrapolated to compute adjusted variances for all other genes.
 This is useful for picking up genes outside of the subset used in the correction.
+
+In most applications, it is not necessary to have strict consistency with the internal values computed by \code{fastMNN}.
+Nonetheless, it may be helpful for diagnostics in more difficult situations.
 }
+
 \examples{
 means <- 2^rexp(200) * 10
 B1 <- matrix(rpois(10000, means), ncol=50) # Batch 1 

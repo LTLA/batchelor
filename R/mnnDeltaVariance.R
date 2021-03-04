@@ -33,14 +33,18 @@
 #' The variance and trend fitting is done separately for each merge step, and the results are combined by computing the average variance across all steps.
 #' This avoids considering the variance of the deltas across merge steps, which is not particularly concerning, e.g., if different batches require different translations.
 #'
+#' @section Improving consistency with \code{fastMNN}:
 #' If \code{cos.norm=TRUE}, cosine normalization is performed on each cell in \code{...} with \code{\link{cosineNorm}}.
-#' This mimics what is done inside \code{\link{fastMNN}} for greater consistency with what the batch correction operates on.
-#' While the scale of the variances are no longer comparable to that of log-expression data, this is not a major concern as we are mostly interested in the rankings anyway.
+#' This mimics what is done inside \code{\link{fastMNN}} for greater consistency with that function's internal calculations.
+#' Some further scaling is performed so that the magnitude of the normalized values is mostly unaffected.
 #'
 #' If \code{subset.row} is specified, variances are only computed for the requested subset of genes, most typically the set of highly variable genes used in \code{\link{fastMNN}}.
 #' This also implies that the normalization and trend fitting is limited to the specified subset.
 #' However, if \code{compute.all=TRUE}, the scaling factor and fitted trend are extrapolated to compute adjusted variances for all other genes.
 #' This is useful for picking up genes outside of the subset used in the correction.
+#'
+#' In most applications, it is not necessary to have strict consistency with the internal values computed by \code{fastMNN}.
+#' Nonetheless, it may be helpful for diagnostics in more difficult situations.
 #'
 #' @return
 #' A \linkS4class{DataFrame} with one row per gene in \code{...} (or as specified by \code{subset.row}),
@@ -88,7 +92,7 @@
 #' @importFrom DelayedArray DelayedArray blockApply rowAutoGrid
 #' @importFrom scuttle .bpNotSharedOrUp .unpackLists .subset2index
 #' @importFrom BiocParallel bpstart bpstop SerialParam
-mnnDeltaVariance <- function(..., pairs, cos.norm=TRUE, subset.row=NULL, compute.all=FALSE, assay.type="logcounts", BPPARAM=SerialParam(), trend.args=list()) {
+mnnDeltaVariance <- function(..., pairs, cos.norm=FALSE, subset.row=NULL, compute.all=FALSE, assay.type="logcounts", BPPARAM=SerialParam(), trend.args=list()) {
     batches <- .unpackLists(...)
     checkBatchConsistency(batches, cells.in.columns=TRUE)
 
@@ -116,6 +120,8 @@ mnnDeltaVariance <- function(..., pairs, cos.norm=TRUE, subset.row=NULL, compute
 
     if (cos.norm) {
         l2 <- lapply(x, cosineNorm, BPPARAM=BPPARAM, subset.row=subset.row, mode="l2norm")
+        ml2 <- mean(vapply(l2, mean, 0)) # ensure that the scale is not completely whack.
+        l2 <- lapply(l2, function(x) x/ml2)
         x <- mapply(FUN=.apply_cosine_norm, x=x, l2=l2)
     }
 
@@ -152,7 +158,7 @@ mnnDeltaVariance <- function(..., pairs, cos.norm=TRUE, subset.row=NULL, compute
         fit <- do.call(scran::fitTrendVar, c(xargs, trend.args))
 
         # Just putting 'p.value' and 'FDR' as placeholders for combineBlocks.
-        df <- DataFrame(mean = xmean, total = xvar, trend = fit$trend(xmean), p.value=1, FDR=1)
+        df <- DataFrame(mean = xmean, total = xvar, trend = fit$trend(xmean), p.value=1, FDR=1, row.names=rownames(x))
         df$adjusted <- df$total - df$trend
         metadata(df) <- fit
         output[[i]] <- df
