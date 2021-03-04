@@ -247,6 +247,8 @@
 #'
 #' \code{multiModalMNN} from the \pkg{mumosa} package, which extends this to data in the \code{\link{altExps}}.
 #'
+#' \code{\link{mnnDeltaVariance}}, to obtain further per-gene diagnostics on the behavior of the correction.
+#'
 #' @examples
 #' B1 <- matrix(rnorm(10000, -1), ncol=50) # Batch 1 
 #' B2 <- matrix(rnorm(10000, 1), ncol=50) # Batch 2
