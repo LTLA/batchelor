@@ -10,6 +10,8 @@
 \item Bugfix for \code{d=NA} with specified \code{subset.row=} in \code{fastMNN()}.
 
 \item Added the \code{applyMultiSCE()} function to easily apply functions across main/alternative Experiments from multiple SingleCellExperiment inputs.
+
+\item Added the \code{mnnDeltaVariance()} function to compute diagnostics from the variances of the differences between MNN pairs.
 }}
 
 \section{Version 1.6.0}{\itemize{
