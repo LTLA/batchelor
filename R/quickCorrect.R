@@ -66,11 +66,12 @@ quickCorrect <- function(...,
     assay.type="counts", 
     PARAM=FastMnnParam(), 
     multi.norm.args=list(),
-    precomputed.var=NULL,
+    precomputed=NULL,
     model.var.args=list(),
     hvg.args=list(n=5000))
 {
     all.batches <- intersectRows(...)
+    single.batch <- length(all.batches)==1L
 
     # Perform multibatchNorm.
     all.batches <- do.call(multiBatchNorm, c(
@@ -80,9 +81,9 @@ quickCorrect <- function(...,
     ))
 
     # Perform HVG calling within each batch.
-    if (is.null(precomputed.var)) {
-        if (length(all.batches) == 1) {
-            dec <- do.call(scran::modelGeneVar, c(list(all.batches[[1]], block=batch), model.var.args))
+    if (is.null(precomputed)) {
+        if (single.batch) { 
+            dec <- do.call(scran::modelGeneVar, c(list(all.batches, block=batch), model.var.args))
         } else {
             sub.dec <- vector("list", length(all.batches))
             for (i in seq_along(all.batches)) {
@@ -91,14 +92,17 @@ quickCorrect <- function(...,
             dec <- do.call(scran::combineVar, sub.dec)
         }
     } else {
-        if (length(precomputed.var)==length(all.batches)) {
-            stop("'length(precomputed.var)' is not the same as the number of objects in '...'")
-        }
-        if (length(all.batches) == 1) {
-            dec <- precomputed.var[[1]]
+        if (single.batch) {
+            if (length(precomputed)!=1L){ 
+                stop("'length(precomputed)' is not the same as the number of objects in '...'")
+            }
+            dec <- precomputed[[1]]
         } else {
+            if (length(precomputed)!=length(all.batches)) {
+                stop("'length(precomputed)' is not the same as the number of objects in '...'")
+            }
             universe <- rownames(all.batches[[1]])
-            sub.dec <- lapply(precomputed.var, function(x) x[universe,,drop=FALSE])
+            sub.dec <- lapply(precomputed, function(x) x[universe,,drop=FALSE])
             dec <- do.call(scran::combineVar, sub.dec)
         }
     }

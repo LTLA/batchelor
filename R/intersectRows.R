@@ -72,7 +72,7 @@ intersectRows <- function(..., subset.row=NULL, keep.all=FALSE) {
             stop("only character 'subset.row' is allowed when '...' have different rownames")
         }
         if (!keep.all) {
-            all.batches[[i]] <- lapply(all.batches, function(x) x[subset.row,,drop=FALSE])
+            all.batches <- lapply(all.batches, function(x) x[subset.row,,drop=FALSE])
         }
     }
 

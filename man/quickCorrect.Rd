@@ -12,7 +12,7 @@ quickCorrect(
   assay.type = "counts",
   PARAM = FastMnnParam(),
   multi.norm.args = list(),
-  precomputed.var = NULL,
+  precomputed = NULL,
   model.var.args = list(),
   hvg.args = list(n = 5000)
 )
@@ -45,14 +45,14 @@ and \linkS4class{RegressParam} will dispatch to \code{\link{regressBatches}}.}
 
 \item{multi.norm.args}{Named list of further arguments to pass to \code{\link{multiBatchNorm}}.}
 
+\item{precomputed}{List of \link{DataFrame}s containing precomputed variance modelling results.
+This should be a list of the same length as the number of entries in \code{...},
+and each should have the same row names as the corresponding entry of \code{...}.}
+
 \item{model.var.args}{Named list of further arguments to pass to \code{\link[scran]{modelGeneVar}}.}
 
 \item{hvg.args}{Named list of further arguments to pass to \code{\link[scran]{getTopHVGs}}.
 By default, we take the top 5000 genes with the highest variances.}
-
-\item{precomputed}{List of \link{DataFrame}s containing precomputed variance modelling results.
-This should be a list of the same length as the number of entries in \code{...},
-and each should have the same row names as the corresponding entry of \code{...}.}
 }
 \value{
 A list containing:
