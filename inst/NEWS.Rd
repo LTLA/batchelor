@@ -12,6 +12,8 @@
 \item Added the \code{applyMultiSCE()} function to easily apply functions across main/alternative Experiments from multiple SingleCellExperiment inputs.
 
 \item Added the \code{mnnDeltaVariance()} function to compute diagnostics from the variances of the differences between MNN pairs.
+
+\item Added the \code{quickCorrect()} function to quickly perform intersection, normalization, feature selection and correction.
 }}
 
 \section{Version 1.6.0}{\itemize{
