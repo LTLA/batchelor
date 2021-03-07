@@ -1,6 +1,8 @@
 # This tests the various quickCorrect functions.
 # library(testthat); library(batchelor); source("test-quick-correct.R")
 
+library(dqrng) # see https://github.com/daqana/dqrng/issues/43.
+
 set.seed(100)
 d1 <- matrix(rnbinom(50000, mu=10, size=1), ncol=100)
 sce1 <- SingleCellExperiment(list(counts=d1))
@@ -12,19 +14,20 @@ sce2 <- SingleCellExperiment(list(counts=d2))
 sizeFactors(sce2) <- runif(ncol(d2))
 rownames(sce2) <- paste0("GENE", 201:700)
 
+universe <- intersect(rownames(sce1), rownames(sce2))
+
 set.seed(1000)
 output <- quickCorrect(sce1, sce2)
-universe <- intersect(rownames(sce1), rownames(sce2))
 
 test_that("quickCorrect works as expected", {
     expect_identical(rownames(output$corrected), universe)
 
     # Same results.
+    set.seed(1000)
     normed <- multiBatchNorm(sce1[universe,], sce2[universe,])
     dec1 <- scran::modelGeneVar(normed[[1]])
     dec2 <- scran::modelGeneVar(normed[[2]])
 
-    set.seed(1000)
     pre <- quickCorrect(sce1, sce2, precomputed=list(dec1, dec2))
     expect_equal(reducedDim(output$corrected), reducedDim(pre$corrected))
 
