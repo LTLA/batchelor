@@ -14,6 +14,8 @@
 \item Added the \code{mnnDeltaVariance()} function to compute diagnostics from the variances of the differences between MNN pairs.
 
 \item Added the \code{quickCorrect()} function to quickly perform intersection, normalization, feature selection and correction.
+
+\item Added some clustering-based diagnostics (\code{clusterAbundanceVar()}, \code{clusterAbundanceTest()} and \code{compareMergedClusters()}) from the OSCA book.
 }}
 
 \section{Version 1.6.0}{\itemize{
