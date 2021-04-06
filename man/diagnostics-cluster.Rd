@@ -4,14 +4,11 @@
 \alias{diagnostics-cluster}
 \alias{clusterAbundanceTest}
 \alias{clusterAbundanceVar}
-\alias{compareMergedClusters}
 \title{Cluster-based correction diagnostics}
 \usage{
 clusterAbundanceTest(x, batch)
 
 clusterAbundanceVar(x, batch, pseudo.count = 10)
-
-compareMergedClusters(before, after)
 }
 \arguments{
 \item{x}{A factor or vector specifying the assigned cluster for each cell in each batch in the corrected data.
@@ -21,23 +18,11 @@ Alternatively, a matrix or table containing the number of cells in each cluster 
 Ignored if \code{x} is a matrix or table.}
 
 \item{pseudo.count}{A numeric scalar containing the pseudo-count to use for the log-transformation.}
-
-\item{before}{Factor or vector specifying the assigned cluster for each cell in the \emph{uncorrected} data (i.e., before batch correction) for a \emph{single} batch.}
-
-\item{after}{Factor or vector specifying the assigned cluster for each cell in the \emph{corrected} data (i.e., after batch correction), for the same cells in \code{before}.}
 }
 \value{
 For \code{clusterAbundanceTest}, a named numeric vector of p-values from applying Pearson's chi-squared test on each cluster.
 
 For \code{clusterAbundanceVar}, a named numeric vector of variances of log-abundances across batches for each cluster.
-
-For \code{compareMergedClusters}, a list containing:
-\itemize{
-\item \code{proportions}, a matrix where each row corresponds to one of the \code{after} clusters
-and contains the (weighted) proportion of its cells that were derived from each of the \code{before} clusters.
-\item \code{max.prop}, a numeric vector specifying the maximum proportion for each \code{after} cluster (i.e., row of \code{proportions}).
-\item \code{which.max}, a character vector specifying the \code{before} cluster containing the maximum proportion for each \code{after} cluster.
-}
 }
 \description{
 A variety of correction diagnostics that make use of clustering information,
@@ -54,13 +39,6 @@ We then compute the variance of the log-abundances across batches for each clust
 Large variances indicate that there are strong relative differences in abundance across batches, indicative of either imperfect mixing or genuine batch-specific subpopulations.
 The idea is to rank clusters by their variance to prioritize them for manual inspection to decide between these two possibilities. 
 We use a large \code{pseudo.count} by default to avoid spuriously large variances when the counts are low.
-
-For \code{compareMergedClusters}, the idea is to compare the clustering before and after batch correction for cells in a \emph{single} batch.
-Correction should not remove heterogeneity within each batch, so each cluster generated from the corrected data (\code{after}) should map to a single cluster in the uncorrected data (\code{before}).
-We quantify this by looking at each \code{after} cluster and computing the proportion of its cells that were obtained from each \code{before} cluster.
-(This proportion is computed by weighting each cell according to its \code{before} frequency, to ensure we consider less-frequent clusters.) 
-For each \code{after} cluster, we then identify the maximum proportion across all \code{before} clusters, i.e., \code{max.prop}.
-Multiple mappings indicate that the different clusters in \code{before} were merged in the corrected data, representing loss of heterogeneity and manifesting as a low \code{max.prop}.
 }
 \examples{
 set.seed(1000)
@@ -82,11 +60,6 @@ clusterAbundanceTest(paste("Cluster", merged.cluster), out$batch)
 # High variances indicate differences in normalized abundance.
 clusterAbundanceVar(paste("Cluster", merged.cluster), out$batch)
 
-# Ideally, we'd expect 1:1 mappings with max.prop=1.
-compareMergedClusters(paste("Before", cluster1),
-                      paste("After", merged.cluster[out$batch==1]))
-compareMergedClusters(paste("Before", cluster2),
-                      paste("After", merged.cluster[out$batch==2]))
 }
 \author{
 Aaron Lun
