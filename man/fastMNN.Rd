@@ -173,6 +173,7 @@ batch 4 with 5, and then 4+5 with 6; and finally, 1+2+3 with 4+5+6.
 \item The same approach can be used for integer or character vectors, e.g., \code{list(1:3, 4:6)} has the same effect as above.
 }
 Note that, while batches can be specified by name (character) or index (integer), users cannot use both in the same tree.
+Factors can be provided and are coerced to character vectors.
 
 The merge order may occasionally be important as it determines the number of MNN pairs available at each merge step.
 MNN pairs results in greater stability of the batch vectors and increased likelihood of identifying shared subpopulations,
