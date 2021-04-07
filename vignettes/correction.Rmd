@@ -191,8 +191,8 @@ This performs the MNN identification and correction in the gene expression space
 `mnnCorrect()` is called with the same semantics as `fastMNN()`:
 
 ```{r}
-# Using fewer genes as it is much slower. 
-fewer.hvgs <- head(order(combined.dec$bio, decreasing=TRUE), 500)
+# Using fewer genes as it is much, much slower. 
+fewer.hvgs <- head(order(combined.dec$bio, decreasing=TRUE), 100)
 classic.out <- mnnCorrect(sce1, sce2, subset.row=fewer.hvgs)
 ```
 

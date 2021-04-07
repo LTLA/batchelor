@@ -37,7 +37,7 @@ If a single object is supplied, it is assumed to contain cells from all batches,
 Alternatively, one or more lists of matrices or SingleCellExperiments can be provided;
 this is flattened as if the objects inside each list were passed directly to \code{...}.}
 
-\item{batch}{A factor specifying the batch of origin for all cells when only a single object is supplied in \code{...}.
+\item{batch}{A vector or factor specifying the batch of origin for all cells when only a single object is supplied in \code{...}.
 This is ignored if multiple objects are present.}
 
 \item{restrict}{A list of length equal to the number of objects in \code{...}.
@@ -193,11 +193,10 @@ This allows the choice of \code{k} to adapt to the size of each batch at each me
 
 \section{Controlling the merge order}{
 
-By default, batches are merged in the user-supplied order, 
-i.e., the first batch is merged with the second batch, 
-the third batch is merged with the combined first-second batch,
-the fourth batch is merged with the combined first-second-third batch and so on.
+By default, batches are merged in the user-supplied order in \code{...}, 
+i.e., the first batch is merged with the second batch, the third batch is merged with the combined first-second batch, the fourth batch is merged with the combined first-second-third batch and so on.
 We refer to this approach as a progressive merge.
+When \code{batch} is supplied for a single object in \code{...}, the ordering of batches in a progressive merge is determined by the ordering of factor levels in \code{batch}.
 
 If \code{merge.order} is an integer vector, it is treated as an ordering permutation with which to perform a progressive merge.
 For example, if \code{merge.order=c(4,1,3,2)}, batches 4 and 1 in \code{...} are merged first;
@@ -207,6 +206,7 @@ This is often more convenient than changing the order manually in \code{...},
 which would alter the order of batches in the output \code{corrected} matrix.
 
 If \code{merge.order} is a character vector, it is treated as an ordering permutation for named batches.
+If \code{merge.order} is a factor, it is coerced into a character vector and also treated as a permutation of names.
 
 If \code{merge.order} is a nested list, it is treated as a tree that specifies a hierarchical merge.
 Each element of the list should either be a string or integer scalar, corresponding to a leaf node that specifies a batch;

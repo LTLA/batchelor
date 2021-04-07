@@ -29,7 +29,7 @@ If a single object is supplied, \code{batch} should also be specified.
 Alternatively, any number of lists of such objects.
 this is flattened as if the objects inside each list were passed directly to \code{...}.}
 
-\item{batch}{A factor specifying the batch of origin for all cells when only a single object is supplied in \code{...}.
+\item{batch}{A vector or factor specifying the batch of origin for all cells when only a single object is supplied in \code{...}.
 This is ignored if multiple objects are present.}
 
 \item{k}{An integer scalar specifying the number of nearest neighbors to consider when identifying MNNs.}

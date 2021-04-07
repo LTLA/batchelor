@@ -27,7 +27,7 @@ If a single object is supplied, it is assumed to contain cells from all batches,
 Alternatively, one or more lists of matrices or SingleCellExperiments can be provided;
 this is flattened as if the objects inside each list were passed directly to \code{...}.}
 
-\item{batch}{A factor specifying the batch of origin for all cells when only a single object is supplied in \code{...}.
+\item{batch}{A vector or factor specifying the batch of origin for all cells when only a single object is supplied in \code{...}.
 This is ignored if multiple objects are present.}
 
 \item{restrict}{A list of length equal to the number of objects in \code{...}.
