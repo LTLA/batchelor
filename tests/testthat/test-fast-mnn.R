@@ -513,12 +513,23 @@ test_that("fastMNN works with within-object batches", {
     expect_identical(reducedDim(out), reducedDim(alt))
     expect_identical(alt$batch, as.character(batches))
 
-    # Handles non-obvious orderings.
+    alt <- fastMNN(combined, batch=batches, merge.order=list(factor(1), factor(2), factor(3)), BSPARAM=ExactParam())
+    expect_identical(reducedDim(out), reducedDim(alt))
+
+    # Handles non-obvious level orderings.
+    f <- factor(4 - batches, 3:1) 
+    alt <- fastMNN(combined, batch=f, BSPARAM=ExactParam())
+    expect_identical(reducedDim(out), reducedDim(alt))
+
     f <- factor(batches, 3:1)
     alt <- fastMNN(combined, batch=f, BSPARAM=ExactParam())
     rev <- fastMNN(combined, batch=batches, merge.order=3:1, BSPARAM=ExactParam())
     expect_equal(reducedDim(rev), reducedDim(alt))
     expect_identical(alt$batch, as.character(batches))
+
+    f <- factor(batches, 3:1)
+    alt <- fastMNN(combined, batch=f, merge.order=factor(1:3), BSPARAM=ExactParam())
+    expect_equal(reducedDim(out), reducedDim(alt))
 })
 
 set.seed(120000521)
