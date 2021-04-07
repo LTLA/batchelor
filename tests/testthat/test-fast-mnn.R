@@ -365,9 +365,13 @@ test_that("fastMNN works as expected for four batches with trees", {
     expect_equal(metadata(out.reorder)$merge.info[1,], metadata(out.treeX)$merge.info[2,])
     expect_equal(metadata(out.default)$merge.info[1,], metadata(out.treeX)$merge.info[1,])
 
-    # Checking that character strings work.
+    # Works for strings and factors as well.
     out.treeY <- fastMNN(X=B1, A=B2, Z=B3, B=B4, merge.order=list(list("B", "Z"), list("X", "A")), BSPARAM=ExactParam())
     expect_true(isTRUE(all.equal(reducedDim(out.treeX), reducedDim(out.treeY))))
+
+    f <- factor(paste0(letters[1:4], "_"))
+    out.treeZ <- fastMNN(a_=B1, b_=B2, c_=B3, d_=B4, merge.order=list(list(f[4], f[3]), list(f[1], f[2])), BSPARAM=ExactParam())
+    expect_identical(reducedDim(out.treeX), reducedDim(out.treeZ))
 })
 
 set.seed(120000051)
@@ -499,6 +503,22 @@ test_that("fastMNN works with within-object batches", {
             curout[order(curout[,1], curout[,2]),]
         )
     }
+
+    # Works for character vectors and factors as well.
+    alt <- fastMNN(combined, batch=paste0("BATCH", batches), BSPARAM=ExactParam())
+    expect_identical(reducedDim(out), reducedDim(alt))
+    expect_identical(alt$batch, paste0("BATCH", batches))
+
+    alt <- fastMNN(combined, batch=factor(batches), BSPARAM=ExactParam())
+    expect_identical(reducedDim(out), reducedDim(alt))
+    expect_identical(alt$batch, as.character(batches))
+
+    # Handles non-obvious orderings.
+    f <- factor(batches, 3:1)
+    alt <- fastMNN(combined, batch=f, BSPARAM=ExactParam())
+    rev <- fastMNN(combined, batch=batches, merge.order=3:1, BSPARAM=ExactParam())
+    expect_equal(reducedDim(rev), reducedDim(alt))
+    expect_identical(alt$batch, as.character(batches))
 })
 
 set.seed(120000521)

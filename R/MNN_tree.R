@@ -20,6 +20,9 @@ MNN_treenode <- function(index, data, restrict, origin=rep(index, nrow(data)), e
 
 .binarize_tree <- function(merge.tree) {
     if (!is.list(merge.tree) && length(merge.tree)==1L) {
+        if (is.factor(merge.tree)) {
+            merge.tree <- as.character(merge.tree)
+        }
         return(merge.tree)
     }
 
@@ -93,7 +96,7 @@ MNN_treenode <- function(index, data, restrict, origin=rep(index, nrow(data)), e
     # Checking validity of leaf identities.
     leaves <- unlist(merge.tree)
     if (!is.numeric(leaves)) {
-        leaves <- match(leaves, names(batches))
+        leaves <- match(as.character(leaves), names(batches))
     } else {
         leaves <- as.integer(leaves)
     }

@@ -84,3 +84,22 @@ test_that("testing tree construction", {
     expect_error(batchelor:::.create_tree_predefined(list(B1, B2), merge.order=c(1,1)), "invalid leaf nodes")
     expect_error(batchelor:::.create_tree_predefined(list(A=B1, B=B2), merge.order=c("A","C")), "invalid leaf nodes")
 })
+
+test_that("testing tree construction with other leaf node types", {
+    B1 <- matrix(1)
+    B2 <- matrix(2)
+    B3 <- matrix(3)
+    B4 <- matrix(4)
+    ref <- batchelor:::.create_tree_predefined(list(B1, B2, B3, B4), restrict=NULL, merge.order=list(list(1,4), list(3,2)))
+
+    alt <- batchelor:::.create_tree_predefined(list(a=B1, b=B2, c=B3, d=B4), restrict=NULL, merge.order=list(list("a","d"), list("c","b")))
+    expect_identical(ref, alt)
+
+    f <- factor(letters[1:4])
+    alt <- batchelor:::.create_tree_predefined(list(a=B1, b=B2, c=B3, d=B4), restrict=NULL, merge.order=list(list(f[1], f[4]), list(f[3], f[2])))
+    expect_identical(ref, alt)
+
+    alt <- batchelor:::.create_tree_predefined(list(a=B1, b=B2, c=B3, d=B4), restrict=NULL, merge.order=list(list(factor("a"), factor("d")), list(factor("c"), factor("b"))))
+    expect_identical(ref, alt)
+})
+
