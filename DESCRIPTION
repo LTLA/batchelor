@@ -1,6 +1,6 @@
 Package: batchelor
-Version: 1.7.13
-Date: 2021-04-06
+Version: 1.7.14
+Date: 2021-04-16
 Title: Single-Cell Batch Correction Methods
 Authors@R: c(person("Aaron", "Lun", role = c("aut", "cre"), email = "infinite.monkeys.with.keyboards@gmail.com"),
     person("Laleh", "Haghverdi", role="ctb"))
@@ -27,6 +27,7 @@ Suggests:
     testthat,
     BiocStyle,
     knitr,
+    rmarkdown,
     scran,
     scater,
     bluster,
