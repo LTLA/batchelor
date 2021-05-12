@@ -263,6 +263,7 @@ multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, weights=NULL,
 #' @importFrom DelayedArray DelayedArray
 #' @importFrom ScaledMatrix ScaledMatrix
 #' @importFrom Matrix t rowMeans
+#' @importFrom beachmat realizeFileBackedMatrix
 .process_listed_matrices_for_pca <- function(mat.list, weights, subset.row, deferred=FALSE) {
     weights <- .construct_weight_vector(vapply(mat.list, ncol, 0L), weights)
 
@@ -274,6 +275,7 @@ multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, weights=NULL,
         if (!is.null(subset.row)) {
             current <- current[subset.row,,drop=FALSE]
         }
+        current <- realizeFileBackedMatrix(current)
 
         centers <- rowMeans(current)
         grand.centers <- grand.centers + centers * weights[idx]
@@ -522,6 +524,7 @@ multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, weights=NULL,
     if (!is.null(subset.row)) {
         x <- x[subset.row,,drop=FALSE]
     }
+    x <- realizeFileBackedMatrix(x)
 
     # Computing the grand average of the centers.
     centers <- 0

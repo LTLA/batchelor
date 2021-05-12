@@ -16,6 +16,8 @@
 \item Added the \code{quickCorrect()} function to quickly perform intersection, normalization, feature selection and correction.
 
 \item Added some clustering-based diagnostics (\code{clusterAbundanceVar()}, \code{clusterAbundanceTest()} and \code{compareMergedClusters()}) from the OSCA book.
+
+\item File-backed matrices are now realized into memory prior to \code{multiBatchPCA()}. 
 }}
 
 \section{Version 1.6.0}{\itemize{

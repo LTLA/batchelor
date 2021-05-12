@@ -1,6 +1,6 @@
 Package: batchelor
-Version: 1.7.14
-Date: 2021-04-16
+Version: 1.7.15
+Date: 2021-05-11
 Title: Single-Cell Batch Correction Methods
 Authors@R: c(person("Aaron", "Lun", role = c("aut", "cre"), email = "infinite.monkeys.with.keyboards@gmail.com"),
     person("Laleh", "Haghverdi", role="ctb"))
@@ -22,7 +22,8 @@ Imports:
     BiocParallel,
     scuttle,
     ResidualMatrix,
-    ScaledMatrix
+    ScaledMatrix,
+    beachmat
 Suggests: 
     testthat,
     BiocStyle,
