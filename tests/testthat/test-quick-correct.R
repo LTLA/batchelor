@@ -1,8 +1,6 @@
 # This tests the various quickCorrect functions.
 # library(testthat); library(batchelor); source("test-quick-correct.R")
 
-library(dqrng) # see https://github.com/daqana/dqrng/issues/43.
-
 set.seed(100)
 d1 <- matrix(rnbinom(50000, mu=10, size=1), ncol=100)
 sce1 <- SingleCellExperiment(list(counts=d1))
