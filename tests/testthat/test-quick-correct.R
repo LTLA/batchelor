@@ -51,3 +51,13 @@ test_that("quickCorrect works with a single object", {
     expect_error(quickCorrect(com, batch=b, precomputed=list(dec, dec)), "not the same")
 })
 
+test_that("quickCorrect actually uses its HVGs", {
+    set.seed(0)
+    pre1 <- quickCorrect(sce1, sce2, hvg.args=list(n=20))
+
+    set.seed(0)
+    pre2 <- quickCorrect(sce1, sce2, hvg.args=list(n=100))
+
+    # Actually has an effect.
+    expect_false(identical(pre1, pre2))
+})

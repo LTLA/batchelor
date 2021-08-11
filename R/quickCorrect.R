@@ -110,7 +110,7 @@ quickCorrect <- function(...,
     hvgs <- do.call(scran::getTopHVGs, c(list(dec), hvg.args))
 
     # Finally, get around to the batch correction.
-    corrected <- batchCorrect(all.batches, batch=batch, restrict=restrict, correct.all=correct.all, PARAM=PARAM)
+    corrected <- batchCorrect(all.batches, batch=batch, restrict=restrict, correct.all=correct.all, subset.row=hvgs, PARAM=PARAM)
 
     list(dec=dec, hvgs=hvgs, corrected=corrected)
 }
