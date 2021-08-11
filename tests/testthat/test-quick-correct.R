@@ -52,12 +52,14 @@ test_that("quickCorrect works with a single object", {
 })
 
 test_that("quickCorrect actually uses its HVGs", {
-    set.seed(0)
-    pre1 <- quickCorrect(sce1, sce2, hvg.args=list(n=20))
+    BPPARAM <- FastMnnParam(d=10) # avoid warnings
 
     set.seed(0)
-    pre2 <- quickCorrect(sce1, sce2, hvg.args=list(n=100))
+    pre1 <- quickCorrect(sce1, sce2, PARAM=BPPARAM, hvg.args=list(n=50))
+    set.seed(0)
+    pre2 <- quickCorrect(sce1, sce2, PARAM=BPPARAM, hvg.args=list(n=100))
 
     # Actually has an effect.
-    expect_false(identical(pre1, pre2))
-})
+    expect_false(identical(pre1$corrected, pre2$corrected))
+    expect_identical(nrow(pre1$corrected), nrow(pre2$corrected)) # negative control
+q})

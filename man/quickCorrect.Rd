@@ -8,7 +8,7 @@ quickCorrect(
   ...,
   batch = NULL,
   restrict = NULL,
-  correct.all = FALSE,
+  correct.all = TRUE,
   assay.type = "counts",
   PARAM = FastMnnParam(),
   multi.norm.args = list(),
@@ -77,6 +77,10 @@ If \code{precomputed} is supplied, the precomputed results are used instead.
 These genes will be used in the correction, though corrected values for all genes can be returned by setting \code{correct.all=TRUE}.
 \item Applying the batch correction algorithm of choice with \code{\link{batchCorrect}}, as specified by \code{PARAM}.
 }
+
+The default of \code{correct.all=TRUE} differs from that of other functions.
+This is because the subsetting to HVGs is done internally here, and we avoid surprises by returning results for all genes in the input object(s).
+In contrast, the other functions require explicit subsetting via \code{subset.row=} and it is expected that users will set \code{correct.all=} if all genes are desired.
 }
 \examples{
 d1 <- matrix(rnbinom(50000, mu=10, size=1), ncol=100)
