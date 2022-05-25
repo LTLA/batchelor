@@ -98,7 +98,9 @@ correctExperiments <- function(..., batch=NULL, restrict=NULL, subset.row=NULL, 
     for (nm in combine.assays) {
         raw.ass <- lapply(x, assay, i=nm)
         if (!is.null(subset.row) && !correct.all) {
-            raw.ass <- lapply(raw.ass, "[", i=subset.row, , drop=FALSE)
+            for (i in seq_along(raw.ass)) {
+                raw.ass[[i]] <- raw.ass[[i]][subset.row,,drop=FALSE]
+            }
         }
         assay(merged, nm) <- do.call(cbind, raw.ass)
     }
