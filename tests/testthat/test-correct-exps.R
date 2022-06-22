@@ -137,7 +137,9 @@ test_that("correctExperiments responds to including rowdata", {
     # Handles subset.row correctly.
     expect_warning(merged <- correctExperiments(sce1, sce2, subset.row=10:1,
         PARAM=FastMnnParam(BSPARAM=BiocSingular::ExactParam())))
+    expect_identical(rownames(merged), rownames(sce1)[10:1])
     expect_identical(rowData(merged)$stuff, rowData(sce1)$stuff[10:1])
+    expect_identical(rowData(merged)$blah, rowData(sce1)$blah[10:1])
 
     expect_warning(merged <- correctExperiments(sce1, sce2, subset.row=10:1, correct.all=TRUE,
         PARAM=FastMnnParam(BSPARAM=BiocSingular::ExactParam())))
@@ -203,4 +205,11 @@ test_that("correctExperiments respects other arguments", {
     expect_identical(nrow(merged2), nrow(sce1))
 
     expect_identical(reducedDim(merged), reducedDim(merged2))
+
+    # Works with character vectors.
+    rowData(sce2)$stuff <- seq_len(nrow(sce2))
+    merged2 <- correctExperiments(sce1, sce2, subset.row=rownames(sce1)[20:30],
+        PARAM=FastMnnParam(BSPARAM=BiocSingular::ExactParam()))
+    expect_identical(rowData(merged2)$stuff, rowData(sce2)$stuff[20:30])
+    expect_identical(rownames(merged2), rownames(sce2)[20:30])
 })

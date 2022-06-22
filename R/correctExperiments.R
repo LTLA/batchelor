@@ -195,6 +195,7 @@ correctExperiments <- function(..., batch=NULL, restrict=NULL, subset.row=NULL, 
     } else {
         out.df <- make_zero_col_DFrame(length(all.ranges[[1]]))
     }
+    rownames(out.df) <- names(out.ranges)
 
     list(ranges=out.ranges, df=out.df)
 }
