@@ -33,22 +33,9 @@
 #' all.equal(Z, X) # should be TRUE.
 #'
 #' @export
-divideIntoBatches <- function(x, batch, byrow=FALSE, restrict=NULL) 
-{
-    if (is.null(batch)) { 
-        stop("'batch' must be specified if '...' has only one object")
-    }
-
+divideIntoBatches <- function(x, batch, byrow=FALSE, restrict=NULL) {
+    .check_valid_batch(x, batch, byrow=byrow)
     batch <- as.factor(batch)
-    if (byrow) {
-        if (length(batch)!=nrow(x)) {
-            stop("'length(batch)' and 'nrow(x)' are not the same")
-        }
-    } else {
-        if (length(batch)!=ncol(x)) {
-            stop("'length(batch)' and 'ncol(x)' are not the same")
-        }
-    }
 
     output <- vector("list", nlevels(batch))
     names(output) <- levels(batch)
@@ -95,3 +82,20 @@ divideIntoBatches <- function(x, batch, byrow=FALSE, restrict=NULL)
 
     list(batches=output, reorder=reorder, restricted=restricted) 
 }
+
+.check_valid_batch <- function(x, batch, byrow=FALSE) {
+    if (is.null(batch)) { 
+        stop("'batch' must be specified if '...' has only one object")
+    }
+
+    if (byrow) {
+        if (length(batch)!=nrow(x)) {
+            stop("'length(batch)' should be equal to number of cells in '...'")
+        }
+    } else {
+        if (length(batch)!=ncol(x)) {
+            stop("'length(batch)' should be equal to number of cells in '...'")
+        }
+    }
+}
+

@@ -314,9 +314,7 @@ fastMNN <- function(..., batch=NULL, k=20, prop.k=NULL, restrict=NULL, cos.norm=
         BSPARAM=BSPARAM, BNPARAM=BNPARAM, BPPARAM=BPPARAM)
 
     if (length(batches)==1L) {
-        if (is.null(batch)) { 
-            stop("'batch' must be specified if '...' has only one object")
-        }
+        .check_valid_batch(batches[[1]], batch=batch)
         output <- do.call(.fast_mnn_single, c(list(x=batches[[1]], batch=batch, restrict=restrict[[1]]), common.args))
     } else {
         output <- do.call(.fast_mnn_list, c(list(batch.list=batches, restrict=restrict), common.args))
@@ -368,9 +366,7 @@ fastMNN <- function(..., batch=NULL, k=20, prop.k=NULL, restrict=NULL, cos.norm=
     correct.all=FALSE, BSPARAM=ExactParam(), BPPARAM=SerialParam()) 
 {
     batch <- factor(batch)
-    if (nlevels(batch) < 2L) { 
-        stop("at least two batches must be specified") 
-    }
+    .check_valid_batch(x, batch)
 
     if (cos.norm) { 
         l2 <- cosineNorm(x, mode="l2norm", subset.row=subset.row, BPPARAM=BPPARAM)

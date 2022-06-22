@@ -79,9 +79,6 @@ reducedMNN <- function (..., batch=NULL, k=20, prop.k=NULL, restrict=NULL, ndist
         min.batch.skip=min.batch.skip, BNPARAM=BNPARAM, BPPARAM=BPPARAM)
 
     if (length(batches)==1L) {
-        if (is.null(batch)) { 
-            stop("'batch' must be specified if '...' has only one object")
-        }
         divided <- divideIntoBatches(batches[[1]], batch=batch, restrict=restrict[[1]], byrow=TRUE)
         output <- do.call(.fast_mnn, c(list(batches=divided$batches, restrict=divided$restrict), args))
 

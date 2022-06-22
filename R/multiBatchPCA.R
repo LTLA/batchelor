@@ -164,9 +164,7 @@ multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, weights=NULL,
         weights=weights, get.variance=get.variance, BSPARAM=BSPARAM, BPPARAM=BPPARAM)
 
     if (length(mat.list)==1L) {
-        if (is.null(batch)) { 
-            stop("'batch' must be specified if '...' has only one object")
-        }
+        .check_valid_batch(mat.list[[1]], batch)
 
         collected <- do.call(.multi_pca_single, c(list(mat=mat.list[[1]], batch=batch), common.args)) 
         rownames(collected[[1]]) <- colnames(originals[[1]])

@@ -119,10 +119,6 @@ clusterMNN <- function(..., batch=NULL, restrict=NULL, clusters, cluster.d=50,
     }
 
     if (unified <- (length(batches)==1L)) {
-        if (is.null(batch)) {
-            stop("'batch' must be specified if '...' has only one object")
-        }
-
         divided <- divideIntoBatches(x=batches[[1]], restrict=restrict[[1]], batch=batch, byrow=FALSE)
         restrict <- divided$restrict
         batches <- divided$batches

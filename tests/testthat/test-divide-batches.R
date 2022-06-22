@@ -62,8 +62,8 @@ test_that("divideIntoBatches fails correctly", {
 
     # Testing for errors.
     expect_error(divideIntoBatches(A, NULL), "must be specified")
-    expect_error(divideIntoBatches(A, 1), "not the same")
-    expect_error(divideIntoBatches(A, 1, byrow=TRUE), "not the same")
+    expect_error(divideIntoBatches(A, 1), "should be equal")
+    expect_error(divideIntoBatches(A, 1, byrow=TRUE), "should be equal")
 
     # Testing silly inputs.
     X <- divideIntoBatches(A, rep(1, ncol(A)))

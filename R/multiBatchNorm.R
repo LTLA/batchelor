@@ -128,6 +128,7 @@ multiBatchNorm <- function(..., batch=NULL, norm.args=list(),
 
     # Computing the averages and the size factors.
     if (preserve.single) {
+        .check_valid_batch(batches[[1]], batch)
         stats <- .compute_batch_statistics_single(x=batches[[1]], batch=batch, 
             assay.type=assay.type, subset.row=subset.row, BPPARAM=BPPARAM)
     } else {
