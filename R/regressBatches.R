@@ -124,10 +124,9 @@ regressBatches <- function(..., batch=NULL, design=NULL, keep=NULL, restrict=NUL
         if (is.null(batch)) {
             if (!is.null(design)) {
                 batch <- rep(1L, ncol(combined))
-            } else {
-                stop("'batch' must be specified if '...' has only one object")
             }
         }
+        .check_valid_batch(combined, batch)
 
         restrict <- restrict[[1]]
     } else {

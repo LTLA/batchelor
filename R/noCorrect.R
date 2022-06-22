@@ -59,9 +59,7 @@ noCorrect <- function(..., batch=NULL, subset.row=NULL, correct.all=FALSE, assay
     }
 
     if (length(batches)==1L) {
-        if (is.null(batch)) { 
-            stop("'batch' must be specified if '...' has only one object")
-        }
+        .check_valid_batch(batches[[1]], batch)
         output <- batches[[1]]
     } else {
         output <- do.call(cbind, batches)
