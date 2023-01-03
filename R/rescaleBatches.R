@@ -91,7 +91,7 @@ rescaleBatches <- function(..., batch=NULL, restrict=NULL, log.base=2, pseudo.co
     }
 
     # Adding dimension names.
-    .rename_output(output, originals, subset.row=subset.row)
+    .rename_output(output, originals, subset.row=subset.row, correct.all=correct.all)
 }
 
 ############################################

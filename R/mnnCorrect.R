@@ -164,7 +164,7 @@ mnnCorrect <- function(..., batch=NULL, restrict=NULL, k=20, prop.k=NULL, sigma=
         metadata(output)$merge.info$pairs <- .reindex_pairings(metadata(output)$merge.info$pairs, d.reo)
     }
 
-    .rename_output(output, original, subset.row=subset.row)
+    .rename_output(output, original, subset.row=subset.row, correct.all=correct.all)
 }
 
 ####################################

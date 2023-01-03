@@ -1,6 +1,6 @@
 #' @importMethodsFrom BiocGenerics nrow ncol
 #' @importFrom BiocGenerics colnames rownames
-.rename_output <- function(output, batches, subset.row=NULL, cells.in.columns=TRUE)
+.rename_output <- function(output, batches, subset.row=NULL, correct.all=FALSE, cells.in.columns=TRUE)
 # Adds dimension names to the output according to the input 'batches'.
 # Also replaces NULL names with empty strings so that the calling function doesn't have
 # to worry about inputs where some batches are named and others are not.
@@ -23,7 +23,7 @@
         colnames(output) <- cell.names
 
         feat.names <- rownames(batches[[1]])
-        if (!is.null(feat.names) && !is.null(subset.row)) {
+        if (!is.null(feat.names) && !is.null(subset.row) && !correct.all) {
             feat.names <- feat.names[.row_subset_to_index(batches[[1]], subset.row)]
         }
         rownames(output) <- feat.names
