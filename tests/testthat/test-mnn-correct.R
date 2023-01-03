@@ -456,6 +456,19 @@ test_that("mnnCorrect preserves names in its output", {
     colnames(B2) <- sprintf("CELL_%i", seq_len(ncol(B2)))
     out <- mnnCorrect(B1, B2) 
     expect_identical(colnames(out), c(colnames(B1), colnames(B2)))
+
+    # Row names are handled correctly with correct.all=TRUE.
+    C1 <- B1
+    C2 <- B2
+    rownames(C1) <- rownames(C2) <- 1:nrow(C1)
+
+    keep <- 10:100
+    sub <- mnnCorrect(C1, C2, subset.row=keep)
+    expect_identical(rownames(sub), as.character(keep))
+
+    all <- mnnCorrect(C1, C2, subset.row=keep, correct.all=TRUE)
+    expect_identical(rownames(all), rownames(C1))
+    expect_identical(assay(all)[keep,], assay(sub))
 })
 
 set.seed(10005)

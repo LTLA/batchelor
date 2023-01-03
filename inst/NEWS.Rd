@@ -2,6 +2,10 @@
 \title{batchelor News}
 \encoding{UTF-8}
 
+\section{Version 1.16.0}{\itemize{
+\item Bugfix to rownames of \code{mnnCorrect()} output when using \code{correct.all=TRUE} with \code{subset.row=}.
+}}
+
 \section{Version 1.8.0}{\itemize{
 \item Migrate \code{findMutualNN()} to \pkg{BiocNeighbors}.
 
