@@ -652,7 +652,7 @@ fastMNN <- function(..., batch=NULL, k=20, prop.k=NULL, restrict=NULL, cos.norm=
     ref.var <- numeric(length(index))
     for (i in seq_along(index)) {
         rows <- origin==index[i]
-        ref.var[i] <- sum(colVars(DelayedArray(data), rows=rows))
+        ref.var[i] <- sum(colVars(DelayedArray(data), rows=rows, useNames=FALSE))
     }
     ref.var
 }
