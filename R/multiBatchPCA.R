@@ -340,7 +340,7 @@ multiBatchPCA <- function(..., batch=NULL, d=50, subset.row=NULL, weights=NULL,
                 stop("invalid integer indices in tree-like 'weights'")
             }
         } else if (is.character(ids)) {
-            if (!identical(unname(sort(ids)), names(ncells))) {
+            if (!identical(unname(sort(ids)), sort(names(ncells)))) {
                 stop("names in tree-like 'weights' do not match names in '...'")
             }
         } else {

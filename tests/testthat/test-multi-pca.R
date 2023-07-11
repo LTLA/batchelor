@@ -468,6 +468,9 @@ test_that("weight interpreter works for more stressful tree-based structures", {
     X3 <- batchelor:::.construct_weight_vector(ncells, list(X=c("D", "A", "E"), Y=c("B", "C"))) # handles a named list.
     expect_identical(X, X3)
 
+    X4 <- batchelor:::.construct_weight_vector(rev(ncells), list(c("D", "A", "E"), c("B", "C"))) # handles unsorted 'ncells' names.
+    expect_identical(rev(X), X4)
+
     expect_error(batchelor:::.construct_weight_vector(ncells, list(list("D", "A", "E"), list("B", "F"))), "do not match")
 
     # With unnamed inputs.
