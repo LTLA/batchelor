@@ -184,14 +184,10 @@ mnnDeltaVariance <- function(..., pairs, cos.norm=FALSE, subset.row=NULL, comput
 
 #' @importFrom methods is as 
 #' @importFrom DelayedMatrixStats rowVars
-#' @importClassesFrom DelayedArray SparseArraySeed
-#' @importClassesFrom Matrix sparseMatrix
+#' @import SparseArray
 #' @importFrom Matrix rowMeans
 .compute_mnn_variance <- function(block, pairs) {
-    if (is(block, "SparseArraySeed")) {
-        block <- as(block, "sparseMatrix")
-    }
-
+    # 'block' is either an ordinary matrix or SVT_SparseMatrix object.
     all.vars <- all.means <- vector("list", length(pairs))
     for (i in seq_along(pairs)) {
         cpairs <- pairs[[i]]

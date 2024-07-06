@@ -1,6 +1,6 @@
 Package: batchelor
-Version: 1.19.1
-Date: 2023-12-27
+Version: 1.19.2
+Date: 2024-07-03
 Title: Single-Cell Batch Correction Methods
 Authors@R: c(person("Aaron", "Lun", role = c("aut", "cre"), email = "infinite.monkeys.with.keyboards@gmail.com"),
     person("Laleh", "Haghverdi", role="ctb"))
@@ -17,7 +17,8 @@ Imports:
     BiocNeighbors,
     BiocSingular,
     Matrix,
-    DelayedArray,
+    SparseArray,
+    DelayedArray (>= 0.31.5),
     DelayedMatrixStats,
     BiocParallel,
     scuttle,
@@ -54,4 +55,4 @@ License: GPL-3
 NeedsCompilation: yes
 VignetteBuilder: knitr
 SystemRequirements: C++11
-RoxygenNote: 7.2.0
+RoxygenNote: 7.3.2
