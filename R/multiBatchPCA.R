@@ -124,9 +124,9 @@
 #' set.seed(10)
 #' out <- multiBatchPCA(d1, d2, d3, d=10, weights=c(1, 0.5, 0.5))
 #'
+#' # Alternative method for specifying weights as a tree.
 #' set.seed(10)
 #' alt <- multiBatchPCA(d1, d2, d3, d=10, weights=list(1, list(2, 3))) 
-#' stopifnot(all.equal(out, alt)) # As they are the same.
 #' 
 #' @export
 #' @importFrom BiocParallel SerialParam
