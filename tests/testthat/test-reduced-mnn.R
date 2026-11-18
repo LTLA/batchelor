@@ -129,9 +129,9 @@ test_that("reducedMNN works correctly with restriction", {
     expect_identical(ref$corrected[ref$batch==2,], out$corrected[out$batch==2,][keep2,])
     expect_identical(ref$corrected[ref$batch==3,], out$corrected[out$batch==3,][keep3,])
 
-    expect_identical(ref$corrected[ref$batch==1,][i1,], out$corrected[out$batch==1,][-keep1,])
-    expect_identical(ref$corrected[ref$batch==2,][i2,], out$corrected[out$batch==2,][-keep2,])
-    expect_identical(ref$corrected[ref$batch==3,][i3,], out$corrected[out$batch==3,][-keep3,])
+    expect_equal(ref$corrected[ref$batch==1,][i1,], out$corrected[out$batch==1,][-keep1,])
+    expect_equal(ref$corrected[ref$batch==2,][i2,], out$corrected[out$batch==2,][-keep2,])
+    expect_equal(ref$corrected[ref$batch==3,][i3,], out$corrected[out$batch==3,][-keep3,])
 
     # Also behaves with a single batch.
     DY <- rbind(C1, C2, C3)

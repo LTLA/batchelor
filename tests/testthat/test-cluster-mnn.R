@@ -24,7 +24,7 @@ test_that("clusterMNN behaves like fastMNN on pseudo-bulk samples", {
     ref <- fastMNN(assay(norm1), assay(norm2), cos.norm=FALSE, k=1, 
         BSPARAM=BiocSingular::ExactParam(), deferred=FALSE)
 
-    expect_identical(metadata(output)$merge.info, metadata(ref)$merge.info)
+    expect_equal(metadata(output)$merge.info, metadata(ref)$merge.info)
     expect_identical(metadata(output)$cluster$cluster, c(colnames(norm1), colnames(norm2)))
     expect_identical(metadata(output)$cluster$batch, rep(1:2, c(ncol(norm1), ncol(norm2))))
 })

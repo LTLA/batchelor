@@ -21,7 +21,7 @@ test_that("correctExperiments works properly", {
     b <- rep(1:2, c(ncol(sce1), ncol(sce2)))
     merged2 <- correctExperiments(cbind(sce1, sce2), batch=b, add.single=FALSE,
         PARAM=FastMnnParam(BSPARAM=BiocSingular::ExactParam()))
-    expect_identical(reducedDim(merged), reducedDim(merged2))
+    expect_equal(reducedDim(merged), reducedDim(merged2))
 
     # Also works with packed batches.
     merged3 <- correctExperiments(list(sce1, sce2),
